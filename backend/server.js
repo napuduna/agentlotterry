@@ -14,8 +14,29 @@ const lotteryRoutes = require('./src/routes/lotteryRoutes');
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB & auto-seed admin
+const User = require('./src/models/User');
+
+const autoSeed = async () => {
+  try {
+    const adminExists = await User.findOne({ role: 'admin' });
+    if (!adminExists) {
+      await User.create({
+        username: 'admin',
+        password: 'admin123',
+        role: 'admin',
+        name: 'Administrator',
+        phone: '',
+        isActive: true
+      });
+      console.log('✅ Auto-seeded admin account (admin / admin123)');
+    }
+  } catch (err) {
+    console.error('Seed check error:', err.message);
+  }
+};
+
+connectDB().then(() => autoSeed());
 
 // Middleware
 app.use(helmet());
