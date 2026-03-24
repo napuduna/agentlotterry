@@ -168,10 +168,11 @@ router.delete('/customers/:id', async (req, res) => {
 // GET /api/agent/bets
 router.get('/bets', async (req, res) => {
   try {
-    const { roundDate, customerId } = req.query;
+    const { roundDate, customerId, marketId } = req.query;
     const filter = { agentId: req.user._id };
     if (roundDate) filter.roundDate = roundDate;
     if (customerId) filter.customerId = customerId;
+    if (marketId) filter.marketId = marketId;
 
     const bets = await Bet.find(filter)
       .sort({ createdAt: -1 })
@@ -186,14 +187,19 @@ router.get('/bets', async (req, res) => {
 // GET /api/agent/reports
 router.get('/reports', async (req, res) => {
   try {
-    const { roundDate } = req.query;
+    const { roundDate, marketId } = req.query;
     const matchFilter = { agentId: req.user._id };
     if (roundDate) matchFilter.roundDate = roundDate;
+    if (marketId) matchFilter.marketId = marketId;
 
     const report = await Bet.aggregate([
       { $match: matchFilter },
       { $group: {
-        _id: '$roundDate',
+        _id: {
+          roundDate: '$roundDate',
+          marketId: '$marketId',
+          marketName: '$marketName'
+        },
         totalAmount: { $sum: '$amount' },
         totalWon: { $sum: '$wonAmount' },
         betCount: { $sum: 1 },
@@ -202,7 +208,9 @@ router.get('/reports', async (req, res) => {
         pendingCount: { $sum: { $cond: [{ $eq: ['$result', 'pending'] }, 1, 0] } }
       }},
       { $project: {
-        roundDate: '$_id',
+        roundDate: '$_id.roundDate',
+        marketId: '$_id.marketId',
+        marketName: '$_id.marketName',
         totalAmount: 1,
         totalWon: 1,
         netProfit: { $subtract: ['$totalAmount', '$totalWon'] },
@@ -211,7 +219,7 @@ router.get('/reports', async (req, res) => {
         lostCount: 1,
         pendingCount: 1
       }},
-      { $sort: { roundDate: -1 } }
+      { $sort: { roundDate: -1, marketName: 1 } }
     ]);
 
     res.json(report);

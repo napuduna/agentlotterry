@@ -73,7 +73,7 @@ const checkBetResult = (bet, lotteryResult) => {
 /**
  * คำนวณผลทั้งหมดสำหรับงวดที่ระบุ
  */
-const calculateResults = async (roundDate) => {
+const calculateResults = async (roundDate, marketId = 'thai-government') => {
   const lotteryResult = await LotteryResult.findOne({ roundDate });
   
   if (!lotteryResult) {
@@ -85,7 +85,7 @@ const calculateResults = async (roundDate) => {
   }
 
   // Get all pending bets for this round
-  const bets = await Bet.find({ roundDate, result: 'pending' });
+  const bets = await Bet.find({ roundDate, marketId, result: 'pending' });
   
   let totalWon = 0;
   let totalLost = 0;
@@ -116,6 +116,7 @@ const calculateResults = async (roundDate) => {
 
   return {
     roundDate,
+    marketId,
     totalBets: bets.length,
     wonCount,
     lostCount,

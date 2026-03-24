@@ -1,13 +1,48 @@
 const axios = require('axios');
 const LotteryResult = require('../models/LotteryResult');
 
+const THAI_LOTTO_LATEST_URL = (process.env.THAI_LOTTO_API_URL || 'https://lotto.api.rayriffy.com').replace(/\/$/, '');
+
+const formatRayriffyId = (roundDate) => {
+  const [year, month, day] = String(roundDate).split('-').map((value) => Number(value));
+  if (!year || !month || !day) {
+    throw new Error('Invalid round date format for Rayriffy API');
+  }
+
+  return `${String(day).padStart(2, '0')}${String(month).padStart(2, '0')}${year + 543}`;
+};
+
+const parseRayriffyResponse = (payload, roundDate) => {
+  const response = payload?.response;
+  const prizes = Array.isArray(response?.prizes) ? response.prizes : [];
+  const runningNumbers = Array.isArray(response?.runningNumbers) ? response.runningNumbers : [];
+  const firstPrize = prizes.find((item) => item.id === 'prizeFirst')?.number?.[0] || '';
+  const frontThree = runningNumbers.find((item) => item.id === 'runningNumberFrontThree')?.number || [];
+  const backThree = runningNumbers.find((item) => item.id === 'runningNumberBackThree')?.number || [];
+  const backTwo = runningNumbers.find((item) => item.id === 'runningNumberBackTwo')?.number?.[0] || '';
+
+  if (!firstPrize && !backTwo) {
+    throw new Error('Rayriffy API returned incomplete lottery data');
+  }
+
+  return {
+    roundDate,
+    firstPrize,
+    threeTopList: frontThree,
+    threeBotList: backThree,
+    twoBottom: backTwo,
+    runTop: firstPrize ? [...new Set(firstPrize.slice(-3).split(''))] : [],
+    runBottom: backTwo ? [...new Set(backTwo.split(''))] : [],
+    fetchedAt: new Date()
+  };
+};
+
 /**
  * ดึงผลหวยไทยจาก API
  * ใช้ API: https://lotto.api.advicefree.com หรือ alternative
  */
 const fetchLotteryResult = async (roundDate) => {
   try {
-    // Try primary API
     const response = await axios.get(`https://lotto.api.advicefree.com/lotto/date/${roundDate}`, {
       timeout: 10000
     });
@@ -62,8 +97,22 @@ const fetchLotteryResult = async (roundDate) => {
 
     throw new Error('API returned no data');
   } catch (error) {
-    console.error('Lottery API error:', error.message);
-    throw new Error(`Failed to fetch lottery results: ${error.message}`);
+    try {
+      const rayriffyId = formatRayriffyId(roundDate);
+      const response = await axios.get(`${THAI_LOTTO_LATEST_URL}/lotto/${rayriffyId}`, {
+        timeout: 10000
+      });
+
+      if (response.data?.status === 'success') {
+        return parseRayriffyResponse(response.data, roundDate);
+      }
+
+      throw new Error('Rayriffy API returned no data');
+    } catch (fallbackError) {
+      console.error('Lottery API error:', error.message);
+      console.error('Rayriffy fallback error:', fallbackError.message);
+      throw new Error(`Failed to fetch lottery results: ${fallbackError.message}`);
+    }
   }
 };
 

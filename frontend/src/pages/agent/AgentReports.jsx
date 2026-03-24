@@ -50,13 +50,14 @@ const AgentReports = () => {
         <div className="card-header"><h3 className="card-title"><FiFileText style={{ marginRight: 8 }} />รายงานรายงวด</h3></div>
         <div className="table-container">
           <table className="data-table">
-            <thead><tr><th>งวด</th><th>จำนวน Bets</th><th>ยอดแทง</th><th>ยอดจ่าย</th><th>กำไร</th><th>ถูก/ไม่ถูก/รอ</th></tr></thead>
+            <thead><tr><th>งวด</th><th>ตลาด</th><th>จำนวน Bets</th><th>ยอดแทง</th><th>ยอดจ่าย</th><th>กำไร</th><th>ถูก/ไม่ถูก/รอ</th></tr></thead>
             <tbody>
               {reports.length === 0 ? (
-                <tr><td colSpan="6" className="text-center text-muted" style={{ padding: 40 }}>ไม่มีข้อมูล</td></tr>
+                <tr><td colSpan="7" className="text-center text-muted" style={{ padding: 40 }}>ไม่มีข้อมูล</td></tr>
               ) : reports.map((r, i) => (
                 <tr key={i}>
                   <td style={{ fontWeight: 600 }}>{r.roundDate}</td>
+                  <td>{r.marketName || 'รัฐบาลไทย'}</td>
                   <td>{r.betCount}</td>
                   <td>{(r.totalAmount || 0).toLocaleString()} ฿</td>
                   <td style={{ color: 'var(--danger)' }}>{(r.totalWon || 0).toLocaleString()} ฿</td>

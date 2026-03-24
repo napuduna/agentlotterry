@@ -263,7 +263,7 @@ router.delete('/customers/:id', async (req, res) => {
 // GET /api/admin/reports
 router.get('/reports', async (req, res) => {
   try {
-    const { roundDate, startDate, endDate } = req.query;
+    const { roundDate, startDate, endDate, marketId } = req.query;
     
     let matchFilter = {};
     if (roundDate) {
@@ -274,11 +274,12 @@ router.get('/reports', async (req, res) => {
         $lte: new Date(endDate)
       };
     }
+    if (marketId) matchFilter.marketId = marketId;
 
     const report = await Bet.aggregate([
       { $match: matchFilter },
       { $group: {
-        _id: { roundDate: '$roundDate', agentId: '$agentId' },
+        _id: { roundDate: '$roundDate', marketId: '$marketId', marketName: '$marketName', agentId: '$agentId' },
         totalAmount: { $sum: '$amount' },
         totalWon: { $sum: '$wonAmount' },
         betCount: { $sum: 1 },
@@ -295,6 +296,8 @@ router.get('/reports', async (req, res) => {
       { $unwind: { path: '$agent', preserveNullAndEmptyArrays: true } },
       { $project: {
         roundDate: '$_id.roundDate',
+        marketId: '$_id.marketId',
+        marketName: '$_id.marketName',
         agentName: '$agent.name',
         agentUsername: '$agent.username',
         totalAmount: 1,
@@ -305,7 +308,7 @@ router.get('/reports', async (req, res) => {
         lostCount: 1,
         pendingCount: 1
       }},
-      { $sort: { roundDate: -1 } }
+      { $sort: { roundDate: -1, marketName: 1 } }
     ]);
 
     res.json(report);

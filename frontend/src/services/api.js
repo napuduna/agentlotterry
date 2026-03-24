@@ -62,6 +62,7 @@ export const getCustomerBets = (params) => api.get('/customer/bets', { params })
 export const getCustomerSummary = (params) => api.get('/customer/summary', { params });
 
 // Lottery
+export const getMarketOverview = () => api.get('/lottery/markets');
 export const getLatestLottery = () => api.get('/lottery/latest');
 export const getLotteryResults = () => api.get('/lottery/results');
 export const fetchLottery = (data) => api.post('/lottery/fetch', data);

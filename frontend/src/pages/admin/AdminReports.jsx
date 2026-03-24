@@ -69,6 +69,7 @@ const AdminReports = () => {
             <thead>
               <tr>
                 <th>งวด</th>
+                <th>ตลาด</th>
                 <th>เจ้ามือ</th>
                 <th>จำนวน Bets</th>
                 <th>ยอดแทง</th>
@@ -79,11 +80,12 @@ const AdminReports = () => {
             </thead>
             <tbody>
               {reports.length === 0 ? (
-                <tr><td colSpan="7" className="text-center text-muted" style={{ padding: 40 }}>ไม่มีข้อมูล</td></tr>
+                <tr><td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>ไม่มีข้อมูล</td></tr>
               ) : (
                 reports.map((r, i) => (
                   <tr key={i}>
                     <td style={{ fontWeight: 600 }}>{r.roundDate}</td>
+                    <td>{r.marketName || 'รัฐบาลไทย'}</td>
                     <td>{r.agentName || '-'}</td>
                     <td>{r.betCount}</td>
                     <td>{(r.totalAmount || 0).toLocaleString()} ฿</td>

@@ -55,12 +55,13 @@ const BetHistory = () => {
       <div className="card">
         <div className="table-container">
           <table className="data-table">
-            <thead><tr><th>ประเภท</th><th>เลข</th><th>ยอด</th><th>อัตราจ่าย</th><th>งวด</th><th>ผล</th><th>ได้</th></tr></thead>
+            <thead><tr><th>ตลาด</th><th>ประเภท</th><th>เลข</th><th>ยอด</th><th>อัตราจ่าย</th><th>งวด</th><th>ผล</th><th>ได้</th></tr></thead>
             <tbody>
               {bets.length === 0 ? (
-                <tr><td colSpan="7" className="text-center text-muted" style={{ padding: 40 }}>ไม่มีข้อมูล</td></tr>
+                <tr><td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>ไม่มีข้อมูล</td></tr>
               ) : bets.map(b => (
                 <tr key={b._id}>
+                  <td style={{ fontWeight: 600 }}>{b.marketName || 'รัฐบาลไทย'}</td>
                   <td>{betTypeLabels[b.betType]}</td>
                   <td style={{ fontWeight: 700, color: 'var(--primary-light)', fontSize: '1.1rem', letterSpacing: '0.1em' }}>{b.number}</td>
                   <td>{b.amount.toLocaleString()} ฿</td>

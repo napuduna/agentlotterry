@@ -11,6 +11,24 @@ const betSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  marketId: {
+    type: String,
+    default: 'thai-government',
+    index: true
+  },
+  marketName: {
+    type: String,
+    default: 'รัฐบาลไทย',
+    trim: true
+  },
+  marketSectionId: {
+    type: String,
+    default: 'government'
+  },
+  marketDateLabel: {
+    type: String,
+    default: ''
+  },
   roundDate: {
     type: String,
     required: [true, 'Round date is required']

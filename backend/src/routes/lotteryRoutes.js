@@ -3,6 +3,7 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
 const LotteryResult = require('../models/LotteryResult');
 const { fetchLotteryResult, saveLotteryResult, getLatestResult } = require('../services/lotteryService');
+const { getMarketOverview } = require('../services/marketResultsService');
 const { calculateResults } = require('../services/calculationService');
 const { createAuditLog } = require('../middleware/auditLog');
 
@@ -28,6 +29,16 @@ router.get('/results', auth, async (req, res) => {
     res.json(results);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/markets', auth, async (req, res) => {
+  try {
+    const overview = await getMarketOverview();
+    res.json(overview);
+  } catch (error) {
+    console.error('Market overview error:', error);
+    res.status(500).json({ message: error.message || 'Failed to fetch market overview' });
   }
 });
 

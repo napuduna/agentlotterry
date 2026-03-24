@@ -4,9 +4,30 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
 const { PAY_RATES } = require('../services/calculationService');
+const { getMarketById } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
 
 const router = express.Router();
+
+const getDefaultGovernmentRoundDate = () => {
+  const now = new Date();
+  const day = now.getDate();
+
+  if (day <= 16) {
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-16`;
+  }
+
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
+};
+
+const resolveRoundDateForMarket = (market) => {
+  if (market?.id === 'thai-government') {
+    return getDefaultGovernmentRoundDate();
+  }
+
+  return market?.resultDate || new Date().toISOString().slice(0, 10);
+};
 
 // All customer routes require auth + customer role
 router.use(auth, authorize('customer'));
@@ -14,10 +35,23 @@ router.use(auth, authorize('customer'));
 // POST /api/customer/bets - แทงเลข
 router.post('/bets', async (req, res) => {
   try {
-    const { bets } = req.body; // Array of { betType, number, amount }
+    const { bets, marketId = 'thai-government' } = req.body;
 
     if (!bets || !Array.isArray(bets) || bets.length === 0) {
       return res.status(400).json({ message: 'Bets array is required' });
+    }
+
+    const market = await getMarketById(marketId);
+    if (!market) {
+      return res.status(400).json({ message: 'Selected market not found' });
+    }
+
+    if (market.status === 'unsupported') {
+      return res.status(400).json({ message: 'Selected market is not supported yet' });
+    }
+
+    if (market.provider !== 'internal' && !market.providerConfigured) {
+      return res.status(400).json({ message: 'Market provider is not configured yet' });
     }
 
     const customer = await User.findById(req.user._id);
@@ -25,16 +59,7 @@ router.post('/bets', async (req, res) => {
       return res.status(400).json({ message: 'Customer has no agent assigned' });
     }
 
-    // Get current round date (1st or 16th of month)
-    const now = new Date();
-    const day = now.getDate();
-    let roundDate;
-    if (day <= 16) {
-      roundDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-16`;
-    } else {
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      roundDate = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
-    }
+    const roundDate = resolveRoundDateForMarket(market);
 
     const validBetTypes = Object.keys(PAY_RATES);
     const createdBets = [];
@@ -69,6 +94,10 @@ router.post('/bets', async (req, res) => {
       const newBet = await Bet.create({
         customerId: req.user._id,
         agentId: customer.agentId,
+        marketId: market.id,
+        marketName: market.name,
+        marketSectionId: market.sectionId,
+        marketDateLabel: market.resultDate || '',
         roundDate,
         betType,
         number: numberStr,
@@ -81,13 +110,21 @@ router.post('/bets', async (req, res) => {
 
     await createAuditLog(req.user._id, 'CREATE_BET', '', { 
       count: createdBets.length, 
-      roundDate 
+      roundDate,
+      marketId: market.id,
+      marketName: market.name
     });
 
     res.status(201).json({
       message: `Successfully placed ${createdBets.length} bet(s)`,
       bets: createdBets,
-      roundDate
+      roundDate,
+      market: {
+        id: market.id,
+        name: market.name,
+        sectionId: market.sectionId,
+        resultDate: market.resultDate || ''
+      }
     });
   } catch (error) {
     console.error('Create bet error:', error);
@@ -98,10 +135,11 @@ router.post('/bets', async (req, res) => {
 // GET /api/customer/bets - ประวัติการแทง
 router.get('/bets', async (req, res) => {
   try {
-    const { roundDate, result } = req.query;
+    const { roundDate, result, marketId } = req.query;
     const filter = { customerId: req.user._id };
     if (roundDate) filter.roundDate = roundDate;
     if (result) filter.result = result;
+    if (marketId) filter.marketId = marketId;
 
     const bets = await Bet.find(filter).sort({ createdAt: -1 });
     res.json(bets);
@@ -113,14 +151,19 @@ router.get('/bets', async (req, res) => {
 // GET /api/customer/summary - สรุปได้เสีย
 router.get('/summary', async (req, res) => {
   try {
-    const { roundDate } = req.query;
+    const { roundDate, marketId } = req.query;
     const matchFilter = { customerId: req.user._id };
     if (roundDate) matchFilter.roundDate = roundDate;
+    if (marketId) matchFilter.marketId = marketId;
 
     const summary = await Bet.aggregate([
       { $match: matchFilter },
       { $group: {
-        _id: '$roundDate',
+        _id: {
+          roundDate: '$roundDate',
+          marketId: '$marketId',
+          marketName: '$marketName'
+        },
         totalAmount: { $sum: '$amount' },
         totalWon: { $sum: '$wonAmount' },
         betCount: { $sum: 1 },
@@ -129,7 +172,9 @@ router.get('/summary', async (req, res) => {
         pendingCount: { $sum: { $cond: [{ $eq: ['$result', 'pending'] }, 1, 0] } }
       }},
       { $project: {
-        roundDate: '$_id',
+        roundDate: '$_id.roundDate',
+        marketId: '$_id.marketId',
+        marketName: '$_id.marketName',
         totalAmount: 1,
         totalWon: 1,
         netResult: { $subtract: ['$totalWon', '$totalAmount'] },
@@ -138,12 +183,15 @@ router.get('/summary', async (req, res) => {
         lostCount: 1,
         pendingCount: 1
       }},
-      { $sort: { roundDate: -1 } }
+      { $sort: { roundDate: -1, marketName: 1 } }
     ]);
 
     // Overall totals
+    const overallMatch = { customerId: req.user._id };
+    if (marketId) overallMatch.marketId = marketId;
+
     const overall = await Bet.aggregate([
-      { $match: { customerId: req.user._id } },
+      { $match: overallMatch },
       { $group: {
         _id: null,
         totalAmount: { $sum: '$amount' },
