@@ -51,6 +51,8 @@ npm run dev    # Start dev server (port 3000)
 MONGODB_URI=your_mongodb_uri
 JWT_SECRET=your_jwt_secret
 PORT=5000
+MANYCAI_API_KEY=your_manycai_api_key
+MANYCAI_BASE_URL=http://vip.manycai.com
 ```
 
 ## อัตราจ่าย

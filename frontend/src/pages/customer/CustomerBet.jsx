@@ -54,7 +54,7 @@ const CustomerBet = () => {
         markets: section.markets.filter((market) => {
           if (disabledStatuses.has(market.status)) return false;
           if (market.provider === 'internal') return true;
-          if (market.provider !== 'apilotto') return true;
+          if (market.provider !== 'manycai') return true;
           return overview.provider?.configured;
         })
       }))

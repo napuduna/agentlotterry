@@ -172,7 +172,7 @@ const LotteryResults = () => {
 
                   <div className="market-card-footer">
                     <div className="market-card-note">{market.note || 'พร้อมสำหรับเชื่อมต่อข้อมูลเพิ่มเติม'}</div>
-                    <div className="market-card-provider">{market.provider === 'internal' ? 'ข้อมูลในระบบ' : 'APILOTTO'}</div>
+                    <div className="market-card-provider">{market.provider === 'internal' ? 'ข้อมูลในระบบ' : 'ManyCai'}</div>
                   </div>
                 </div>
               );
@@ -186,7 +186,7 @@ const LotteryResults = () => {
           <h3 className="card-title"><FiAward style={{ marginRight: 8, color: 'var(--primary-light)' }} />หมายเหตุการใช้งาน</h3>
         </div>
         <div className="warning-list">
-          <div className="warning-item">ถ้ายังไม่ได้ตั้งค่า `APILOTTO_API_KEY` ระบบจะยังแสดงโครงสร้างตลาดพร้อมสถานะรอเชื่อมต่อ</div>
+          <div className="warning-item">ถ้ายังไม่ได้ตั้งค่า MANYCAI_API_KEY ระบบจะยังแสดงโครงสร้างตลาดพร้อมสถานะรอเชื่อมต่อ</div>
           <div className="warning-item">หวยรัฐบาลไทยยังอ่านจากฐานข้อมูลเดิมในระบบ เพื่อให้หน้าใหม่ทำงานต่อเนื่องกับ flow เก่า</div>
           <div className="warning-item">รายการที่ provider ยังไม่รองรับ เช่น ธกส หรือ ออมสิน จะแสดงเป็นยังไม่รองรับไว้ก่อน</div>
         </div>
