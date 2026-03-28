@@ -7,22 +7,20 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(originalUri);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-    return;
+    return conn;
   } catch (error) {
     if (isMongoSrvUri(originalUri) && String(error.message || '').includes('querySrv')) {
       try {
         const fallbackUri = await buildDirectMongoUri(originalUri);
         const conn = await mongoose.connect(fallbackUri);
         console.log(`MongoDB Connected via direct URI: ${conn.connection.host}`);
-        return;
+        return conn;
       } catch (fallbackError) {
-        console.error(`MongoDB Connection Error: ${fallbackError.message}`);
-        process.exit(1);
+        throw fallbackError;
       }
     }
 
-    console.error(`MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
+    throw error;
   }
 };
 

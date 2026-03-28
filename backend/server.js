@@ -1,9 +1,22 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
+const {
+  autoSeedAdmin,
+  defaultAdminPassword,
+  defaultAdminUsername,
+  exposeHealthDetails,
+  frontendUrl,
+  logFormat,
+  trustProxy,
+  validateEnv
+} = require('./src/config/env');
+const requestContext = require('./src/middleware/requestContext');
 
 // Import routes
 const authRoutes = require('./src/routes/authRoutes');
@@ -16,35 +29,42 @@ const resultsRoutes = require('./src/routes/resultsRoutes');
 const walletRoutes = require('./src/routes/walletRoutes');
 const presenceRoutes = require('./src/routes/presenceRoutes');
 const { ensureCatalogSeed } = require('./src/services/catalogService');
+const User = require('./src/models/User');
 
 const app = express();
 let startupError = null;
 let startupComplete = false;
+const requestLogFormat = logFormat === 'combined'
+  ? ':request-id :remote-addr - :method :url :status :res[content-length] - :response-time ms'
+  : ':request-id :method :url :status :response-time ms';
 
-// Connect to MongoDB & auto-seed admin
-const User = require('./src/models/User');
+const getDbState = () => mongoose.connection.readyState;
+const isReady = () => startupComplete && !startupError && getDbState() === 1;
 
 const autoSeed = async () => {
-  try {
-    const adminExists = await User.findOne({ role: 'admin' });
-    if (!adminExists) {
-      await User.create({
-        username: 'admin',
-        password: 'admin123',
-        role: 'admin',
-        name: 'Administrator',
-        phone: '',
-        isActive: true
-      });
-      console.log('Auto-seeded admin account (admin / admin123)');
-    }
-  } catch (err) {
-    console.error('Seed check error:', err.message);
+  if (!autoSeedAdmin) {
+    return;
   }
+
+  const adminExists = await User.findOne({ role: 'admin' });
+  if (adminExists) {
+    return;
+  }
+
+  await User.create({
+    username: defaultAdminUsername,
+    password: defaultAdminPassword,
+    role: 'admin',
+    name: 'Administrator',
+    phone: '',
+    isActive: true
+  });
+  console.log(`Auto-seeded admin account (${defaultAdminUsername})`);
 };
 
 const bootstrapApp = async () => {
   try {
+    validateEnv();
     await connectDB();
     await autoSeed();
     await ensureCatalogSeed();
@@ -56,17 +76,22 @@ const bootstrapApp = async () => {
   }
 };
 
-// Middleware
+app.set('trust proxy', trustProxy);
+
+morgan.token('request-id', (req) => req.requestId || '-');
+
+app.use(requestContext);
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: frontendUrl || '*',
   credentials: true
 }));
-app.use(morgan('dev'));
+app.use(morgan(requestLogFormat, {
+  skip: (req) => req.path === '/api/health' && logFormat !== 'combined'
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agent', agentRoutes);
@@ -77,27 +102,44 @@ app.use('/api/results', resultsRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/presence', presenceRoutes);
 
-// Health check
 app.get('/api/health', (req, res) => {
   const status = startupError ? 'error' : startupComplete ? 'ok' : 'starting';
+
   res.status(startupError ? 500 : startupComplete ? 200 : 503).json({
     status,
     startupComplete,
-    ...(startupError && { startupError: startupError.message }),
+    dbReadyState: getDbState(),
+    requestId: req.requestId,
+    ...(exposeHealthDetails && startupError ? { startupError: startupError.message } : {}),
     timestamp: new Date().toISOString()
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+app.get('/api/ready', (req, res) => {
+  const ready = isReady();
+
+  res.status(ready ? 200 : 503).json({
+    ready,
+    startupComplete,
+    dbReadyState: getDbState(),
+    requestId: req.requestId,
+    ...(exposeHealthDetails && startupError ? { startupError: startupError.message } : {}),
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Error handler
+app.use((req, res) => {
+  res.status(404).json({
+    message: 'Route not found',
+    requestId: req.requestId
+  });
+});
+
 app.use((err, req, res, next) => {
-  console.error('Error:', err.message);
+  console.error(`[${req.requestId}] Error:`, err.message);
   res.status(err.status || 500).json({
     message: err.message || 'Internal Server Error',
+    requestId: req.requestId,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });

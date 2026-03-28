@@ -2,8 +2,16 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.e
 
 const assert = require('assert');
 const axios = require('axios');
+const mongoose = require('mongoose');
 const { spawn } = require('child_process');
 const path = require('path');
+const AuditLog = require('../models/AuditLog');
+const BetItem = require('../models/BetItem');
+const BetSlip = require('../models/BetSlip');
+const CreditLedgerEntry = require('../models/CreditLedgerEntry');
+const User = require('../models/User');
+const UserLotteryConfig = require('../models/UserLotteryConfig');
+const { buildDirectMongoUri } = require('../utils/mongoUri');
 
 const backendDir = path.join(__dirname, '..', '..');
 const port = process.env.E2E_PORT || '5051';
@@ -89,6 +97,35 @@ const buildMemberLotterySettings = ({ bootstrap, selectedLotteryId }) =>
     notes: 'E2E smoke member config'
   }));
 
+const cleanupSmokeArtifacts = async (created = {}) => {
+  const groupIds = (created.walletGroupIds || []).filter(Boolean);
+  const targets = [
+    created.agentId,
+    created.memberId,
+    created.slipId,
+    ...groupIds
+  ].filter(Boolean);
+
+  if (groupIds.length) {
+    await CreditLedgerEntry.deleteMany({ groupId: { $in: groupIds } });
+  }
+
+  if (created.memberId) {
+    await BetItem.deleteMany({ customerId: created.memberId });
+    await BetSlip.deleteMany({ customerId: created.memberId });
+    await UserLotteryConfig.deleteMany({ userId: created.memberId });
+    await User.deleteOne({ _id: created.memberId });
+  }
+
+  if (created.agentId) {
+    await User.deleteOne({ _id: created.agentId });
+  }
+
+  if (targets.length) {
+    await AuditLog.deleteMany({ target: { $in: targets.map(String) } });
+  }
+};
+
 const killProcess = async (child) => {
   if (!child || child.killed || child.exitCode !== null) return;
 
@@ -115,8 +152,18 @@ const main = async () => {
   let agentId = '';
   let memberId = '';
   let slipId = '';
+  const created = {
+    walletGroupIds: []
+  };
 
   try {
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is missing');
+    }
+
+    const mongoUri = await buildDirectMongoUri(process.env.MONGODB_URI);
+    await mongoose.connect(mongoUri);
+
     if (shouldStartServer) {
       server = spawn(process.execPath, ['server.js'], {
         cwd: backendDir,
@@ -160,6 +207,7 @@ const main = async () => {
     });
     expectStatus(createAgentResponse, 201, 'Create agent');
     agentId = createAgentResponse.data._id || createAgentResponse.data.id;
+    created.agentId = agentId;
     summary.created.agent = { id: agentId, username: agentUsername };
     summary.checks.push('admin-create-agent');
 
@@ -179,6 +227,7 @@ const main = async () => {
       reasonCode: 'agent_topup'
     });
     expectStatus(adjustAgentCreditResponse, 201, 'Adjust agent credit');
+    created.walletGroupIds.push(adjustAgentCreditResponse.data.groupId);
     summary.checks.push('admin-adjust-agent-credit');
 
     const agentWalletResponse = await agentClient.get('/wallet/summary');
@@ -227,6 +276,7 @@ const main = async () => {
     });
     expectStatus(createMemberResponse, 201, 'Create member');
     memberId = createMemberResponse.data.member?.id || createMemberResponse.data.member?._id || createMemberResponse.data.id;
+    created.memberId = memberId;
     summary.created.member = { id: memberId, username: memberUsername, lotteryCode: selectedLottery.code };
     summary.checks.push('agent-create-member');
 
@@ -256,6 +306,7 @@ const main = async () => {
       note: 'E2E member funding'
     });
     expectStatus(transferCreditResponse, 201, 'Agent transfer credit');
+    created.walletGroupIds.push(transferCreditResponse.data.groupId);
     summary.checks.push('agent-transfer-credit');
 
     const [agentWalletAfterTransfer, memberWalletSummaryResponse, memberWalletHistoryResponse] = await Promise.all([
@@ -349,6 +400,7 @@ const main = async () => {
       });
       expectStatus(submitSlipResponse, 201, 'Submit slip');
       slipId = submitSlipResponse.data.id;
+      created.slipId = slipId;
       summary.created.submittedSlip = { id: slipId, roundCode: submitSlipResponse.data.roundCode };
       summary.checks.push('member-submit-slip');
 
@@ -420,18 +472,15 @@ const main = async () => {
     process.exitCode = 1;
   } finally {
     try {
-      if (memberId && agentToken) {
-        const agentClient = makeClient(agentToken);
-        await agentClient.delete(`/agent/customers/${memberId}`);
-      }
-    } catch {}
+      await cleanupSmokeArtifacts(created);
+    } catch (cleanupError) {
+      console.error(`Cleanup error: ${cleanupError.message}`);
+      process.exitCode = process.exitCode || 1;
+    }
 
-    try {
-      if (agentId && adminToken) {
-        const adminClient = makeClient(adminToken);
-        await adminClient.delete(`/admin/agents/${agentId}`);
-      }
-    } catch {}
+    if (mongoose.connection.readyState) {
+      await mongoose.disconnect();
+    }
 
     await killProcess(server);
   }
