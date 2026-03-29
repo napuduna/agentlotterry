@@ -22,7 +22,7 @@ const LotteryResults = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title">ผลรางวัลหลายตลาด</h1>
-          <p className="page-subtitle">แสดงผลรางวัลล่าสุดจาก catalog foundation และ legacy result feed</p>
+          <p className="page-subtitle">แสดงผลรางวัลล่าสุดที่ถูกบันทึกไว้ในระบบจากทุกตลาด</p>
         </div>
       </div>
 
@@ -64,7 +64,7 @@ const LotteryResults = () => {
         <div className="card mb-lg">
           <div className="empty-state">
             <div className="empty-state-icon">🎰</div>
-            <div className="empty-state-text">ยังไม่มีผลรางวัลในระบบใหม่</div>
+            <div className="empty-state-text">ยังไม่มีผลรางวัลในระบบ กรุณาให้แอดมินดึงหรือบันทึกผลก่อน</div>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
 const LotteryResult = require('../models/LotteryResult');
+const { getExternalSyncState, syncLatestExternalResults } = require('../services/externalResultFeedService');
 const { fetchLotteryResult, saveLotteryResult, getLatestResult } = require('../services/lotteryService');
 const { getMarketOverview } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
@@ -37,6 +38,24 @@ router.get('/markets', auth, async (req, res) => {
   } catch (error) {
     console.error('Market overview error:', error);
     res.status(500).json({ message: error.message || 'Failed to fetch market overview' });
+  }
+});
+
+router.get('/sync-status', auth, authorize('admin'), async (req, res) => {
+  res.json(getExternalSyncState());
+});
+
+router.post('/sync-latest', auth, authorize('admin'), async (req, res) => {
+  try {
+    const summary = await syncLatestExternalResults();
+    await createAuditLog(req.user._id, 'SYNC_LATEST_RESULTS', 'manycai', summary);
+    res.json({
+      message: 'Latest results synced successfully',
+      summary
+    });
+  } catch (error) {
+    console.error('Sync latest results error:', error);
+    res.status(500).json({ message: error.message || 'Failed to sync latest results' });
   }
 });
 

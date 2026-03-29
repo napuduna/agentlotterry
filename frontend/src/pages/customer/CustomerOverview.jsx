@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiActivity, FiArrowRight, FiClock, FiLayers, FiTrendingUp } from 'react-icons/fi';
 import { useCatalog } from '../../context/CatalogContext';
 
@@ -29,6 +29,7 @@ const betTypeLabels = {
 };
 
 const CustomerOverview = () => {
+  const navigate = useNavigate();
   const {
     leagues,
     announcements,
@@ -185,7 +186,10 @@ const CustomerOverview = () => {
                   key={lottery.id}
                   type="button"
                   className={`market-card market-card-button market-card-${lottery.status === 'open' ? 'live' : lottery.status === 'upcoming' ? 'pending' : lottery.status === 'closed' ? 'waiting' : 'unsupported'} ${selectedLottery?.id === lottery.id ? 'market-card-active' : ''}`}
-                  onClick={() => setSelectedLottery(lottery.id)}
+                  onClick={() => {
+                    setSelectedLottery(lottery.id);
+                    navigate('/customer/bet');
+                  }}
                 >
                   <div className="market-card-header">
                     <div>
@@ -216,7 +220,7 @@ const CustomerOverview = () => {
                     </div>
                     <div className="market-chip">
                       <span className="market-chip-label">ผลล่าสุด</span>
-                      <strong>{latestResult?.twoBottom || latestResult?.threeTop || '-'}</strong>
+                      <strong>{latestResult?.headline || latestResult?.twoBottom || latestResult?.threeTop || 'ยังไม่มีผล'}</strong>
                     </div>
                   </div>
 

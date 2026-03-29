@@ -8,11 +8,13 @@ const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const {
   autoSeedAdmin,
+  autoSyncResults,
   defaultAdminPassword,
   defaultAdminUsername,
   exposeHealthDetails,
   frontendUrl,
   logFormat,
+  resultSyncIntervalMs,
   trustProxy,
   validateEnv
 } = require('./src/config/env');
@@ -29,6 +31,7 @@ const resultsRoutes = require('./src/routes/resultsRoutes');
 const walletRoutes = require('./src/routes/walletRoutes');
 const presenceRoutes = require('./src/routes/presenceRoutes');
 const { ensureCatalogSeed } = require('./src/services/catalogService');
+const { startExternalResultAutoSync } = require('./src/services/externalResultFeedService');
 const User = require('./src/models/User');
 
 const app = express();
@@ -148,6 +151,11 @@ const PORT = process.env.PORT || 5000;
 
 bootstrapApp()
   .then(() => {
+    if (autoSyncResults) {
+      startExternalResultAutoSync(resultSyncIntervalMs);
+      console.log(`External result auto-sync enabled (${resultSyncIntervalMs} ms)`);
+    }
+
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });

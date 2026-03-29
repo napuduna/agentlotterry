@@ -33,6 +33,9 @@ const logFormat = toText(process.env.LOG_FORMAT, isProduction ? 'combined' : 'de
 const trustProxy = parseBoolean(process.env.TRUST_PROXY, isProduction);
 const exposeHealthDetails = parseBoolean(process.env.HEALTH_EXPOSE_DETAILS, !isProduction);
 const backupDir = path.resolve(process.cwd(), toText(process.env.BACKUP_DIR, './backups'));
+const manyCaiFeedBaseUrl = toText(process.env.MANYCAI_FEED_BASE_URL, 'http://vip.manycai.com/K269c291856f58e');
+const autoSyncResults = parseBoolean(process.env.AUTO_SYNC_RESULTS, true);
+const resultSyncIntervalMs = Number(process.env.RESULT_SYNC_INTERVAL_MS || 300000);
 
 const validateEnv = () => {
   const issues = [];
@@ -69,6 +72,10 @@ const validateEnv = () => {
     issues.push(`LOG_FORMAT "${logFormat}" is not supported by morgan`);
   }
 
+  if (!Number.isFinite(resultSyncIntervalMs) || resultSyncIntervalMs < 60000) {
+    issues.push('RESULT_SYNC_INTERVAL_MS must be a number >= 60000');
+  }
+
   if (issues.length) {
     const error = new Error(`Environment validation failed: ${issues.join('; ')}`);
     error.validationIssues = issues;
@@ -85,7 +92,10 @@ const getEnvSummary = () => ({
   trustProxy,
   exposeHealthDetails,
   logFormat,
-  backupDir
+  backupDir,
+  manyCaiFeedBaseUrlConfigured: Boolean(manyCaiFeedBaseUrl),
+  autoSyncResults,
+  resultSyncIntervalMs
 });
 
 module.exports = {
@@ -100,6 +110,9 @@ module.exports = {
   exposeHealthDetails,
   logFormat,
   backupDir,
+  manyCaiFeedBaseUrl,
+  autoSyncResults,
+  resultSyncIntervalMs,
   validateEnv,
   getEnvSummary
 };

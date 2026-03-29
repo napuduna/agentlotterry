@@ -31,12 +31,16 @@ const roundStatusLabels = {
   missing: 'ไม่มีงวด'
 };
 
+const hiddenRoundStatuses = new Set(['closed', 'resulted']);
+
 const CustomerBet = () => {
   const {
     loading,
+    flatLotteries,
     selectedLottery,
     selectedRound,
     selectedRateProfile,
+    setSelectedLottery,
     setSelectedRound,
     setSelectedRateProfile
   } = useCatalog();
@@ -72,8 +76,10 @@ const CustomerBet = () => {
         const res = await getCatalogRounds(selectedLottery.id);
         const nextRounds = res.data || [];
         setRounds(nextRounds);
-        if (nextRounds.length && !nextRounds.some((round) => round.id === selectedRound?.id)) {
-          setSelectedRound(nextRounds[0].id);
+        const preferredRounds = nextRounds.filter((round) => !hiddenRoundStatuses.has(round.status));
+        const visibleRounds = preferredRounds.length ? preferredRounds : nextRounds;
+        if (visibleRounds.length && !visibleRounds.some((round) => round.id === selectedRound?.id)) {
+          setSelectedRound(visibleRounds[0].id);
         }
       } catch (error) {
         console.error(error);
@@ -94,6 +100,11 @@ const CustomerBet = () => {
     () => rounds.find((round) => round.id === selectedRound?.id) || selectedRound || null,
     [rounds, selectedRound]
   );
+
+  const selectableRounds = useMemo(() => {
+    const preferredRounds = rounds.filter((round) => !hiddenRoundStatuses.has(round.status));
+    return preferredRounds.length ? preferredRounds : rounds;
+  }, [rounds]);
 
   const helperLabel = useMemo(() => {
     if (includeDoubleSet) {
@@ -186,7 +197,7 @@ const CustomerBet = () => {
           <h1 className="page-title">betting console</h1>
           <p className="page-subtitle">แทงแบบ fast input, preview รายการ, บันทึกโพย และส่งรายการซื้อเป็น slip</p>
         </div>
-        <button className="btn btn-secondary" onClick={handlePreview} disabled={previewing || !selectedLottery}>
+        <button className="btn btn-secondary" onClick={handlePreview} disabled={previewing || !selectedLottery} style={{ display: 'none' }} tabIndex={-1} aria-hidden="true">
           {previewing ? <FiRefreshCw className="spin-animation" /> : <FiLayers />}
           รีวิวโพย
         </button>
@@ -204,13 +215,27 @@ const CustomerBet = () => {
         </div>
         <div className="slip-console-hero-side">
           <label className="slip-field">
+            <span>หวย</span>
+            <select
+              value={selectedLottery?.id || ''}
+              onChange={(event) => setSelectedLottery(event.target.value)}
+              disabled={!flatLotteries.length}
+            >
+              {flatLotteries.map((lottery) => (
+                <option key={lottery.id} value={lottery.id}>
+                  {lottery.leagueName} • {lottery.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="slip-field">
             <span>งวด</span>
             <select
               value={selectedRoundMeta?.id || ''}
               onChange={(event) => setSelectedRound(event.target.value)}
-              disabled={loadingRounds || !rounds.length}
+              disabled={loadingRounds || !selectableRounds.length}
             >
-              {rounds.map((round) => (
+              {selectableRounds.map((round) => (
                 <option key={round.id} value={round.id}>
                   {round.title} • {roundStatusLabels[round.status] || round.status}
                 </option>
@@ -380,15 +405,23 @@ const CustomerBet = () => {
       <div className="slip-action-bar">
         <button
           className="btn btn-secondary"
+          onClick={handlePreview}
+          disabled={previewing || savingDraft || submitting || !selectedLottery}
+        >
+          {previewing ? <FiRefreshCw className="spin-animation" /> : <FiLayers />}
+          รีวิวโพย
+        </button>
+        <button
+          className="btn btn-secondary"
           onClick={() => handleCreateSlip('draft')}
-          disabled={savingDraft || submitting || !preview}
+          disabled={previewing || savingDraft || submitting || !preview}
         >
           <FiSave /> บันทึกโพย
         </button>
         <button
           className="btn btn-primary"
           onClick={() => handleCreateSlip('submit')}
-          disabled={savingDraft || submitting || !preview || selectedRoundMeta?.status !== 'open'}
+          disabled={previewing || savingDraft || submitting || !preview || selectedRoundMeta?.status !== 'open'}
         >
           <FiSend /> ส่งรายการซื้อ
         </button>

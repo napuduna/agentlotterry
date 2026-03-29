@@ -1,5 +1,6 @@
 const axios = require('axios');
 const LotteryResult = require('../models/LotteryResult');
+const { fetchThaiGovernmentResultByRoundCode } = require('./externalResultFeedService');
 const { settleRoundById, syncLegacyThaiGovernmentResult } = require('./resultService');
 
 const THAI_LOTTO_LATEST_URL = (process.env.THAI_LOTTO_API_URL || 'https://lotto.api.rayriffy.com').replace(/\/$/, '');
@@ -43,6 +44,15 @@ const parseRayriffyResponse = (payload, roundDate) => {
  * ใช้ API: https://lotto.api.advicefree.com หรือ alternative
  */
 const fetchLotteryResult = async (roundDate) => {
+  try {
+    const manyCaiResult = await fetchThaiGovernmentResultByRoundCode(roundDate);
+    if (manyCaiResult?.firstPrize) {
+      return manyCaiResult;
+    }
+  } catch (manyCaiError) {
+    console.error('ManyCai government fetch error:', manyCaiError.message);
+  }
+
   try {
     const response = await axios.get(`https://lotto.api.advicefree.com/lotto/date/${roundDate}`, {
       timeout: 10000

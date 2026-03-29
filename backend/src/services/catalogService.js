@@ -6,6 +6,7 @@ const LotteryResult = require('../models/LotteryResult');
 const LotteryType = require('../models/LotteryType');
 const RateProfile = require('../models/RateProfile');
 const ResultRecord = require('../models/ResultRecord');
+const { getStoredLatestExternalResults } = require('./externalResultFeedService');
 const { getMemberConfigRows } = require('./memberManagementService');
 const {
   DEFAULT_RATE_TIERS,
@@ -252,6 +253,19 @@ const getRecentResults = async ({ lotteryId = null, limit = 20 } = {}) => {
     sourceType: record.sourceType,
     sourceUrl: record.sourceUrl || ''
   }));
+
+  const externalSnapshots = await getStoredLatestExternalResults({ lotteryId, limit });
+  externalSnapshots.forEach((snapshot) => {
+    if (!mapped.find((item) => item.lotteryCode === snapshot.lotteryCode && item.roundCode === snapshot.roundCode)) {
+      mapped.push(snapshot);
+    }
+  });
+
+  mapped.sort((left, right) => {
+    const leftDate = new Date(left.resultPublishedAt || left.drawAt || 0).getTime();
+    const rightDate = new Date(right.resultPublishedAt || right.drawAt || 0).getTime();
+    return rightDate - leftDate;
+  });
 
   if (lotteryId) return mapped;
 

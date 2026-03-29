@@ -7,6 +7,8 @@ const { createBangkokDate } = require('../utils/bangkokTime');
 const { getPermutations } = require('../utils/numberHelpers');
 
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
+const flattenValues = (value) => Array.isArray(value) ? value.flatMap(flattenValues) : [value];
+const normalizeHitArray = (value) => [...new Set(flattenValues(value).map(normalizeDigits).filter(Boolean))];
 
 const parseRoundCode = (roundCode) => {
   const match = String(roundCode || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -21,10 +23,14 @@ const parseRoundCode = (roundCode) => {
 
 const normalizeResultPayload = (payload = {}) => {
   const firstPrize = normalizeDigits(payload.firstPrize);
-  const threeTop = normalizeDigits(payload.threeTop || (firstPrize ? firstPrize.slice(-3) : ''));
-  const twoTop = normalizeDigits(payload.twoTop || (firstPrize ? firstPrize.slice(-2) : ''));
-  const twoBottom = normalizeDigits(payload.twoBottom);
-  const threeBottom = normalizeDigits(payload.threeBottom);
+  const threeTopHits = normalizeHitArray(payload.threeTopHits || payload.threeTop || (firstPrize ? [firstPrize.slice(-3)] : []));
+  const twoTopHits = normalizeHitArray(payload.twoTopHits || payload.twoTop || (firstPrize ? [firstPrize.slice(-2)] : []));
+  const twoBottomHits = normalizeHitArray(payload.twoBottomHits || payload.twoBottom);
+  const threeBottomHits = normalizeHitArray(payload.threeBottomHits || payload.threeBottom);
+  const threeTop = threeTopHits[0] || '';
+  const twoTop = twoTopHits[0] || '';
+  const twoBottom = twoBottomHits[0] || '';
+  const threeBottom = threeBottomHits[0] || '';
   const runTop = (Array.isArray(payload.runTop) ? payload.runTop : String(payload.runTop || '').split(','))
     .map(normalizeDigits)
     .filter(Boolean);
@@ -39,8 +45,12 @@ const normalizeResultPayload = (payload = {}) => {
     twoTop,
     twoBottom,
     threeBottom,
-    runTop: runTop.length ? runTop : [...new Set(threeTop.split('').filter(Boolean))],
-    runBottom: runBottom.length ? runBottom : [...new Set(twoBottom.split('').filter(Boolean))]
+    threeTopHits,
+    twoTopHits,
+    twoBottomHits,
+    threeBottomHits,
+    runTop: runTop.length ? runTop : [...new Set(threeTopHits.join('').split('').filter(Boolean))],
+    runBottom: runBottom.length ? runBottom : [...new Set(twoBottomHits.join('').split('').filter(Boolean))]
   };
 };
 
@@ -49,13 +59,13 @@ const checkItemResult = (item, normalizedResult) => {
 
   switch (item.betType) {
     case '3top':
-      return number === normalizedResult.threeTop;
+      return normalizedResult.threeTopHits.includes(number);
     case '3tod':
-      return getPermutations(normalizedResult.threeTop).includes(number);
+      return normalizedResult.threeTopHits.some((value) => getPermutations(value).includes(number));
     case '2top':
-      return number === normalizedResult.twoTop;
+      return normalizedResult.twoTopHits.includes(number);
     case '2bottom':
-      return number === normalizedResult.twoBottom;
+      return normalizedResult.twoBottomHits.includes(number);
     case 'run_top':
       return normalizedResult.runTop.includes(number);
     case 'run_bottom':
@@ -173,6 +183,10 @@ const upsertRoundResult = async ({
         twoBottom: normalized.twoBottom,
         threeTop: normalized.threeTop,
         threeBottom: normalized.threeBottom,
+        threeTopHits: normalized.threeTopHits,
+        twoTopHits: normalized.twoTopHits,
+        twoBottomHits: normalized.twoBottomHits,
+        threeBottomHits: normalized.threeBottomHits,
         runTop: normalized.runTop,
         runBottom: normalized.runBottom,
         sourceType,
@@ -313,6 +327,10 @@ const getRoundResult = async (roundId) => {
     twoBottom: record.twoBottom,
     threeTop: record.threeTop,
     threeBottom: record.threeBottom,
+    threeTopHits: record.threeTopHits || [],
+    twoTopHits: record.twoTopHits || [],
+    twoBottomHits: record.twoBottomHits || [],
+    threeBottomHits: record.threeBottomHits || [],
     runTop: record.runTop,
     runBottom: record.runBottom,
     sourceType: record.sourceType,

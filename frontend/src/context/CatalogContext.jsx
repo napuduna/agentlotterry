@@ -115,6 +115,7 @@ export const CatalogProvider = ({ children }) => {
       overview,
       loading,
       leagues: overview?.leagues || [],
+      flatLotteries,
       announcements: overview?.announcements || [],
       recentResults: overview?.recentResults || [],
       selectedLottery,
