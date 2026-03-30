@@ -47,7 +47,7 @@ const AgentBets = () => {
         ) : bets.map((b) => (
           <div key={b._id} className={`ag-bet-card ag-bet-card-${b.result || 'pending'}`}>
             <div className="ag-bet-card-top">
-              <span className="ag-bet-card-customer">{b.customerId?.name || 'N/A'}</span>
+              <span className="ag-bet-card-customer">{b.customerId?.name || 'ไม่ระบุสมาชิก'}</span>
               <span className={`ag-bet-badge ag-bet-badge-${b.result || 'pending'}`}>
                 {b.result === 'won' ? 'ถูก' : b.result === 'lost' ? 'ไม่ถูก' : 'รอผล'}
               </span>

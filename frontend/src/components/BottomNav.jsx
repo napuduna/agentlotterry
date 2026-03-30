@@ -12,18 +12,18 @@ import {
 
 const navItems = {
   customer: [
-    { path: '/customer', label: 'Market', icon: <FiLayers /> },
-    { path: '/customer/bet', label: 'Bet', icon: <FiDollarSign /> },
-    { path: '/customer/history', label: 'History', icon: <FiList /> },
-    { path: '/customer/lottery', label: 'Result', icon: <FiAward /> },
-    { path: '/customer/summary', label: 'Summary', icon: <FiFileText /> },
-    { path: '/customer/wallet', label: 'Wallet', icon: <FiDollarSign /> }
+    { path: '/customer', label: 'ตลาด', icon: <FiLayers /> },
+    { path: '/customer/bet', label: 'แทง', icon: <FiDollarSign /> },
+    { path: '/customer/history', label: 'ประวัติ', icon: <FiList /> },
+    { path: '/customer/lottery', label: 'ผล', icon: <FiAward /> },
+    { path: '/customer/summary', label: 'สรุป', icon: <FiFileText /> },
+    { path: '/customer/wallet', label: 'กระเป๋า', icon: <FiDollarSign /> }
   ],
   agent: [
-    { path: '/agent', label: 'Home', icon: <FiHome /> },
-    { path: '/agent/customers', label: 'Members', icon: <FiUsers /> },
-    { path: '/agent/bets', label: 'Slips', icon: <FiList /> },
-    { path: '/agent/reports', label: 'Reports', icon: <FiFileText /> }
+    { path: '/agent', label: 'หน้าหลัก', icon: <FiHome /> },
+    { path: '/agent/customers', label: 'สมาชิก', icon: <FiUsers /> },
+    { path: '/agent/bets', label: 'โพย', icon: <FiList /> },
+    { path: '/agent/reports', label: 'รายงาน', icon: <FiFileText /> }
   ]
 };
 

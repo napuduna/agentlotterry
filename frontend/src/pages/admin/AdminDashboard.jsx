@@ -6,12 +6,12 @@ import { getAdminDashboard } from '../../services/api';
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const betTypeLabels = {
-  '3top': '3 Top',
-  '3tod': '3 Tod',
-  '2top': '2 Top',
-  '2bottom': '2 Bottom',
-  'run_top': 'Run Top',
-  'run_bottom': 'Run Bottom'
+  '3top': '3 ตัวบน',
+  '3tod': '3 ตัวโต๊ด',
+  '2top': '2 ตัวบน',
+  '2bottom': '2 ตัวล่าง',
+  'run_top': 'วิ่งบน',
+  'run_bottom': 'วิ่งล่าง'
 };
 
 const AdminDashboard = () => {
@@ -39,26 +39,26 @@ const AdminDashboard = () => {
     {
       icon: FiUsers,
       value: stats.totalAgents || 0,
-      label: 'Agents',
-      hint: `${stats.activeAgents || 0} active`
+      label: 'เจ้ามือ',
+      hint: `ใช้งานอยู่ ${stats.activeAgents || 0} คน`
     },
     {
       icon: FiUser,
       value: stats.totalCustomers || 0,
-      label: 'Members',
-      hint: `${stats.activeCustomers || 0} active`
+      label: 'สมาชิก',
+      hint: `ใช้งานอยู่ ${stats.activeCustomers || 0} คน`
     },
     {
       icon: FiDollarSign,
-      value: `${money(stats.totalAmount)} THB`,
-      label: 'Gross sales',
-      hint: 'Total accepted stake'
+      value: `${money(stats.totalAmount)} บาท`,
+      label: 'ยอดแทงรวม',
+      hint: 'ยอดรับทั้งหมดของระบบ'
     },
     {
       icon: FiTrendingUp,
-      value: `${money(stats.netProfit)} THB`,
-      label: 'Net result',
-      hint: 'System-wide profit after payout'
+      value: `${money(stats.netProfit)} บาท`,
+      label: 'กำไรสุทธิ',
+      hint: 'ผลสุทธิหลังหักยอดจ่าย'
     }
   ]), [stats]);
 
@@ -70,15 +70,15 @@ const AdminDashboard = () => {
     <div className="ops-page animate-fade-in">
       <section className="ops-hero">
         <div className="ops-hero-copy">
-          <span className="ui-eyebrow">System control</span>
-          <h1 className="page-title">Admin Dashboard</h1>
-          <p className="page-subtitle">Monitor platform health, active users, financial movement, and the latest betting activity from one command view.</p>
+          <span className="ui-eyebrow">ศูนย์ควบคุมระบบ</span>
+          <h1 className="page-title">แดชบอร์ดแอดมิน</h1>
+          <p className="page-subtitle">ดูภาพรวมสุขภาพระบบ จำนวนผู้ใช้งาน ความเคลื่อนไหวยอดเงิน และรายการแทงล่าสุดจากหน้าเดียว</p>
         </div>
 
         <div className={`ops-hero-side ${(stats.netProfit || 0) >= 0 ? 'admin-hero-positive' : 'admin-hero-negative'}`}>
-          <span>Net platform result</span>
-          <strong>{(stats.netProfit || 0) >= 0 ? '+' : ''}{money(stats.netProfit)} THB</strong>
-          <small>Total payout {money(stats.totalWon)} THB</small>
+          <span>ผลสุทธิของระบบ</span>
+          <strong>{(stats.netProfit || 0) >= 0 ? '+' : ''}{money(stats.netProfit)} บาท</strong>
+          <small>ยอดจ่ายรวม {money(stats.totalWon)} บาท</small>
         </div>
       </section>
 
@@ -98,23 +98,23 @@ const AdminDashboard = () => {
           <div className="ui-panel-head">
             <div>
               <div className="ui-eyebrow">Platform activity</div>
-              <h3 className="card-title">Betting statistics</h3>
+              <h3 className="card-title">สถิติการแทง</h3>
             </div>
           </div>
 
           <div className="ops-stack">
-            <div className="ops-stat-row"><span>Total bet items</span><strong>{money(stats.totalBets)}</strong></div>
-            <div className="ops-stat-row"><span>Pending items</span><strong>{money(stats.pendingBets)}</strong></div>
-            <div className="ops-stat-row"><span>Total payout</span><strong>{money(stats.totalWon)} THB</strong></div>
-            <div className="ops-stat-row"><span>Net result</span><strong>{money(stats.netProfit)} THB</strong></div>
+            <div className="ops-stat-row"><span>รายการแทงทั้งหมด</span><strong>{money(stats.totalBets)}</strong></div>
+            <div className="ops-stat-row"><span>รายการรอผล</span><strong>{money(stats.pendingBets)}</strong></div>
+            <div className="ops-stat-row"><span>ยอดจ่ายรวม</span><strong>{money(stats.totalWon)} บาท</strong></div>
+            <div className="ops-stat-row"><span>ผลสุทธิ</span><strong>{money(stats.netProfit)} บาท</strong></div>
           </div>
         </section>
 
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">Recent feed</div>
-              <h3 className="card-title">Latest bets</h3>
+              <div className="ui-eyebrow">ความเคลื่อนไหวล่าสุด</div>
+              <h3 className="card-title">รายการแทงล่าสุด</h3>
             </div>
           </div>
 
@@ -123,20 +123,20 @@ const AdminDashboard = () => {
               {data.recentBets.slice(0, 6).map((bet, index) => (
                 <article key={`${bet._id || index}-${bet.number}`} className="ops-feed-row">
                   <div>
-                    <strong>{bet.customerId?.name || 'Unknown'} - {betTypeLabels[bet.betType] || bet.betType}</strong>
-                    <div className="ops-feed-meta">{bet.marketName || 'Lottery'} - {bet.roundDate} - #{bet.number}</div>
+                    <strong>{bet.customerId?.name || 'ไม่ทราบชื่อ'} - {betTypeLabels[bet.betType] || bet.betType}</strong>
+                    <div className="ops-feed-meta">{bet.marketName || 'ตลาดหวย'} - {bet.roundDate} - #{bet.number}</div>
                   </div>
                   <div className="ops-feed-right">
-                    <strong>{money(bet.amount)} THB</strong>
+                    <strong>{money(bet.amount)} บาท</strong>
                     <span className={`badge badge-${bet.result === 'won' ? 'success' : bet.result === 'lost' ? 'danger' : 'warning'}`}>
-                      {bet.result || 'pending'}
+                      {bet.result === 'won' ? 'ถูกรางวัล' : bet.result === 'lost' ? 'ไม่ถูก' : 'รอผล'}
                     </span>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="empty-state"><div className="empty-state-text">No recent betting activity.</div></div>
+            <div className="empty-state"><div className="empty-state-text">ยังไม่มีรายการแทงล่าสุด</div></div>
           )}
         </section>
       </section>

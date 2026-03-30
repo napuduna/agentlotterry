@@ -16,7 +16,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
-      toast.error('กรุณากรอก Username และ Password');
+      toast.error('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
       return;
     }
 
@@ -92,7 +92,7 @@ const Login = () => {
         </form>
 
         <div className="login-footer">
-          <p>© 2024 Agent Lottery System</p>
+          <p>© 2026 ระบบจัดการหวย Agent Lottery</p>
         </div>
       </div>
 

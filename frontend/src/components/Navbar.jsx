@@ -17,32 +17,32 @@ import {
 
 const menuItems = {
   admin: [
-    { path: '/admin', label: 'Dashboard', icon: <FiHome /> },
-    { path: '/admin/agents', label: 'Agents', icon: <FiUsers /> },
-    { path: '/admin/customers', label: 'Members', icon: <FiUser /> },
-    { path: '/admin/lottery', label: 'Results', icon: <FiAward /> },
-    { path: '/admin/reports', label: 'Reports', icon: <FiFileText /> }
+    { path: '/admin', label: 'แดชบอร์ด', icon: <FiHome /> },
+    { path: '/admin/agents', label: 'เจ้ามือ', icon: <FiUsers /> },
+    { path: '/admin/customers', label: 'สมาชิก', icon: <FiUser /> },
+    { path: '/admin/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
+    { path: '/admin/reports', label: 'รายงาน', icon: <FiFileText /> }
   ],
   agent: [
-    { path: '/agent', label: 'Dashboard', icon: <FiHome /> },
-    { path: '/agent/customers', label: 'Members', icon: <FiUsers /> },
-    { path: '/agent/bets', label: 'Bets', icon: <FiList /> },
-    { path: '/agent/reports', label: 'Reports', icon: <FiFileText /> }
+    { path: '/agent', label: 'แดชบอร์ด', icon: <FiHome /> },
+    { path: '/agent/customers', label: 'สมาชิก', icon: <FiUsers /> },
+    { path: '/agent/bets', label: 'โพย', icon: <FiList /> },
+    { path: '/agent/reports', label: 'รายงาน', icon: <FiFileText /> }
   ],
   customer: [
-    { path: '/customer', label: 'Markets', icon: <FiLayers /> },
-    { path: '/customer/bet', label: 'Bet', icon: <FiDollarSign /> },
-    { path: '/customer/history', label: 'History', icon: <FiList /> },
-    { path: '/customer/summary', label: 'Summary', icon: <FiFileText /> },
-    { path: '/customer/lottery', label: 'Results', icon: <FiAward /> },
-    { path: '/customer/wallet', label: 'Wallet', icon: <FiDollarSign /> }
+    { path: '/customer', label: 'ตลาดหวย', icon: <FiLayers /> },
+    { path: '/customer/bet', label: 'แทงหวย', icon: <FiDollarSign /> },
+    { path: '/customer/history', label: 'ประวัติ', icon: <FiList /> },
+    { path: '/customer/summary', label: 'สรุปผล', icon: <FiFileText /> },
+    { path: '/customer/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
+    { path: '/customer/wallet', label: 'กระเป๋า', icon: <FiDollarSign /> }
   ]
 };
 
 const roleLabels = {
-  admin: 'Administrator',
-  agent: 'Agent',
-  customer: 'Member'
+  admin: 'ผู้ดูแลระบบ',
+  agent: 'เจ้ามือ',
+  customer: 'สมาชิก'
 };
 
 const Navbar = () => {
@@ -94,7 +94,7 @@ const Navbar = () => {
               <div className="navbar-user-role">{roleLabel}</div>
             </div>
           </div>
-          <button className="navbar-logout" onClick={handleLogout} title="Logout">
+          <button className="navbar-logout" onClick={handleLogout} title="ออกจากระบบ">
             <FiLogOut />
           </button>
         </div>
@@ -127,7 +127,7 @@ const Navbar = () => {
 
             <button className="mobile-menu-logout" onClick={handleLogout}>
               <FiLogOut />
-              <span>Logout</span>
+              <span>ออกจากระบบ</span>
             </button>
           </div>
         </div>

@@ -32,9 +32,9 @@ const AdminReports = () => {
   const totalBets = reports.reduce((sum, report) => sum + (report.betCount || 0), 0);
 
   const overviewCards = useMemo(() => ([
-    { label: 'Bet items', value: money(totalBets), hint: 'All rows within the current filter' },
-    { label: 'Gross sales', value: `${money(totalAmount)} THB`, hint: 'Accepted amount from all agents' },
-    { label: 'Net result', value: `${money(totalAmount - totalWon)} THB`, hint: 'Gross sales minus payout' }
+    { label: 'รายการแทง', value: money(totalBets), hint: 'รวมทุกรายการภายใต้ตัวกรองปัจจุบัน' },
+    { label: 'ยอดขายรวม', value: `${money(totalAmount)} บาท`, hint: 'ยอดรับจากเจ้ามือทั้งหมด' },
+    { label: 'ผลสุทธิ', value: `${money(totalAmount - totalWon)} บาท`, hint: 'ยอดขายรวมหลังหักยอดจ่าย' }
   ]), [totalAmount, totalWon, totalBets]);
 
   if (loading) {
@@ -45,15 +45,15 @@ const AdminReports = () => {
     <div className="ops-page animate-fade-in">
       <section className="ops-hero">
         <div className="ops-hero-copy">
-          <span className="ui-eyebrow">Admin analytics</span>
-          <h1 className="page-title">Admin Reports</h1>
-          <p className="page-subtitle">Review sales and payout by round and agent from one clean reporting surface.</p>
+          <span className="ui-eyebrow">ภาพรวมรายงาน</span>
+          <h1 className="page-title">รายงานแอดมิน</h1>
+          <p className="page-subtitle">ดูยอดขาย ยอดจ่าย และผลสุทธิแยกตามงวดและเจ้ามือจากหน้ารายงานเดียว</p>
         </div>
 
         <div className="ops-hero-side">
-          <span>Current net result</span>
-          <strong>{money(totalAmount - totalWon)} THB</strong>
-          <small>{reports.length} grouped report rows</small>
+          <span>ผลสุทธิช่วงนี้</span>
+          <strong>{money(totalAmount - totalWon)} บาท</strong>
+          <small>{reports.length} แถวรายงานที่จัดกลุ่มแล้ว</small>
         </div>
       </section>
 
@@ -70,14 +70,14 @@ const AdminReports = () => {
       <section className="card ops-section">
         <div className="ui-panel-head">
           <div>
-            <div className="ui-eyebrow">Filter</div>
-            <h3 className="card-title">Round selector</h3>
+            <div className="ui-eyebrow">ตัวกรอง</div>
+            <h3 className="card-title">เลือกงวด</h3>
           </div>
         </div>
 
         <div className="ops-form-grid single">
           <label className="form-group" style={{ marginBottom: 0 }}>
-            <span className="form-label">Round date</span>
+            <span className="form-label">วันที่งวด</span>
             <input
               type="text"
               className="form-input"
@@ -92,9 +92,9 @@ const AdminReports = () => {
       <section className="card ops-section">
         <div className="ops-table-head">
           <div>
-            <div className="ui-eyebrow">Report table</div>
-            <h3 className="card-title"><FiFileText style={{ marginRight: 8 }} />By agent and round</h3>
-            <p className="ops-table-note">Each row represents one aggregated reporting bucket for a market, round, and agent combination.</p>
+            <div className="ui-eyebrow">ตารางรายงาน</div>
+            <h3 className="card-title"><FiFileText style={{ marginRight: 8 }} />สรุปตามเจ้ามือและงวด</h3>
+            <p className="ops-table-note">แต่ละแถวคือข้อมูลสรุปที่จัดกลุ่มตามตลาด งวด และเจ้ามือ</p>
           </div>
         </div>
 
@@ -102,32 +102,32 @@ const AdminReports = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Round</th>
-                <th>Market</th>
-                <th>Agent</th>
-                <th>Items</th>
-                <th>Sales</th>
-                <th>Payout</th>
-                <th>Net</th>
-                <th>Won / Lost / Pending</th>
+                <th>งวด</th>
+                <th>ตลาด</th>
+                <th>เจ้ามือ</th>
+                <th>จำนวนรายการ</th>
+                <th>ยอดขาย</th>
+                <th>ยอดจ่าย</th>
+                <th>ผลสุทธิ</th>
+                <th>ถูก / ไม่ถูก / รอผล</th>
               </tr>
             </thead>
             <tbody>
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>No report data</td>
+                  <td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>ยังไม่มีข้อมูลรายงาน</td>
                 </tr>
               ) : (
                 reports.map((report, index) => (
                   <tr key={`${report.roundDate}-${report.agentName || index}`}>
                     <td>{report.roundDate}</td>
-                    <td>{report.marketName || 'Lottery market'}</td>
+                    <td>{report.marketName || 'ตลาดหวย'}</td>
                     <td>{report.agentName || '-'}</td>
                     <td>{report.betCount}</td>
-                    <td>{money(report.totalAmount)} THB</td>
-                    <td>{money(report.totalWon)} THB</td>
+                    <td>{money(report.totalAmount)} บาท</td>
+                    <td>{money(report.totalWon)} บาท</td>
                     <td style={{ fontWeight: 700, color: (report.netProfit || 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                      {money(report.netProfit)} THB
+                      {money(report.netProfit)} บาท
                     </td>
                     <td>
                       <span className="badge badge-success" style={{ marginRight: 4 }}>{report.wonCount}</span>

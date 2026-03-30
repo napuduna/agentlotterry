@@ -6,22 +6,29 @@ import { createMemberSlip, getCatalogRounds, parseMemberSlip } from '../../servi
 import { useCatalog } from '../../context/CatalogContext';
 
 const betTypeLabels = {
-  '3top': '3 Top',
-  '3tod': '3 Tod',
-  '2top': '2 Top',
-  '2bottom': '2 Bottom',
-  'run_top': 'Run Top',
-  'run_bottom': 'Run Bottom'
+  '3top': '3 ตัวบน',
+  '3tod': '3 ตัวโต๊ด',
+  '2top': '2 ตัวบน',
+  '2bottom': '2 ตัวล่าง',
+  'run_top': 'วิ่งบน',
+  'run_bottom': 'วิ่งล่าง'
 };
 
 const roundStatusLabels = {
-  open: 'Open',
-  upcoming: 'Upcoming',
-  closed: 'Closed',
-  resulted: 'Resulted',
-  missing: 'No round'
+  open: 'เปิดรับ',
+  upcoming: 'กำลังจะเปิด',
+  closed: 'ปิดรับ',
+  resulted: 'ประกาศผลแล้ว',
+  missing: 'ยังไม่มีงวด'
 };
 
+const sourceFlagLabels = {
+  doubleSet: 'เลขเบิ้ล',
+  reverse: 'กลับเลข',
+  manual: 'พิมพ์ตรง'
+};
+
+const quickAmountOptions = ['10', '20', '50', '100'];
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
@@ -75,7 +82,7 @@ const CustomerBet = () => {
         }
       } catch (error) {
         console.error(error);
-        toast.error('Failed to load rounds');
+        toast.error('โหลดงวดไม่สำเร็จ');
       } finally {
         setLoadingRounds(false);
       }
@@ -100,9 +107,13 @@ const CustomerBet = () => {
 
   const helperLabel = useMemo(() => {
     if (includeDoubleSet) {
-      return activeBetType.startsWith('3') ? 'Double set 3 digits' : activeBetType.startsWith('2') ? 'Double set 2 digits' : 'Helper set';
+      return activeBetType.startsWith('3')
+        ? 'เปิดเลขเบิ้ล 3 ตัว'
+        : activeBetType.startsWith('2')
+          ? 'เปิดเลขเบิ้ล 2 ตัว'
+          : 'เปิดตัวช่วย';
     }
-    return 'Enable helper';
+    return 'เพิ่มเลขเบิ้ล';
   }, [includeDoubleSet, activeBetType]);
 
   const buildPayload = () => ({
@@ -119,7 +130,7 @@ const CustomerBet = () => {
 
   const handlePreview = async () => {
     if (!selectedLottery?.id || !selectedRoundMeta?.id) {
-      toast.error('Choose a market and round first');
+      toast.error('กรุณาเลือกหวยและงวดก่อน');
       return;
     }
 
@@ -129,7 +140,7 @@ const CustomerBet = () => {
       setPreview(res.data);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to build preview');
+      toast.error(error.response?.data?.message || 'สร้างตัวอย่างโพยไม่สำเร็จ');
     } finally {
       setPreviewing(false);
     }
@@ -145,7 +156,7 @@ const CustomerBet = () => {
     setLoadingState(true);
     try {
       const res = await createMemberSlip({ ...buildPayload(), action });
-      toast.success(action === 'draft' ? `Draft saved ${res.data.slipNumber}` : `Submitted ${res.data.slipNumber}`);
+      toast.success(action === 'draft' ? `บันทึกโพย ${res.data.slipNumber} แล้ว` : `ส่งรายการซื้อ ${res.data.slipNumber} แล้ว`);
       setRawInput('');
       setMemo('');
       setDefaultAmount('');
@@ -154,7 +165,7 @@ const CustomerBet = () => {
       setPreview(null);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to create slip');
+      toast.error(error.response?.data?.message || 'สร้างโพยไม่สำเร็จ');
     } finally {
       setLoadingState(false);
     }
@@ -169,7 +180,10 @@ const CustomerBet = () => {
     setPreview(null);
   };
 
+  const applyQuickAmount = (amount) => setDefaultAmount(amount);
+
   const canSubmit = selectedRoundMeta?.status === 'open';
+  const previewSummary = preview?.summary || {};
 
   if (loading) return <PageSkeleton statCount={4} rows={6} sidebar compactSidebar />;
 
@@ -179,15 +193,15 @@ const CustomerBet = () => {
         <section className="card bet-composer-panel">
           <div className="bet-panel-head">
             <div>
-              <div className="panel-eyebrow">Betting workspace</div>
-              <h1 className="page-title">Betting Console</h1>
-              <p className="page-subtitle">Choose a market, prepare the slip, preview the generated items, then save or submit.</p>
+              <div className="panel-eyebrow">หน้าซื้อหลัก</div>
+              <h1 className="page-title">คอนโซลแทงหวย</h1>
+              <p className="page-subtitle">เลือกตลาด เลือกงวด ใส่โพยแบบเร็ว ดูตัวอย่าง แล้วค่อยบันทึกหรือส่งซื้อจริงในจอเดียว</p>
             </div>
           </div>
 
           <div className="bet-market-grid">
             <label className="bet-field">
-              <span>Market</span>
+              <span>ตลาดหวย</span>
               <select value={selectedLottery?.id || ''} onChange={(event) => setSelectedLottery(event.target.value)} disabled={!flatLotteries.length}>
                 {flatLotteries.map((lottery) => (
                   <option key={lottery.id} value={lottery.id}>{lottery.leagueName} • {lottery.name}</option>
@@ -196,7 +210,7 @@ const CustomerBet = () => {
             </label>
 
             <label className="bet-field">
-              <span>Round</span>
+              <span>งวด</span>
               <select value={selectedRoundMeta?.id || ''} onChange={(event) => setSelectedRound(event.target.value)} disabled={loadingRounds || !selectableRounds.length}>
                 {selectableRounds.map((round) => (
                   <option key={round.id} value={round.id}>{round.title} • {roundStatusLabels[round.status] || round.status}</option>
@@ -209,7 +223,7 @@ const CustomerBet = () => {
             <span><FiLayers /> {selectedLottery?.name || '-'}</span>
             <span><FiClock /> {selectedRoundMeta?.title || '-'}</span>
             <span>{roundStatusLabels[selectedRoundMeta?.status] || '-'}</span>
-            <span>{selectedRateProfile?.name || '-'}</span>
+            <span>เรท {selectedRateProfile?.name || '-'}</span>
           </div>
 
           <div className="catalog-rate-chips">
@@ -231,33 +245,46 @@ const CustomerBet = () => {
 
           <div className="bet-form-grid">
             <label className="bet-field">
-              <span>Default amount</span>
-              <input type="number" min="1" placeholder="10" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} />
+              <span>จำนวนมาตรฐาน</span>
+              <input type="number" min="1" placeholder="เช่น 10" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} />
             </label>
 
             <label className="bet-field">
-              <span>Memo</span>
-              <input type="text" placeholder="Optional note for this slip" value={memo} onChange={(event) => setMemo(event.target.value)} />
+              <span>บันทึกช่วยจำ</span>
+              <input type="text" placeholder="เช่น โพยเช้า หรือเลขเน้น" value={memo} onChange={(event) => setMemo(event.target.value)} />
             </label>
+          </div>
+
+          <div className="bet-amount-presets">
+            {quickAmountOptions.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                className={`preset-chip ${defaultAmount === amount ? 'active' : ''}`}
+                onClick={() => applyQuickAmount(amount)}
+              >
+                {amount} บาท
+              </button>
+            ))}
           </div>
 
           <div className="bet-helper-row">
             <button type="button" className={`helper-btn ${reverse ? 'active' : ''}`} onClick={() => setReverse((value) => !value)}>
-              <FiShuffle /> Reverse
+              <FiShuffle /> กลับเลข
             </button>
             <button type="button" className={`helper-btn ${includeDoubleSet ? 'active' : ''}`} onClick={() => setIncludeDoubleSet((value) => !value)}>
               <FiStar /> {helperLabel}
             </button>
             <button type="button" className="helper-btn" onClick={clearComposer}>
-              <FiRotateCcw /> Clear
+              <FiRotateCcw /> ล้างทั้งหมด
             </button>
           </div>
 
           <label className="bet-field">
-            <span>Fast bet input</span>
+            <span>กรอกโพยแบบเร็ว</span>
             <textarea
               rows="14"
-              placeholder={'One line per item\n123 10\n456=20\n789'}
+              placeholder={'พิมพ์ 1 บรรทัดต่อ 1 รายการ\n123 10\n456=20\n789'}
               value={rawInput}
               onChange={(event) => setRawInput(event.target.value)}
             />
@@ -265,19 +292,19 @@ const CustomerBet = () => {
 
           <div className="bet-note">
             <FiAlertCircle />
-            <span>Supported formats: `123 10`, `123=10`, `123/10` or plain number with a default amount.</span>
+            <span>รองรับรูปแบบ `123 10`, `123=10`, `123/10` หรือพิมพ์เลขอย่างเดียวแล้วใช้จำนวนมาตรฐานด้านบน</span>
           </div>
         </section>
 
         <aside className="card bet-preview-panel">
           <div className="bet-panel-head">
             <div>
-              <div className="panel-eyebrow">Preview and actions</div>
-              <h3 className="card-title">Slip Preview</h3>
+              <div className="panel-eyebrow">ตัวอย่างโพย</div>
+              <h3 className="card-title">ตรวจรายการก่อนส่ง</h3>
             </div>
             <button className="btn btn-secondary btn-sm" onClick={handlePreview} disabled={previewing || !selectedLottery}>
               {previewing ? <FiRefreshCw className="spin-animation" /> : <FiLayers />}
-              Preview
+              รีวิวโพย
             </button>
           </div>
 
@@ -285,16 +312,16 @@ const CustomerBet = () => {
             <div className="preview-empty">
               <div className="empty-state">
                 <div className="empty-state-icon"><FiLayers /></div>
-                <div className="empty-state-text">Build a preview before saving or submitting.</div>
+                <div className="empty-state-text">กดรีวิวโพยเพื่อดูรายการที่ระบบสร้างให้ก่อนบันทึกหรือส่งซื้อ</div>
               </div>
             </div>
           ) : (
             <>
               <div className="preview-summary-grid">
-                <div className="preview-stat"><span>Items</span><strong>{preview.summary.itemCount}</strong></div>
-                <div className="preview-stat"><span>Stake</span><strong>{money(preview.summary.totalAmount)} ฿</strong></div>
-                <div className="preview-stat"><span>Potential</span><strong>{money(preview.summary.potentialPayout)} ฿</strong></div>
-                <div className="preview-stat"><span>Round</span><strong>{roundStatusLabels[preview.roundStatus?.status] || '-'}</strong></div>
+                <div className="preview-stat"><span>จำนวนรายการ</span><strong>{previewSummary.itemCount || 0}</strong></div>
+                <div className="preview-stat"><span>ยอดแทง</span><strong>{money(previewSummary.totalAmount)} บาท</strong></div>
+                <div className="preview-stat"><span>จ่ายสูงสุด</span><strong>{money(previewSummary.potentialPayout)} บาท</strong></div>
+                <div className="preview-stat"><span>สถานะงวด</span><strong>{roundStatusLabels[preview.roundStatus?.status] || '-'}</strong></div>
               </div>
 
               <div className="preview-items">
@@ -303,11 +330,15 @@ const CustomerBet = () => {
                     <div>
                       <strong>{item.number}</strong>
                       <div className="preview-item-meta">
-                        {item.sourceFlags.fromDoubleSet ? 'double set' : item.sourceFlags.fromReverse ? 'reverse' : 'manual'}
+                        {item.sourceFlags.fromDoubleSet
+                          ? sourceFlagLabels.doubleSet
+                          : item.sourceFlags.fromReverse
+                            ? sourceFlagLabels.reverse
+                            : sourceFlagLabels.manual}
                       </div>
                     </div>
                     <div className="preview-item-right">
-                      <strong>{money(item.amount)} ฿</strong>
+                      <strong>{money(item.amount)} บาท</strong>
                       <span>x{item.payRate}</span>
                     </div>
                   </div>
@@ -317,7 +348,7 @@ const CustomerBet = () => {
               {preview.items.length > 12 ? (
                 <div className="bet-note compact">
                   <FiAlertCircle />
-                  <span>Showing first 12 items from {preview.items.length} generated items.</span>
+                  <span>ตอนนี้แสดง 12 รายการแรกจากทั้งหมด {preview.items.length} รายการ</span>
                 </div>
               ) : null}
             </>
@@ -325,12 +356,12 @@ const CustomerBet = () => {
 
           <div className="preview-action-stack">
             <button className="btn btn-secondary" onClick={() => handleCreateSlip('draft')} disabled={previewing || savingDraft || submitting || !preview}>
-              <FiSave /> {savingDraft ? 'Saving...' : 'Save Draft'}
+              <FiSave /> {savingDraft ? 'กำลังบันทึก...' : 'บันทึกโพย'}
             </button>
             <button className="btn btn-primary" onClick={() => handleCreateSlip('submit')} disabled={previewing || savingDraft || submitting || !preview || !canSubmit}>
-              <FiSend /> {submitting ? 'Submitting...' : 'Submit Slip'}
+              <FiSend /> {submitting ? 'กำลังส่ง...' : 'ส่งรายการซื้อ'}
             </button>
-            {!canSubmit ? <div className="submit-warning">This round is not open for submission.</div> : null}
+            {!canSubmit ? <div className="submit-warning">งวดนี้ยังไม่เปิดรับซื้อ จึงยังส่งโพยไม่ได้</div> : null}
           </div>
         </aside>
       </section>
@@ -353,11 +384,11 @@ const CustomerBet = () => {
         .bet-field input:focus,.bet-field select:focus,.bet-field textarea:focus{outline:none;border-color:rgba(52,211,153,.42);box-shadow:0 0 0 4px rgba(16,185,129,.08)}
         .bet-context-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
         .bet-context-row span{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:rgba(9,16,30,.78);border:1px solid rgba(148,163,184,.14);color:var(--text-secondary);font-size:.82rem}
-        .catalog-rate-chips,.bet-type-tabs,.bet-helper-row{display:flex;gap:8px;flex-wrap:wrap}
+        .catalog-rate-chips,.bet-type-tabs,.bet-helper-row,.bet-amount-presets{display:flex;gap:8px;flex-wrap:wrap}
         .catalog-rate-chips{margin-bottom:16px}
-        .catalog-chip,.helper-btn,.bet-type-tab{border:1px solid rgba(148,163,184,.16);background:rgba(9,16,30,.76);color:var(--text-secondary)}
-        .catalog-chip,.helper-btn{padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:700}
-        .catalog-chip-active,.helper-btn.active{background:rgba(16,185,129,.12);border-color:rgba(52,211,153,.2);color:var(--primary-light)}
+        .catalog-chip,.helper-btn,.bet-type-tab,.preset-chip{border:1px solid rgba(148,163,184,.16);background:rgba(9,16,30,.76);color:var(--text-secondary)}
+        .catalog-chip,.helper-btn,.preset-chip{padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:700}
+        .catalog-chip-active,.helper-btn.active,.preset-chip.active{background:rgba(16,185,129,.12);border-color:rgba(52,211,153,.2);color:var(--primary-light)}
         .bet-type-tab{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 16px;border-radius:16px;min-width:108px}
         .bet-type-tab.active{color:#fff;border-color:var(--primary);background:linear-gradient(135deg,var(--primary),var(--primary-dark))}
         .bet-type-tab-label{font-size:.8rem;font-weight:700}
@@ -375,7 +406,12 @@ const CustomerBet = () => {
         .preview-action-stack{display:flex;flex-direction:column;gap:10px;margin-top:16px}
         .submit-warning{padding:10px 12px;border-radius:14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.16)}
         @media (max-width:1100px){.bet-shell{grid-template-columns:1fr}.bet-preview-panel{position:static}}
-        @media (max-width:760px){.bet-market-grid,.bet-form-grid,.preview-summary-grid{grid-template-columns:1fr}.bet-panel-head{flex-direction:column;align-items:stretch}.bet-type-tab{min-width:unset;flex:1}}
+        @media (max-width:760px){
+          .bet-market-grid,.bet-form-grid,.preview-summary-grid{grid-template-columns:1fr}
+          .bet-panel-head{flex-direction:column;align-items:stretch}
+          .bet-type-tab{min-width:unset;flex:1}
+          .preview-action-stack{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(180deg,rgba(22,32,49,0),rgba(22,32,49,.96) 28%)}
+        }
       `}</style>
     </div>
   );

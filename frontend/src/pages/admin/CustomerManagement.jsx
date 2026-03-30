@@ -47,26 +47,26 @@ const CustomerManagement = () => {
         const updateData = { name: form.name, phone: form.phone, agentId: form.agentId };
         if (form.password) updateData.password = form.password;
         await updateAdminCustomer(editCustomer._id, updateData);
-        toast.success('Member updated');
+        toast.success('อัปเดตข้อมูลสมาชิกแล้ว');
       } else {
         await createAdminCustomer(form);
-        toast.success('Member created');
+        toast.success('สร้างสมาชิกแล้ว');
       }
       closeModal();
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Something went wrong');
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด');
     }
   };
 
   const handleDelete = async (customer) => {
-    if (!window.confirm(`Deactivate member "${customer.name}"?`)) return;
+    if (!window.confirm(`ต้องการปิดการใช้งานสมาชิก "${customer.name}" ใช่หรือไม่`)) return;
     try {
       await deleteAdminCustomer(customer._id);
-      toast.success('Member deactivated');
+      toast.success('ปิดการใช้งานสมาชิกแล้ว');
       await loadData();
     } catch (err) {
-      toast.error('Something went wrong');
+      toast.error('เกิดข้อผิดพลาด');
     }
   };
 
@@ -105,10 +105,10 @@ const CustomerManagement = () => {
     const unassignedCount = customers.filter((customer) => !customer.agentId).length;
 
     return [
-      { label: 'Total members', value: customers.length, hint: `${activeCount} active accounts` },
-      { label: 'Assigned agents', value: assignedAgentCount, hint: 'Distinct agents with linked members' },
-      { label: 'Visible rows', value: filteredCustomers.length, hint: 'After search and agent filter' },
-      { label: 'Needs assignment', value: unassignedCount, hint: 'Members without an active owner agent' }
+      { label: 'สมาชิกทั้งหมด', value: customers.length, hint: `ใช้งานอยู่ ${activeCount} บัญชี` },
+      { label: 'เจ้ามือที่ดูแล', value: assignedAgentCount, hint: 'จำนวนเจ้ามือที่มีสมาชิกผูกอยู่' },
+      { label: 'รายการที่แสดง', value: filteredCustomers.length, hint: 'หลังค้นหาและกรองเจ้ามือ' },
+      { label: 'ยังไม่ถูกมอบหมาย', value: unassignedCount, hint: 'สมาชิกที่ยังไม่มีเจ้ามือดูแล' }
     ];
   }, [customers, filteredCustomers.length]);
 
@@ -120,15 +120,15 @@ const CustomerManagement = () => {
     <div className="ops-page animate-fade-in">
       <section className="ops-hero">
         <div className="ops-hero-copy">
-          <span className="ui-eyebrow">Admin directory</span>
-          <h1 className="page-title">Member Management</h1>
-          <p className="page-subtitle">Oversee member accounts across the platform, reassign ownership, and keep account access clean before those members reach the agent layer.</p>
+          <span className="ui-eyebrow">สมุดรายชื่อผู้ดูแลระบบ</span>
+          <h1 className="page-title">จัดการสมาชิก</h1>
+          <p className="page-subtitle">ดูแลสมาชิกทั้งระบบ เปลี่ยนเจ้าของบัญชี และจัดระเบียบสิทธิ์การใช้งานก่อนส่งต่อให้ฝั่งเจ้ามือ</p>
         </div>
 
         <div className="ops-hero-side">
-          <span>Current filter</span>
-          <strong>{filterAgent ? 'Agent scope' : 'All agents'}</strong>
-          <small>{filteredCustomers.length} member rows visible</small>
+          <span>ตัวกรองปัจจุบัน</span>
+          <strong>{filterAgent ? 'กรองเฉพาะเจ้ามือ' : 'ทุกเจ้ามือ'}</strong>
+          <small>แสดงสมาชิก {filteredCustomers.length} รายการ</small>
         </div>
       </section>
 
@@ -145,15 +145,15 @@ const CustomerManagement = () => {
       <section className="card ops-section">
         <div className="ops-table-head">
           <div>
-            <div className="ui-eyebrow">Directory</div>
-            <h3 className="card-title">Member accounts</h3>
-            <p className="ops-table-note">Filter by owner agent, then search for individual members before editing or deactivating access.</p>
+            <div className="ui-eyebrow">รายชื่อบัญชี</div>
+            <h3 className="card-title">บัญชีสมาชิก</h3>
+            <p className="ops-table-note">เลือกกรองตามเจ้ามือก่อน แล้วค่อยค้นหาสมาชิกรายคนเพื่อแก้ไขหรือปิดการใช้งาน</p>
           </div>
           <div className="ops-actions">
-            <button className="btn btn-secondary" onClick={loadData}>Refresh</button>
+            <button className="btn btn-secondary" onClick={loadData}>รีเฟรช</button>
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
               <FiPlus />
-              Add member
+              เพิ่มสมาชิก
             </button>
           </div>
         </div>
@@ -163,14 +163,14 @@ const CustomerManagement = () => {
             <FiSearch />
             <input
               className="form-input"
-              placeholder="Search by member, username, phone, or agent"
+              placeholder="ค้นหาจากชื่อสมาชิก ชื่อผู้ใช้ เบอร์โทร หรือชื่อเจ้ามือ"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
 
           <select className="form-select" value={filterAgent} onChange={(event) => setFilterAgent(event.target.value)} style={{ width: 240 }}>
-            <option value="">All agents</option>
+            <option value="">ทุกเจ้ามือ</option>
             {agents.map((agent) => (
               <option key={agent._id} value={agent._id}>{agent.name}</option>
             ))}
@@ -181,18 +181,18 @@ const CustomerManagement = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Member</th>
-                <th>Username</th>
-                <th>Owner agent</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>สมาชิก</th>
+                <th>ชื่อผู้ใช้</th>
+                <th>เจ้ามือผู้ดูแล</th>
+                <th>เบอร์โทร</th>
+                <th>สถานะ</th>
+                <th>การจัดการ</th>
               </tr>
             </thead>
             <tbody>
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted" style={{ padding: 40 }}>No members match the current filters</td>
+                  <td colSpan="6" className="text-center text-muted" style={{ padding: 40 }}>ไม่พบสมาชิกตามตัวกรองปัจจุบัน</td>
                 </tr>
               ) : (
                 filteredCustomers.map((customer) => (
@@ -203,18 +203,18 @@ const CustomerManagement = () => {
                     <td>{customer.phone || '-'}</td>
                     <td>
                       <span className={`badge ${customer.isActive ? 'badge-success' : 'badge-danger'}`}>
-                        {customer.isActive ? 'Active' : 'Inactive'}
+                        {customer.isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
                       </span>
                     </td>
                     <td>
                       <div className="ops-actions">
                         <button className="btn btn-secondary btn-sm" onClick={() => openEdit(customer)}>
                           <FiEdit2 />
-                          Edit
+                          แก้ไข
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(customer)}>
                           <FiTrash2 />
-                          Deactivate
+                          ปิดใช้งาน
                         </button>
                       </div>
                     </td>
@@ -230,18 +230,18 @@ const CustomerManagement = () => {
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">Assignment</div>
-              <h3 className="card-title">Ownership coverage</h3>
+              <div className="ui-eyebrow">การมอบหมายดูแล</div>
+              <h3 className="card-title">ภาพรวมการดูแล</h3>
             </div>
           </div>
 
           <div className="ops-stack">
             <div className="ops-stat-row">
-              <span><FiUsers style={{ marginRight: 8 }} />Assigned agents</span>
+              <span><FiUsers style={{ marginRight: 8 }} />เจ้ามือที่รับผิดชอบ</span>
               <strong>{new Set(customers.map((customer) => customer.agentId?._id || customer.agentId).filter(Boolean)).size}</strong>
             </div>
             <div className="ops-stat-row">
-              <span><FiUserCheck style={{ marginRight: 8 }} />Active members</span>
+              <span><FiUserCheck style={{ marginRight: 8 }} />สมาชิกที่ใช้งานอยู่</span>
               <strong>{customers.filter((customer) => customer.isActive).length}</strong>
             </div>
           </div>
@@ -250,28 +250,28 @@ const CustomerManagement = () => {
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">Admin note</div>
-              <h3 className="card-title">Profile edits</h3>
+              <div className="ui-eyebrow">หมายเหตุผู้ดูแลระบบ</div>
+              <h3 className="card-title">การแก้ไขโปรไฟล์</h3>
             </div>
           </div>
 
           <div className="ops-stack">
             <div className="ops-feed-row">
               <div>
-                <strong>Ownership changes</strong>
-                <div className="ops-feed-meta">Reassigning a member here updates the admin-side owner link.</div>
+                <strong>การเปลี่ยนเจ้าของบัญชี</strong>
+                <div className="ops-feed-meta">เมื่อเปลี่ยนเจ้ามือในหน้านี้ ระบบจะอัปเดตความเป็นเจ้าของจากฝั่งผู้ดูแลระบบทันที</div>
               </div>
             </div>
-            <p className="ops-table-note">Passwords remain optional during edits so you can fix profile data without forcing a credential reset.</p>
+            <p className="ops-table-note">เวลาแก้ไขข้อมูล รหัสผ่านไม่บังคับ เพื่อให้แก้โปรไฟล์ได้โดยไม่ต้องรีเซ็ตรหัสผ่านทุกครั้ง</p>
           </div>
         </section>
       </section>
 
-      <Modal isOpen={showModal} onClose={closeModal} title={editCustomer ? 'Edit member' : 'Create member'}>
+      <Modal isOpen={showModal} onClose={closeModal} title={editCustomer ? 'แก้ไขสมาชิก' : 'สร้างสมาชิก'}>
         <form onSubmit={handleSubmit}>
           {!editCustomer ? (
             <div className="form-group">
-              <label className="form-label">Username *</label>
+              <label className="form-label">ชื่อผู้ใช้ *</label>
               <input
                 className="form-input"
                 value={form.username}
@@ -282,7 +282,7 @@ const CustomerManagement = () => {
           ) : null}
 
           <div className="form-group">
-            <label className="form-label">{editCustomer ? 'New password (optional)' : 'Password *'}</label>
+            <label className="form-label">{editCustomer ? 'รหัสผ่านใหม่ (ไม่บังคับ)' : 'รหัสผ่าน *'}</label>
             <input
               className="form-input"
               type="password"
@@ -293,7 +293,7 @@ const CustomerManagement = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Display name *</label>
+            <label className="form-label">ชื่อแสดงผล *</label>
             <input
               className="form-input"
               value={form.name}
@@ -303,7 +303,7 @@ const CustomerManagement = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Phone</label>
+            <label className="form-label">เบอร์โทร</label>
             <input
               className="form-input"
               value={form.phone}
@@ -312,14 +312,14 @@ const CustomerManagement = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Owner agent *</label>
+            <label className="form-label">เจ้ามือผู้ดูแล *</label>
             <select
               className="form-select"
               value={form.agentId}
               onChange={(event) => setForm({ ...form, agentId: event.target.value })}
               required
             >
-              <option value="">Select agent</option>
+              <option value="">เลือกเจ้ามือ</option>
               {agents.filter((agent) => agent.isActive).map((agent) => (
                 <option key={agent._id} value={agent._id}>{agent.name}</option>
               ))}
@@ -327,8 +327,8 @@ const CustomerManagement = () => {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-            <button type="submit" className="btn btn-primary">{editCustomer ? 'Save changes' : 'Create member'}</button>
+            <button type="button" className="btn btn-secondary" onClick={closeModal}>ยกเลิก</button>
+            <button type="submit" className="btn btn-primary">{editCustomer ? 'บันทึกการเปลี่ยนแปลง' : 'สร้างสมาชิก'}</button>
           </div>
         </form>
       </Modal>
