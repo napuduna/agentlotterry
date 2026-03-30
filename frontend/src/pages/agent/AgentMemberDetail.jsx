@@ -4,19 +4,20 @@ import toast from 'react-hot-toast';
 import { FiArrowLeft, FiHash, FiPhone, FiRefreshCw, FiRepeat, FiSave, FiWifi } from 'react-icons/fi';
 import PageSkeleton, { SectionSkeleton } from '../../components/PageSkeleton';
 import { useAuth } from '../../context/AuthContext';
+import { agentCopy } from '../../i18n/th/agent';
+import { getBetTypeLabel, getUserStatusLabel, getWalletDirectionLabel, getWalletEntryTypeLabel, getWalletReasonLabel } from '../../i18n/th/labels';
 import { getAgentMemberBootstrap, getAgentMemberDetail, getWalletHistory, getWalletSummary, transferWalletCredit, updateAgentMemberProfile } from '../../services/api';
 import { createMemberFormFromDetail, groupLotterySettingsByLeague, toggleBetType, updateLotterySetting } from './memberFormUtils';
 
 const tabs = ['ข้อมูลทั่วไป', 'สิทธิ์หวย', 'กระเป๋า'];
 const statusOptions = ['active', 'inactive', 'suspended'];
-const statusLabelMap = { active: 'ใช้งาน', inactive: 'ปิดใช้งาน', suspended: 'ระงับ' };
-const betTypeLabels = { '3top': '3 ตัวบน', '3tod': '3 ตัวโต๊ด', '2top': '2 ตัวบน', '2bottom': '2 ตัวล่าง', 'run_top': 'วิ่งบน', 'run_bottom': 'วิ่งล่าง' };
+const betTypeKeys = ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
 const toNumber = (value) => Number(value || 0);
 const money = (value) => toNumber(value).toLocaleString('th-TH');
 const formatDateTime = (value) => {
-  if (!value) return 'ยังไม่มีการใช้งานล่าสุด';
+  if (!value) return agentCopy.memberDetail.noRecentActivity;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'ยังไม่มีการใช้งานล่าสุด';
+  if (Number.isNaN(date.getTime())) return agentCopy.memberDetail.noRecentActivity;
   return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
@@ -191,9 +192,9 @@ const AgentMemberDetail = () => {
           <h1 className="page-title">{member.name}</h1>
           <p className="page-subtitle">@{member.username} • {member.memberCode || '-'} • ใช้งานล่าสุด {formatDateTime(member.lastActiveAt)}</p>
           <div className="member-meta-row">
-            <span><FiHash /> {member.memberCode || 'ยังไม่มีรหัสสมาชิก'}</span>
-            <span><FiPhone /> {member.phone || 'ยังไม่มีเบอร์โทร'}</span>
-            <span>{statusLabelMap[member.status] || member.status}</span>
+            <span><FiHash /> {member.memberCode || agentCopy.memberDetail.noMemberCode}</span>
+            <span><FiPhone /> {member.phone || agentCopy.memberDetail.noPhone}</span>
+            <span>{getUserStatusLabel(member.status)}</span>
           </div>
         </div>
         <div className="detail-actions">
@@ -236,12 +237,12 @@ const AgentMemberDetail = () => {
             <label><span>ชื่อแสดงผล</span><input value={form.account.name} onChange={(event) => updateAccount('name', event.target.value)} /></label>
             <label><span>เบอร์โทร</span><input value={form.account.phone} onChange={(event) => updateAccount('phone', event.target.value)} /></label>
             <label><span>รหัสสมาชิก</span><input value={form.account.memberCode} onChange={(event) => updateAccount('memberCode', event.target.value.toUpperCase())} /></label>
-            <label><span>สถานะ</span><select value={form.profile.status} onChange={(event) => updateProfile('status', event.target.value)}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabelMap[status] || status}</option>)}</select></label>
+            <label><span>สถานะ</span><select value={form.profile.status} onChange={(event) => updateProfile('status', event.target.value)}>{statusOptions.map((status) => <option key={status} value={status}>{getUserStatusLabel(status)}</option>)}</select></label>
             <label><span>เรทเริ่มต้น</span><select value={form.profile.defaultRateProfileId} onChange={(event) => updateProfile('defaultRateProfileId', event.target.value)}>{(bootstrap?.rateProfiles || []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
             <label><span>หุ้น %</span><input type="number" min="0" max="100" value={form.profile.stockPercent} onChange={(event) => updateProfile('stockPercent', event.target.value)} /></label>
             <label><span>เจ้าของ %</span><input type="number" min="0" max="100" value={form.profile.ownerPercent} onChange={(event) => updateProfile('ownerPercent', event.target.value)} /></label>
             <label><span>เก็บ %</span><input type="number" min="0" max="100" value={form.profile.keepPercent} onChange={(event) => updateProfile('keepPercent', event.target.value)} /></label>
-            <label><span>คอมมิชชั่น %</span><input type="number" min="0" max="100" value={form.profile.commissionRate} onChange={(event) => updateProfile('commissionRate', event.target.value)} /></label>
+            <label><span>คอมมิชชัน %</span><input type="number" min="0" max="100" value={form.profile.commissionRate} onChange={(event) => updateProfile('commissionRate', event.target.value)} /></label>
             <label className="full"><span>หมายเหตุ</span><textarea rows="5" value={form.profile.notes} onChange={(event) => updateProfile('notes', event.target.value)} /></label>
           </div>
           <div className="detail-footnote">เครดิตคงเหลือจะถูกจัดการผ่านแท็บกระเป๋า เพื่อให้ทุกการเปลี่ยนแปลงถูกบันทึกลงสมุดเครดิต</div>
@@ -273,17 +274,36 @@ const AgentMemberDetail = () => {
                       <label><span>หุ้น %</span><input type="number" min="0" max="100" value={lottery.stockPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { stockPercent: event.target.value })} /></label>
                       <label><span>เจ้าของ %</span><input type="number" min="0" max="100" value={lottery.ownerPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { ownerPercent: event.target.value })} /></label>
                       <label><span>เก็บ %</span><input type="number" min="0" max="100" value={lottery.keepPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepPercent: event.target.value })} /></label>
-                      <label><span>คอมมิชชั่น %</span><input type="number" min="0" max="100" value={lottery.commissionRate} onChange={(event) => patchLottery(lottery.lotteryTypeId, { commissionRate: event.target.value })} /></label>
+                      <label><span>คอมมิชชัน %</span><input type="number" min="0" max="100" value={lottery.commissionRate} onChange={(event) => patchLottery(lottery.lotteryTypeId, { commissionRate: event.target.value })} /></label>
                       <label><span>โหมดเก็บ</span><select value={lottery.keepMode} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepMode: event.target.value })}><option value="off">ปิด</option><option value="cap">จำกัดยอด</option></select></label>
                       <label><span>เพดานเก็บ</span><input type="number" min="0" value={lottery.keepCapAmount} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepCapAmount: event.target.value })} /></label>
                     </div>
                     <div className="lottery-toolbar"><label className="inline-check"><input type="checkbox" checked={lottery.useCustomRates} onChange={(event) => patchLottery(lottery.lotteryTypeId, { useCustomRates: event.target.checked })} />ใช้เรทกำหนดเอง</label></div>
                     <div className="bet-type-row">
-                      {lottery.supportedBetTypes.map((betType) => <button key={betType} type="button" className={`bet-chip ${lottery.enabledBetTypes.includes(betType) ? 'active' : ''}`} onClick={() => setForm((current) => ({ ...current, lotterySettings: toggleBetType(current.lotterySettings, lottery.lotteryTypeId, betType) }))}>{betTypeLabels[betType] || betType}</button>)}
+                      {lottery.supportedBetTypes.map((betType) => (
+                        <button
+                          key={betType}
+                          type="button"
+                          className={`bet-chip ${lottery.enabledBetTypes.includes(betType) ? 'active' : ''}`}
+                          onClick={() => setForm((current) => ({ ...current, lotterySettings: toggleBetType(current.lotterySettings, lottery.lotteryTypeId, betType) }))}
+                        >
+                          {getBetTypeLabel(betType)}
+                        </button>
+                      ))}
                     </div>
                     {lottery.useCustomRates ? (
                       <div className="detail-grid">
-                        {Object.keys(betTypeLabels).map((betType) => <label key={betType}><span>{betTypeLabels[betType]}</span><input type="number" min="0" value={lottery.customRates?.[betType] || 0} onChange={(event) => patchLottery(lottery.lotteryTypeId, { customRates: { ...lottery.customRates, [betType]: event.target.value } })} /></label>)}
+                        {betTypeKeys.map((betType) => (
+                          <label key={betType}>
+                            <span>{getBetTypeLabel(betType)}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={lottery.customRates?.[betType] || 0}
+                              onChange={(event) => patchLottery(lottery.lotteryTypeId, { customRates: { ...lottery.customRates, [betType]: event.target.value } })}
+                            />
+                          </label>
+                        ))}
                       </div>
                     ) : null}
                     <label className="textarea-block"><span>เลขที่ปิดรับ</span><textarea rows="3" value={(lottery.blockedNumbers || []).join('\n')} onChange={(event) => patchLottery(lottery.lotteryTypeId, { blockedNumbers: event.target.value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean) })} placeholder="หนึ่งเลขต่อหนึ่งบรรทัด" /></label>
@@ -313,7 +333,7 @@ const AgentMemberDetail = () => {
                     <div className="detail-grid">
                       <label><span>ทิศทาง</span><select value={transferForm.direction} onChange={(event) => setTransferForm((current) => ({ ...current, direction: event.target.value }))}><option value="to_member">จากเจ้ามือไปสมาชิก</option><option value="from_member">จากสมาชิกไปเจ้ามือ</option></select></label>
                       <label><span>จำนวนเครดิต</span><input type="number" min="0" step="0.01" value={transferForm.amount} onChange={(event) => setTransferForm((current) => ({ ...current, amount: event.target.value }))} /></label>
-                      <label className="full"><span>หมายเหตุ</span><textarea rows="4" value={transferForm.note} onChange={(event) => setTransferForm((current) => ({ ...current, note: event.target.value }))} placeholder="ระบุหมายเหตุเพิ่มเติมได้" /></label>
+                      <label className="full"><span>หมายเหตุ</span><textarea rows="4" value={transferForm.note} onChange={(event) => setTransferForm((current) => ({ ...current, note: event.target.value }))} placeholder={agentCopy.memberDetail.walletNotePlaceholder} /></label>
                     </div>
                     <div className="inline-actions"><button className="btn btn-primary" type="submit" disabled={walletSubmitting}><FiRepeat />{walletSubmitting ? 'กำลังโอน...' : 'ยืนยันโอนเครดิต'}</button></div>
                   </form>
@@ -321,16 +341,16 @@ const AgentMemberDetail = () => {
 
                 <section className="card detail-panel">
                   <div className="panel-head"><div><div className="panel-eyebrow">ประวัติสมุดเครดิต</div><h3 className="card-title">ความเคลื่อนไหวล่าสุด</h3></div></div>
-                  {walletEntries.length === 0 ? <div className="empty-state"><div className="empty-state-text">ยังไม่มีความเคลื่อนไหวกระเป๋าของสมาชิกคนนี้</div></div> : (
+                  {walletEntries.length === 0 ? <div className="empty-state"><div className="empty-state-text">{agentCopy.memberDetail.noWalletActivity}</div></div> : (
                     <div className="detail-stack">
                       {walletEntries.map((entry) => (
                         <article key={entry.id} className={`wallet-row wallet-${entry.direction}`}>
                           <div className="wallet-main">
                             <div className="wallet-topline">
-                              <strong>{entry.entryType === 'transfer' ? 'โอนเครดิต' : 'ปรับยอด'}</strong>
-                              <span className={`wallet-direction-pill wallet-direction-${entry.direction}`}>{entry.direction === 'credit' ? 'เข้า' : 'ออก'}</span>
+                              <strong>{getWalletEntryTypeLabel(entry.entryType)}</strong>
+                              <span className={`wallet-direction-pill wallet-direction-${entry.direction}`}>{getWalletDirectionLabel(entry.direction)}</span>
                             </div>
-                            <div className="wallet-meta">{entry.counterparty?.name || entry.performedBy?.name || 'ระบบ'} • {entry.reasonCode || '-'} • คงเหลือ {money(entry.balanceAfter)}</div>
+                            <div className="wallet-meta">{entry.counterparty?.name || entry.performedBy?.name || agentCopy.memberDetail.systemActor} • {getWalletReasonLabel(entry.reasonCode)} • คงเหลือ {money(entry.balanceAfter)}</div>
                             {entry.note ? <div className="wallet-note-text">{entry.note}</div> : null}
                           </div>
                           <div className="wallet-right">
@@ -389,7 +409,7 @@ const AgentMemberDetail = () => {
         .wallet-credit{border-left-color:var(--success)} .wallet-debit{border-left-color:var(--danger)}
         .wallet-main{min-width:0;display:flex;flex-direction:column;gap:6px}
         .wallet-topline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-        .wallet-direction-pill{padding:5px 10px;border-radius:999px;font-size:.72rem;font-weight:700;text-transform:capitalize}
+        .wallet-direction-pill{padding:5px 10px;border-radius:999px;font-size:.72rem;font-weight:700}
         .wallet-direction-credit{background:rgba(16,185,129,.12);color:#34d399}
         .wallet-direction-debit{background:rgba(239,68,68,.12);color:#f87171}
         .wallet-right{text-align:right;display:flex;flex-direction:column;gap:4px}

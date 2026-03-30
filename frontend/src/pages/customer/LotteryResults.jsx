@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 import { FiActivity, FiAward, FiExternalLink } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { memberCopy } from '../../i18n/th/member';
+import { getResultSourceTypeLabel } from '../../i18n/th/labels';
 import { useCatalog } from '../../context/CatalogContext';
 
 const LotteryResults = () => {
+  const copy = memberCopy.results;
   const { recentResults, loading } = useCatalog();
 
   const latest = recentResults[0] || null;
@@ -22,9 +25,9 @@ const LotteryResults = () => {
     <div className="animate-fade-in results-page">
       <section className="results-hero card">
         <div className="results-hero-copy">
-          <span className="section-eyebrow">Results feed</span>
-          <h1 className="page-title">Latest results</h1>
-          <p className="page-subtitle">Track the latest published results from every market that has been synced into your system.</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
       </section>
 
@@ -33,16 +36,16 @@ const LotteryResults = () => {
           <div className="featured-result-topline"><FiAward /> {latest.lotteryName} • {latest.roundCode}</div>
           <div className="featured-result-headline">{latest.headline || '-'}</div>
           <div className="featured-result-grid">
-            <div className="featured-result-card"><span>3 Top</span><strong>{latest.threeTop || '-'}</strong></div>
-            <div className="featured-result-card"><span>2 Bottom</span><strong>{latest.twoBottom || '-'}</strong></div>
-            <div className="featured-result-card"><span>Source</span><strong>{latest.sourceType || '-'}</strong></div>
+            <div className="featured-result-card"><span>{copy.featured.threeTop}</span><strong>{latest.threeTop || '-'}</strong></div>
+            <div className="featured-result-card"><span>{copy.featured.twoBottom}</span><strong>{latest.twoBottom || '-'}</strong></div>
+            <div className="featured-result-card"><span>{copy.featured.source}</span><strong>{getResultSourceTypeLabel(latest.sourceType)}</strong></div>
           </div>
         </section>
       ) : (
         <section className="card">
           <div className="empty-state">
             <div className="empty-state-icon"><FiAward /></div>
-            <div className="empty-state-text">No results have been published yet.</div>
+            <div className="empty-state-text">{copy.empty}</div>
           </div>
         </section>
       )}
@@ -51,7 +54,7 @@ const LotteryResults = () => {
         <section key={key} className="card results-panel">
           <div className="panel-head">
             <div>
-              <div className="panel-eyebrow">Market feed</div>
+              <div className="panel-eyebrow">{copy.panelEyebrow}</div>
               <h3 className="card-title"><FiActivity style={{ marginRight: 8 }} />{items[0]?.lotteryName || key}</h3>
             </div>
           </div>
@@ -60,11 +63,11 @@ const LotteryResults = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Round</th>
-                  <th>Headline</th>
-                  <th>3 Top</th>
-                  <th>2 Bottom</th>
-                  <th>Source</th>
+                  <th>{copy.table.round}</th>
+                  <th>{copy.table.headline}</th>
+                  <th>{copy.table.threeTop}</th>
+                  <th>{copy.table.twoBottom}</th>
+                  <th>{copy.table.source}</th>
                 </tr>
               </thead>
               <tbody>
@@ -76,7 +79,7 @@ const LotteryResults = () => {
                     <td>{result.twoBottom || '-'}</td>
                     <td>
                       <span className="badge badge-info source-pill">
-                        {result.sourceType || '-'}
+                        {getResultSourceTypeLabel(result.sourceType)}
                         {result.sourceUrl ? <FiExternalLink /> : null}
                       </span>
                     </td>

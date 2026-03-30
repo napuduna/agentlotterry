@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiFileText } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { adminCopy } from '../../i18n/th/admin';
 import { getAdminReports } from '../../services/api';
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
+const copy = adminCopy.reports;
 
 const AdminReports = () => {
   const [reports, setReports] = useState([]);
@@ -32,9 +34,9 @@ const AdminReports = () => {
   const totalBets = reports.reduce((sum, report) => sum + (report.betCount || 0), 0);
 
   const overviewCards = useMemo(() => ([
-    { label: 'รายการแทง', value: money(totalBets), hint: 'รวมทุกรายการภายใต้ตัวกรองปัจจุบัน' },
-    { label: 'ยอดขายรวม', value: `${money(totalAmount)} บาท`, hint: 'ยอดรับจากเจ้ามือทั้งหมด' },
-    { label: 'ผลสุทธิ', value: `${money(totalAmount - totalWon)} บาท`, hint: 'ยอดขายรวมหลังหักยอดจ่าย' }
+    { label: copy.overviewCards.totalBets.label, value: money(totalBets), hint: copy.overviewCards.totalBets.hint },
+    { label: copy.overviewCards.totalAmount.label, value: `${money(totalAmount)} บาท`, hint: copy.overviewCards.totalAmount.hint },
+    { label: copy.overviewCards.netProfit.label, value: `${money(totalAmount - totalWon)} บาท`, hint: copy.overviewCards.netProfit.hint }
   ]), [totalAmount, totalWon, totalBets]);
 
   if (loading) {
@@ -45,15 +47,15 @@ const AdminReports = () => {
     <div className="ops-page animate-fade-in">
       <section className="ops-hero">
         <div className="ops-hero-copy">
-          <span className="ui-eyebrow">ภาพรวมรายงาน</span>
-          <h1 className="page-title">รายงานแอดมิน</h1>
-          <p className="page-subtitle">ดูยอดขาย ยอดจ่าย และผลสุทธิแยกตามงวดและเจ้ามือจากหน้ารายงานเดียว</p>
+          <span className="ui-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
 
         <div className="ops-hero-side">
-          <span>ผลสุทธิช่วงนี้</span>
+          <span>{copy.periodNet}</span>
           <strong>{money(totalAmount - totalWon)} บาท</strong>
-          <small>{reports.length} แถวรายงานที่จัดกลุ่มแล้ว</small>
+          <small>{copy.groupedRows(reports.length)}</small>
         </div>
       </section>
 
@@ -70,14 +72,14 @@ const AdminReports = () => {
       <section className="card ops-section">
         <div className="ui-panel-head">
           <div>
-            <div className="ui-eyebrow">ตัวกรอง</div>
-            <h3 className="card-title">เลือกงวด</h3>
+            <div className="ui-eyebrow">{copy.filterEyebrow}</div>
+            <h3 className="card-title">{copy.filterTitle}</h3>
           </div>
         </div>
 
         <div className="ops-form-grid single">
           <label className="form-group" style={{ marginBottom: 0 }}>
-            <span className="form-label">วันที่งวด</span>
+            <span className="form-label">{copy.roundDate}</span>
             <input
               type="text"
               className="form-input"
@@ -92,9 +94,9 @@ const AdminReports = () => {
       <section className="card ops-section">
         <div className="ops-table-head">
           <div>
-            <div className="ui-eyebrow">ตารางรายงาน</div>
-            <h3 className="card-title"><FiFileText style={{ marginRight: 8 }} />สรุปตามเจ้ามือและงวด</h3>
-            <p className="ops-table-note">แต่ละแถวคือข้อมูลสรุปที่จัดกลุ่มตามตลาด งวด และเจ้ามือ</p>
+            <div className="ui-eyebrow">{copy.tableEyebrow}</div>
+            <h3 className="card-title"><FiFileText style={{ marginRight: 8 }} />{copy.tableTitle}</h3>
+            <p className="ops-table-note">{copy.tableNote}</p>
           </div>
         </div>
 
@@ -102,26 +104,26 @@ const AdminReports = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>งวด</th>
-                <th>ตลาด</th>
-                <th>เจ้ามือ</th>
-                <th>จำนวนรายการ</th>
-                <th>ยอดขาย</th>
-                <th>ยอดจ่าย</th>
-                <th>ผลสุทธิ</th>
-                <th>ถูก / ไม่ถูก / รอผล</th>
+                <th>{copy.columns.roundDate}</th>
+                <th>{copy.columns.marketName}</th>
+                <th>{copy.columns.agentName}</th>
+                <th>{copy.columns.betCount}</th>
+                <th>{copy.columns.totalAmount}</th>
+                <th>{copy.columns.totalWon}</th>
+                <th>{copy.columns.netProfit}</th>
+                <th>{copy.columns.breakdown}</th>
               </tr>
             </thead>
             <tbody>
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>ยังไม่มีข้อมูลรายงาน</td>
+                  <td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>{copy.empty}</td>
                 </tr>
               ) : (
                 reports.map((report, index) => (
                   <tr key={`${report.roundDate}-${report.agentName || index}`}>
                     <td>{report.roundDate}</td>
-                    <td>{report.marketName || 'ตลาดหวย'}</td>
+                    <td>{report.marketName || adminCopy.common.defaultMarket}</td>
                     <td>{report.agentName || '-'}</td>
                     <td>{report.betCount}</td>
                     <td>{money(report.totalAmount)} บาท</td>

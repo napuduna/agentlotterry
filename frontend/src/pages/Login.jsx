@@ -39,7 +39,7 @@ const Login = () => {
       <div className="login-container animate-slide-up">
         <div className="login-logo">
           <div className="login-logo-icon">L</div>
-          <h1 className="login-title">Agent Lottery</h1>
+          <h1 className="login-title">หวยเอเย่นต์</h1>
           <p className="login-subtitle">ระบบจัดการหวยออนไลน์</p>
         </div>
 
@@ -92,7 +92,7 @@ const Login = () => {
         </form>
 
         <div className="login-footer">
-          <p>© 2026 ระบบจัดการหวย Agent Lottery</p>
+          <p>© 2026 ระบบจัดการหวยเอเย่นต์</p>
         </div>
       </div>
 

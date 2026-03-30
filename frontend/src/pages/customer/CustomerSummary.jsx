@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { memberCopy } from '../../i18n/th/member';
 import { getMemberSummary } from '../../services/api';
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerSummary = () => {
+  const copy = memberCopy.summary;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,47 +34,47 @@ const CustomerSummary = () => {
     <div className="summary-page animate-fade-in">
       <section className={`summary-hero ${overall.netResult >= 0 ? 'positive' : 'negative'}`}>
         <div className="summary-hero-copy">
-          <span className="section-eyebrow">Performance summary</span>
-          <h1 className="page-title">Summary</h1>
-          <p className="page-subtitle">See your overall net result, betting volume, and round-by-round performance at a glance.</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
         <div className="summary-hero-score">
-          <span className="summary-hero-label">Net result</span>
+          <span className="summary-hero-label">{copy.netResult}</span>
           <span className="summary-hero-value">{overall.netResult >= 0 ? '+' : ''}{money(overall.netResult)} ฿</span>
           <span className="summary-hero-icon">{overall.netResult >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}</span>
         </div>
       </section>
 
       <section className="summary-stats-grid">
-        <article className="summary-stat-card"><span>Total bets</span><strong>{money(overall.totalBets)}</strong><small>Counted from the new slip engine</small></article>
-        <article className="summary-stat-card"><span>Total stake</span><strong>{money(overall.totalAmount)} ฿</strong><small>Gross amount you placed</small></article>
-        <article className="summary-stat-card"><span>Total won</span><strong>{money(overall.totalWon)} ฿</strong><small>Payout already resolved to your account</small></article>
+        <article className="summary-stat-card"><span>{copy.stats.totalBets}</span><strong>{money(overall.totalBets)}</strong><small>{copy.stats.totalBetsHint}</small></article>
+        <article className="summary-stat-card"><span>{copy.stats.totalAmount}</span><strong>{money(overall.totalAmount)} ฿</strong><small>{copy.stats.totalAmountHint}</small></article>
+        <article className="summary-stat-card"><span>{copy.stats.totalWon}</span><strong>{money(overall.totalWon)} ฿</strong><small>{copy.stats.totalWonHint}</small></article>
       </section>
 
       <section className="summary-rounds-panel card">
         <div className="panel-head">
           <div>
-            <div className="panel-eyebrow">Round breakdown</div>
-            <h3 className="card-title">By round</h3>
+            <div className="panel-eyebrow">{copy.panelEyebrow}</div>
+            <h3 className="card-title">{copy.panelTitle}</h3>
           </div>
         </div>
 
         <div className="summary-rounds">
           {(!data?.rounds || data.rounds.length === 0) ? (
-            <div className="empty-state"><div className="empty-state-text">No summary data yet.</div></div>
+            <div className="empty-state"><div className="empty-state-text">{copy.empty}</div></div>
           ) : data.rounds.map((round) => (
             <article key={`${round.roundCode}-${round.marketId}`} className="summary-round-card">
               <div className="summary-round-top">
                 <div>
-                  <div className="summary-round-market">{round.marketName || 'Lottery market'}</div>
-                  <div className="summary-round-date">{round.roundCode || round.roundDate} • {round.betCount} bets</div>
+                  <div className="summary-round-market">{round.marketName || copy.fallbackMarketName}</div>
+                  <div className="summary-round-date">{round.roundCode || round.roundDate} • {copy.betCount(round.betCount)}</div>
                 </div>
                 <div className={`summary-round-net ${(round.netResult || 0) >= 0 ? 'positive' : 'negative'}`}>
                   {(round.netResult || 0) >= 0 ? '+' : ''}{money(round.netResult)} ฿
                 </div>
               </div>
               <div className="summary-round-bottom">
-                <span>Stake {money(round.totalAmount)} ฿</span>
+                <span>{copy.stake(money(round.totalAmount))}</span>
                 <span className="summary-round-results">
                   <span className="summary-dot dot-won"></span>{round.wonCount || 0}
                   <span className="summary-dot dot-lost"></span>{round.lostCount || 0}

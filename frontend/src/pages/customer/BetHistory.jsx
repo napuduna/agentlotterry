@@ -3,21 +3,18 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { FiClock, FiFileText, FiRotateCcw, FiSlash } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { memberCopy } from '../../i18n/th/member';
+import { getSlipStatusLabel } from '../../i18n/th/labels';
 import { cancelMemberSlip, getMemberSlips } from '../../services/api';
 
 const tabs = [
-  { value: 'draft', label: 'Draft slips', icon: <FiFileText /> },
-  { value: 'submitted', label: 'Submitted slips', icon: <FiClock /> },
-  { value: 'cancelled', label: 'Cancelled slips', icon: <FiSlash /> }
+  { value: 'draft', label: memberCopy.history.tabs.draft, icon: <FiFileText /> },
+  { value: 'submitted', label: memberCopy.history.tabs.submitted, icon: <FiClock /> },
+  { value: 'cancelled', label: memberCopy.history.tabs.cancelled, icon: <FiSlash /> }
 ];
 
-const statusLabels = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  cancelled: 'Cancelled'
-};
-
 const BetHistory = () => {
+  const copy = memberCopy.history;
   const [activeTab, setActiveTab] = useState('draft');
   const [slips, setSlips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +27,7 @@ const BetHistory = () => {
       setSlips(res.data || []);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to load slip history');
+      toast.error(copy.loadError);
     } finally {
       setLoading(false);
     }
@@ -44,11 +41,11 @@ const BetHistory = () => {
     setCancellingId(slipId);
     try {
       await cancelMemberSlip(slipId);
-      toast.success('Slip cancelled');
+      toast.success(copy.cancelSuccess);
       await loadSlips(activeTab);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to cancel slip');
+      toast.error(error.response?.data?.message || copy.cancelError);
     } finally {
       setCancellingId('');
     }
@@ -58,11 +55,11 @@ const BetHistory = () => {
     <div className="animate-fade-in customer-history-page">
       <section className="history-hero card">
         <div className="history-hero-copy">
-          <span className="section-eyebrow">Slip timeline</span>
-          <h1 className="page-title">History</h1>
-          <p className="page-subtitle">Review draft slips, submitted orders, and cancelled slips from the new slip engine in one place.</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
-        <Link to="/customer/bet" className="btn btn-primary">Create new slip</Link>
+        <Link to="/customer/bet" className="btn btn-primary">{copy.cta}</Link>
       </section>
 
       <div className="history-filter-chips">
@@ -79,8 +76,8 @@ const BetHistory = () => {
         <section className="card">
           <div className="empty-state">
             <div className="empty-state-icon"><FiFileText /></div>
-            <div className="empty-state-text">No slips in this section yet.</div>
-            <Link to="/customer/bet" className="btn btn-secondary btn-sm">Go to betting console</Link>
+            <div className="empty-state-text">{copy.empty}</div>
+            <Link to="/customer/bet" className="btn btn-secondary btn-sm">{copy.emptyCta}</Link>
           </div>
         </section>
       ) : (
@@ -92,16 +89,16 @@ const BetHistory = () => {
                   <div className="slip-history-number">{slip.slipNumber}</div>
                   <div className="slip-history-market">{slip.lotteryName} • {slip.roundCode}</div>
                 </div>
-                <span className={`badge badge-${slip.status === 'submitted' ? 'success' : slip.status === 'cancelled' ? 'danger' : 'info'}`}>{statusLabels[slip.status] || slip.status}</span>
+                <span className={`badge badge-${slip.status === 'submitted' ? 'success' : slip.status === 'cancelled' ? 'danger' : 'info'}`}>{getSlipStatusLabel(slip.status)}</span>
               </div>
 
               {slip.memo ? <div className="slip-history-memo">{slip.memo}</div> : null}
 
               <div className="slip-history-grid">
-                <div className="slip-history-stat"><span>Items</span><strong>{slip.itemCount}</strong></div>
-                <div className="slip-history-stat"><span>Stake</span><strong>{slip.totalAmount.toLocaleString('th-TH')} ฿</strong></div>
-                <div className="slip-history-stat"><span>Won</span><strong>{(slip.summary?.totalWon || 0).toLocaleString('th-TH')} ฿</strong></div>
-                <div className="slip-history-stat"><span>Pending</span><strong>{slip.summary?.pendingCount || 0}</strong></div>
+                <div className="slip-history-stat"><span>{copy.stats.itemCount}</span><strong>{slip.itemCount}</strong></div>
+                <div className="slip-history-stat"><span>{copy.stats.totalAmount}</span><strong>{slip.totalAmount.toLocaleString('th-TH')} ฿</strong></div>
+                <div className="slip-history-stat"><span>{copy.stats.totalWon}</span><strong>{(slip.summary?.totalWon || 0).toLocaleString('th-TH')} ฿</strong></div>
+                <div className="slip-history-stat"><span>{copy.stats.pending}</span><strong>{slip.summary?.pendingCount || 0}</strong></div>
               </div>
 
               <div className="slip-preview-list">
@@ -112,7 +109,7 @@ const BetHistory = () => {
                 <div className="slip-history-date">{slip.submittedAt || slip.createdAt ? new Date(slip.submittedAt || slip.createdAt).toLocaleString('th-TH') : '-'}</div>
                 {slip.canCancel ? (
                   <button className="btn btn-danger" onClick={() => handleCancel(slip.id)} disabled={cancellingId === slip.id}>
-                    <FiRotateCcw /> Cancel slip
+                    <FiRotateCcw /> {copy.cancelSlip}
                   </button>
                 ) : null}
               </div>

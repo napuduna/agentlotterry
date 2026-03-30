@@ -3,9 +3,12 @@ import toast from 'react-hot-toast';
 import { FiDollarSign, FiEdit2, FiPlus, FiSearch, FiShield, FiTrash2, FiUsers } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
+import { adminCopy } from '../../i18n/th/admin';
+import { getUserStatusLabel } from '../../i18n/th/labels';
 import { adjustWalletCredit, createAgent, deleteAgent, getAgents, updateAgent } from '../../services/api';
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
+const copy = adminCopy.agents;
 
 const AgentManagement = () => {
   const [agents, setAgents] = useState([]);
@@ -143,10 +146,10 @@ const AgentManagement = () => {
     const totalSales = agents.reduce((sum, agent) => sum + Number(agent.totalAmount || 0), 0);
 
     return [
-      { label: 'เจ้ามือทั้งหมด', value: agents.length, hint: `ใช้งานอยู่ ${activeCount} คน` },
-      { label: 'สมาชิกในสายงาน', value: money(totalMembers), hint: 'สมาชิกที่ถูกผูกกับเจ้ามือทั้งหมด' },
-      { label: 'เครดิตเจ้ามือรวม', value: `${money(totalCredit)} บาท`, hint: 'ยอดคงเหลือที่ผู้ดูแลระบบควบคุม' },
-      { label: 'ยอดขายรวม', value: `${money(totalSales)} บาท`, hint: 'ยอดแทงสะสมของทุกบัญชีเจ้ามือ' }
+      { label: copy.overviewCards.totalAgents.label, value: agents.length, hint: copy.overviewCards.totalAgents.hint(activeCount) },
+      { label: copy.overviewCards.totalMembers.label, value: money(totalMembers), hint: copy.overviewCards.totalMembers.hint },
+      { label: copy.overviewCards.totalCredit.label, value: `${money(totalCredit)} บาท`, hint: copy.overviewCards.totalCredit.hint },
+      { label: copy.overviewCards.totalSales.label, value: `${money(totalSales)} บาท`, hint: copy.overviewCards.totalSales.hint }
     ];
   }, [agents]);
 
@@ -158,15 +161,15 @@ const AgentManagement = () => {
     <div className="ops-page animate-fade-in">
       <section className="ops-hero">
         <div className="ops-hero-copy">
-          <span className="ui-eyebrow">ศูนย์ควบคุมผู้ดูแลระบบ</span>
-          <h1 className="page-title">จัดการเจ้ามือ</h1>
-          <p className="page-subtitle">สร้างบัญชีเจ้ามือ ดูแลเครดิต และควบคุมสถานะการใช้งานจากหน้าจอเดียว</p>
+          <span className="ui-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
 
         <div className="ops-hero-side">
-          <span>จำนวนที่แสดงหลังกรอง</span>
+          <span>{copy.filteredCount}</span>
           <strong>{filteredAgents.length}</strong>
-          <small>ใช้งานอยู่ {agents.filter((agent) => agent.isActive).length} คน</small>
+          <small>{copy.activeCount(agents.filter((agent) => agent.isActive).length)}</small>
         </div>
       </section>
 
@@ -183,15 +186,15 @@ const AgentManagement = () => {
       <section className="card ops-section">
         <div className="ops-table-head">
           <div>
-            <div className="ui-eyebrow">รายชื่อบัญชี</div>
-            <h3 className="card-title">บัญชีเจ้ามือ</h3>
-            <p className="ops-table-note">ค้นหาตามชื่อ ชื่อผู้ใช้ หรือเบอร์โทร ก่อนจัดการบัญชีรายคน</p>
+            <div className="ui-eyebrow">{copy.listEyebrow}</div>
+            <h3 className="card-title">{copy.listTitle}</h3>
+            <p className="ops-table-note">{copy.listNote}</p>
           </div>
           <div className="ops-actions">
-            <button className="btn btn-secondary" onClick={loadAgents}>รีเฟรช</button>
+            <button className="btn btn-secondary" onClick={loadAgents}>{adminCopy.common.refresh}</button>
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
               <FiPlus />
-              เพิ่มเจ้ามือ
+              {copy.add}
             </button>
           </div>
         </div>
@@ -202,7 +205,7 @@ const AgentManagement = () => {
             <input
               type="text"
               className="form-input"
-              placeholder="ค้นหาเจ้ามือตามชื่อ ชื่อผู้ใช้ หรือเบอร์โทร"
+              placeholder={copy.searchPlaceholder}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -213,20 +216,20 @@ const AgentManagement = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>เจ้ามือ</th>
-                <th>ชื่อผู้ใช้</th>
-                <th>เบอร์โทร</th>
-                <th>สมาชิก</th>
-                <th>เครดิต</th>
-                <th>ยอดขาย</th>
-                <th>สถานะ</th>
-                <th>การจัดการ</th>
+                <th>{copy.columns.name}</th>
+                <th>{copy.columns.username}</th>
+                <th>{copy.columns.phone}</th>
+                <th>{copy.columns.members}</th>
+                <th>{copy.columns.credit}</th>
+                <th>{copy.columns.sales}</th>
+                <th>{copy.columns.status}</th>
+                <th>{copy.columns.actions}</th>
               </tr>
             </thead>
             <tbody>
               {filteredAgents.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>ไม่พบเจ้ามือตามคำค้นปัจจุบัน</td>
+                  <td colSpan="8" className="text-center text-muted" style={{ padding: 40 }}>{copy.empty}</td>
                 </tr>
               ) : (
                 filteredAgents.map((agent) => (
@@ -243,22 +246,22 @@ const AgentManagement = () => {
                         className={`badge ${agent.isActive ? 'badge-success' : 'badge-danger'} agent-status-toggle`}
                         onClick={() => handleToggleActive(agent)}
                       >
-                        {agent.isActive ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        {getUserStatusLabel(agent.isActive ? 'active' : 'inactive')}
                       </button>
                     </td>
                     <td>
                       <div className="ops-actions">
                         <button className="btn btn-secondary btn-sm" onClick={() => openCreditModal(agent)}>
                           <FiDollarSign />
-                          เครดิต
+                          {copy.credit}
                         </button>
                         <button className="btn btn-secondary btn-sm" onClick={() => openEdit(agent)}>
                           <FiEdit2 />
-                          แก้ไข
+                          {copy.edit}
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(agent)}>
                           <FiTrash2 />
-                          ปิดใช้งาน
+                          {copy.deactivate}
                         </button>
                       </div>
                     </td>
@@ -274,19 +277,19 @@ const AgentManagement = () => {
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">ภาพรวมการดูแล</div>
-              <h3 className="card-title">บันทึกการใช้งาน</h3>
+              <div className="ui-eyebrow">{copy.operationsEyebrow}</div>
+              <h3 className="card-title">{copy.operationsTitle}</h3>
             </div>
           </div>
 
           <div className="ops-stack">
             <div className="ops-stat-row">
-              <span><FiShield style={{ marginRight: 8 }} />ควบคุมบัญชี</span>
-              <strong>เปิดหรือปิดการใช้งานได้ในคลิกเดียว</strong>
+              <span><FiShield style={{ marginRight: 8 }} />{copy.controlAccounts}</span>
+              <strong>{copy.controlAccountsHint}</strong>
             </div>
             <div className="ops-stat-row">
-              <span><FiUsers style={{ marginRight: 8 }} />ภาระสมาชิก</span>
-              <strong>มีสมาชิกอยู่ในสายงาน {money(agents.reduce((sum, agent) => sum + Number(agent.customerCount || 0), 0))} คน</strong>
+              <span><FiUsers style={{ marginRight: 8 }} />{copy.memberLoad}</span>
+              <strong>{copy.memberLoadHint(money(agents.reduce((sum, agent) => sum + Number(agent.customerCount || 0), 0)))}</strong>
             </div>
           </div>
         </section>
@@ -294,32 +297,32 @@ const AgentManagement = () => {
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">กระเป๋าเครดิต</div>
-              <h3 className="card-title">สรุปเครดิต</h3>
+              <div className="ui-eyebrow">{copy.walletEyebrow}</div>
+              <h3 className="card-title">{copy.walletTitle}</h3>
             </div>
           </div>
 
           <div className="ops-stack">
             <div className="ops-feed-row">
               <div>
-                <strong>เครดิตเจ้ามือรวม</strong>
-                <div className="ops-feed-meta">ติดตามผ่านสมุดเครดิตกลาง</div>
+                <strong>{copy.walletTotal}</strong>
+                <div className="ops-feed-meta">{copy.walletSource}</div>
               </div>
               <div className="ops-feed-right">
                 <strong>{money(agents.reduce((sum, agent) => sum + Number(agent.creditBalance || 0), 0))} บาท</strong>
-                <span className="ops-feed-meta">ยอดคงเหลือปัจจุบัน</span>
+                <span className="ops-feed-meta">{copy.walletBalance}</span>
               </div>
             </div>
-            <p className="ops-table-note">ใช้ปุ่มเครดิตในแต่ละแถวเมื่อต้องการเพิ่มหรือลดยอด โดยไม่ต้องแก้ไขข้อมูลโปรไฟล์</p>
+            <p className="ops-table-note">{copy.walletHint}</p>
           </div>
         </section>
       </section>
 
-      <Modal isOpen={showModal} onClose={closeModal} title={editAgent ? 'แก้ไขเจ้ามือ' : 'สร้างเจ้ามือ'}>
+      <Modal isOpen={showModal} onClose={closeModal} title={editAgent ? copy.editTitle : copy.createTitle}>
         <form onSubmit={handleSubmit}>
           {!editAgent ? (
             <div className="form-group">
-              <label className="form-label">ชื่อผู้ใช้ *</label>
+              <label className="form-label">{copy.username}</label>
               <input
                 className="form-input"
                 value={form.username}
@@ -330,7 +333,7 @@ const AgentManagement = () => {
           ) : null}
 
           <div className="form-group">
-            <label className="form-label">{editAgent ? 'รหัสผ่านใหม่ (ไม่บังคับ)' : 'รหัสผ่าน *'}</label>
+            <label className="form-label">{editAgent ? copy.passwordOptional : copy.passwordRequired}</label>
             <input
               className="form-input"
               type="password"
@@ -341,7 +344,7 @@ const AgentManagement = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">ชื่อแสดงผล *</label>
+            <label className="form-label">{copy.displayName}</label>
             <input
               className="form-input"
               value={form.name}
@@ -351,7 +354,7 @@ const AgentManagement = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">เบอร์โทร</label>
+            <label className="form-label">{copy.phoneLabel}</label>
             <input
               className="form-input"
               value={form.phone}
@@ -360,46 +363,46 @@ const AgentManagement = () => {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>ยกเลิก</button>
-            <button type="submit" className="btn btn-primary">{editAgent ? 'บันทึกการเปลี่ยนแปลง' : 'สร้างเจ้ามือ'}</button>
+            <button type="button" className="btn btn-secondary" onClick={closeModal}>{adminCopy.common.cancel}</button>
+            <button type="submit" className="btn btn-primary">{editAgent ? adminCopy.common.saveChanges : copy.createSubmit}</button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={showCreditModal} onClose={closeCreditModal} title={`ปรับเครดิต${creditTarget ? `: ${creditTarget.name}` : ''}`}>
+      <Modal isOpen={showCreditModal} onClose={closeCreditModal} title={copy.creditModalTitle(creditTarget?.name)}>
         <form onSubmit={handleAdjustCredit}>
           <div className="form-group">
-            <label className="form-label">ยอดคงเหลือปัจจุบัน</label>
+            <label className="form-label">{copy.currentBalance}</label>
             <input className="form-input" value={`${money(creditTarget?.creditBalance || 0)} บาท`} disabled />
           </div>
 
           <div className="form-group">
-            <label className="form-label">จำนวนที่ต้องการปรับ</label>
+            <label className="form-label">{copy.adjustAmount}</label>
             <input
               className="form-input"
               type="number"
               step="0.01"
               value={creditForm.amount}
               onChange={(event) => setCreditForm({ ...creditForm, amount: event.target.value })}
-              placeholder="หากต้องการหักเครดิต ให้ใส่ค่าติดลบ"
+              placeholder={copy.adjustPlaceholder}
               required
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label">หมายเหตุ</label>
+            <label className="form-label">{copy.noteLabel}</label>
             <textarea
               className="form-input"
               rows="4"
               value={creditForm.note}
               onChange={(event) => setCreditForm({ ...creditForm, note: event.target.value })}
-              placeholder="ระบุหมายเหตุเพิ่มเติมได้"
+              placeholder={copy.notePlaceholder}
             />
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={closeCreditModal}>ยกเลิก</button>
-            <button type="submit" className="btn btn-primary">บันทึกการปรับเครดิต</button>
+            <button type="button" className="btn btn-secondary" onClick={closeCreditModal}>{adminCopy.common.cancel}</button>
+            <button type="submit" className="btn btn-primary">{copy.saveCredit}</button>
           </div>
         </form>
       </Modal>

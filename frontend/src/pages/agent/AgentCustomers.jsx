@@ -4,27 +4,28 @@ import toast from 'react-hot-toast';
 import { FiBarChart2, FiChevronRight, FiCreditCard, FiHash, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
+import { agentCopy } from '../../i18n/th/agent';
+import { getBetTypeLabel, getUserStatusLabel } from '../../i18n/th/labels';
 import { createAgentMember, deleteCustomer, getAgentMemberBootstrap, getAgentMembers } from '../../services/api';
 import { createInitialMemberForm, groupLotterySettingsByLeague, toggleBetType, updateLotterySetting } from './memberFormUtils';
 
-const steps = ['บัญชี', 'โปรไฟล์', 'สิทธิ์หวย'];
+const copy = agentCopy.customers;
+const steps = copy.steps;
 const statusOptions = ['', 'active', 'inactive', 'suspended'];
 const onlineOptions = ['', 'true', 'false'];
 const sortOptions = [
-  { value: 'recent', label: 'ใช้งานล่าสุด' },
-  { value: 'credit_desc', label: 'เครดิตมากไปน้อย' },
-  { value: 'sales_desc', label: 'ยอดขายมากไปน้อย' },
-  { value: 'online_first', label: 'ออนไลน์ขึ้นก่อน' },
-  { value: 'name_asc', label: 'ชื่อ ก-ฮ' }
+  { value: 'recent', label: copy.sortOptions.recent },
+  { value: 'credit_desc', label: copy.sortOptions.credit_desc },
+  { value: 'sales_desc', label: copy.sortOptions.sales_desc },
+  { value: 'online_first', label: copy.sortOptions.online_first },
+  { value: 'name_asc', label: copy.sortOptions.name_asc }
 ];
-const betTypeLabels = { '3top': '3 ตัวบน', '3tod': '3 ตัวโต๊ด', '2top': '2 ตัวบน', '2bottom': '2 ตัวล่าง', 'run_top': 'วิ่งบน', 'run_bottom': 'วิ่งล่าง' };
-const statusLabelMap = { active: 'ใช้งาน', inactive: 'ปิดใช้งาน', suspended: 'ระงับ' };
 const toNumber = (value) => Number(value || 0);
 const formatNumber = (value) => toNumber(value).toLocaleString('th-TH');
 const formatDateTime = (value) => {
-  if (!value) return 'ยังไม่มีการใช้งานล่าสุด';
+  if (!value) return agentCopy.dashboard.noRecentActivity;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'ยังไม่มีการใช้งานล่าสุด';
+  if (Number.isNaN(date.getTime())) return agentCopy.dashboard.noRecentActivity;
   return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 };
 const getInitial = (value) => (value || '?').trim().charAt(0).toUpperCase();
@@ -49,7 +50,7 @@ const AgentCustomers = () => {
       setMembers(res.data || []);
     } catch (error) {
       console.error(error);
-      toast.error('โหลดสมาชิกไม่สำเร็จ');
+      toast.error(copy.wizard.loadError);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -116,7 +117,7 @@ const AgentCustomers = () => {
       setShowWizard(true);
     } catch (error) {
       console.error(error);
-      toast.error('เตรียมฟอร์มเพิ่มสมาชิกไม่สำเร็จ');
+      toast.error(copy.wizard.bootstrapError);
     }
   };
 
@@ -155,7 +156,7 @@ const AgentCustomers = () => {
   const submitCreate = async (event) => {
     event.preventDefault();
     if (!form?.account.username || !form?.account.password || !form?.account.name) {
-      toast.error('กรุณากรอกชื่อผู้ใช้ รหัสผ่าน และชื่อแสดงผลให้ครบ');
+      toast.error(copy.wizard.requiredError);
       setWizardStep(0);
       return;
     }
@@ -191,26 +192,26 @@ const AgentCustomers = () => {
           notes: lottery.notes
         }))
       });
-      toast.success('สร้างสมาชิกสำเร็จ');
+      toast.success(copy.wizard.createSuccess);
       closeWizard();
       await loadMembers(filters, true);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'สร้างสมาชิกไม่สำเร็จ');
+      toast.error(error.response?.data?.message || copy.wizard.createError);
     } finally {
       setSaving(false);
     }
   };
 
   const deactivateMember = async (member) => {
-    if (!window.confirm(`ต้องการปิดการใช้งานสมาชิก "${member.name}" ใช่หรือไม่`)) return;
+    if (!window.confirm(copy.confirmDeactivate(member.name))) return;
     try {
       await deleteCustomer(member.id);
-      toast.success('ปิดการใช้งานสมาชิกแล้ว');
+      toast.success(copy.wizard.deactivateSuccess);
       await loadMembers(filters, true);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'ปิดการใช้งานสมาชิกไม่สำเร็จ');
+      toast.error(error.response?.data?.message || copy.wizard.deactivateError);
     }
   };
 
@@ -220,18 +221,18 @@ const AgentCustomers = () => {
     <div className="agent-members-page animate-fade-in">
       <section className="members-hero card">
         <div className="members-hero-copy">
-          <span className="section-eyebrow">พื้นที่จัดการสมาชิก</span>
-          <h1 className="page-title">จัดการสมาชิก</h1>
-          <p className="page-subtitle">ดูสถานะสมาชิก, เครดิต, และการเปิดหวยจากจอเดียว พร้อมเข้าไปจัดการรายคนได้ทันที</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
         <div className="page-actions">
           <button className="btn btn-secondary" onClick={refreshAll} disabled={refreshing}>
             <FiRefreshCw className={refreshing ? 'spin-animation' : ''} />
-            รีเฟรช
+            {copy.refresh}
           </button>
           <button className="btn btn-primary" onClick={openWizard}>
             <FiPlus />
-            เพิ่มสมาชิก
+            {copy.addMember}
           </button>
         </div>
       </section>
@@ -240,64 +241,64 @@ const AgentCustomers = () => {
         <div className="summary-card summary-card-highlight">
           <div className="summary-card-top">
             <span className="summary-icon"><FiUsers /></span>
-            <span className="summary-label">สมาชิกทั้งหมด</span>
+            <span className="summary-label">{copy.totalMembers}</span>
           </div>
           <strong>{formatNumber(summary.totalMembers)}</strong>
-          <p>จำนวนบัญชีที่อยู่ใต้ agent นี้</p>
+          <p>{copy.totalMembersHint}</p>
         </div>
         <div className="summary-card">
           <div className="summary-card-top">
             <span className="summary-icon"><FiWifi /></span>
-            <span className="summary-label">ออนไลน์ตอนนี้</span>
+            <span className="summary-label">{copy.onlineMembers}</span>
           </div>
           <strong>{formatNumber(summary.onlineMembers)}</strong>
-          <p>สมาชิกที่ active อยู่ในระบบ</p>
+          <p>{copy.onlineMembersHint}</p>
         </div>
         <div className="summary-card">
           <div className="summary-card-top">
             <span className="summary-icon"><FiCreditCard /></span>
-            <span className="summary-label">เครดิตรวม</span>
+            <span className="summary-label">{copy.totalCredit}</span>
           </div>
           <strong>{formatNumber(summary.totalCredit)}</strong>
-          <p>ยอดเครดิตคงเหลือของสมาชิกทั้งหมด</p>
+          <p>{copy.totalCreditHint}</p>
         </div>
         <div className="summary-card">
           <div className="summary-card-top">
             <span className="summary-icon"><FiTrendingUp /></span>
-            <span className="summary-label">ยอดขายรวม</span>
+            <span className="summary-label">{copy.totalSales}</span>
           </div>
           <strong>{formatNumber(summary.totalSales)}</strong>
-          <p>อ้างอิงจาก slip ใหม่ของระบบ</p>
+          <p>{copy.totalSalesHint}</p>
         </div>
       </section>
 
       <section className="card filter-card">
         <div className="filter-card-head">
           <div>
-          <div className="filter-title">ค้นหาและกรอง</div>
-            <div className="filter-subtitle">กรองสมาชิกตามสถานะ การออนไลน์ คำค้น และเรียงลำดับการมองเห็นได้ทันที</div>
+          <div className="filter-title">{copy.filterTitle}</div>
+            <div className="filter-subtitle">{copy.filterSubtitle}</div>
           </div>
-          <div className="filter-count">{formatNumber(displayedMembers.length)} สมาชิก</div>
+          <div className="filter-count">{copy.count(formatNumber(displayedMembers.length))}</div>
         </div>
         <div className="filter-toolbar">
           <label className="search-box">
             <FiSearch />
-            <input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="ค้นหาชื่อ ชื่อผู้ใช้ เบอร์โทร หรือรหัสสมาชิก" />
+            <input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder={copy.searchPlaceholder} />
           </label>
           <label className="field-inline">
-            <span>สถานะ</span>
+            <span>{copy.statusLabel}</span>
             <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
-              {statusOptions.map((status) => <option key={status || 'all'} value={status}>{status ? statusLabelMap[status] : 'ทุกสถานะ'}</option>)}
+              {statusOptions.map((status) => <option key={status || 'all'} value={status}>{status ? getUserStatusLabel(status) : copy.allStatuses}</option>)}
             </select>
           </label>
           <label className="field-inline">
-            <span>การใช้งาน</span>
+            <span>{copy.presenceLabel}</span>
             <select value={filters.online} onChange={(event) => setFilters((current) => ({ ...current, online: event.target.value }))}>
-              {onlineOptions.map((online) => <option key={online || 'all'} value={online}>{online === '' ? 'ทั้งหมด' : online === 'true' ? 'ออนไลน์เท่านั้น' : 'ออฟไลน์เท่านั้น'}</option>)}
+              {onlineOptions.map((online) => <option key={online || 'all'} value={online}>{online === '' ? copy.allPresence : online === 'true' ? copy.onlineOnly : copy.offlineOnly}</option>)}
             </select>
           </label>
           <label className="field-inline">
-            <span>เรียงลำดับ</span>
+            <span>{copy.sortLabel}</span>
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
@@ -307,7 +308,7 @@ const AgentCustomers = () => {
 
       <section className="member-list">
         {displayedMembers.length === 0 ? (
-          <div className="empty-state"><div className="empty-state-icon"><FiUsers /></div><div className="empty-state-text">ไม่พบสมาชิกตามเงื่อนไขที่เลือก</div></div>
+          <div className="empty-state"><div className="empty-state-icon"><FiUsers /></div><div className="empty-state-text">{copy.empty}</div></div>
         ) : displayedMembers.map((member) => (
           <article key={member.id} className="member-card">
             <div className="member-card-header">
@@ -316,58 +317,58 @@ const AgentCustomers = () => {
                 <div className="member-heading">
                   <div className="member-title-row">
                     <h3>{member.name}</h3>
-                    <span className={`status-pill status-${member.status}`}>{statusLabelMap[member.status] || member.status}</span>
-                    {member.isOnline && <span className="online-pill"><FiWifi /> ออนไลน์</span>}
+                    <span className={`status-pill status-${member.status}`}>{getUserStatusLabel(member.status)}</span>
+                    {member.isOnline && <span className="online-pill"><FiWifi /> {agentCopy.dashboard.online}</span>}
                   </div>
                   <div className="member-subtitle-row">
                     <span>@{member.username}</span>
-                    <span><FiHash /> {member.memberCode || '-'}</span>
-                    <span><FiPhone /> {member.phone || '-'}</span>
+                    <span><FiHash /> {member.memberCode || copy.noMemberCode}</span>
+                    <span><FiPhone /> {member.phone || copy.noPhone}</span>
                   </div>
-                  <div className="member-last-active">ล่าสุด: {member.isOnline ? 'กำลังออนไลน์' : formatDateTime(member.lastActiveAt)}</div>
+                  <div className="member-last-active">{copy.lastActivePrefix}: {member.isOnline ? copy.currentlyOnline : formatDateTime(member.lastActiveAt)}</div>
                 </div>
               </div>
               <div className="member-credit">
-                <span>เครดิตคงเหลือ</span>
+                <span>{copy.remainingCredit}</span>
                 <strong>{formatNumber(member.creditBalance)}</strong>
               </div>
             </div>
 
             <div className="member-metrics">
               <div>
-                <span>หวยที่เปิดให้เล่น</span>
+                <span>{copy.enabledLotteries}</span>
                 <strong>{formatNumber(member.configSummary?.enabledLotteryCount || 0)}</strong>
               </div>
               <div>
-                <span>ยอดขาย</span>
+                <span>{copy.sales}</span>
                 <strong>{formatNumber(member.totals?.totalAmount)}</strong>
               </div>
               <div>
-                <span>ยอดถูก</span>
+                <span>{copy.won}</span>
                 <strong>{formatNumber(member.totals?.totalWon)}</strong>
               </div>
               <div>
-                <span>หุ้น / เก็บ</span>
+                <span>{copy.stockKeep}</span>
                 <strong>{toNumber(member.stockPercent)}% / {toNumber(member.keepPercent)}%</strong>
               </div>
             </div>
 
             <div className="member-actions">
               <div className="member-actions-copy">
-                <span className="member-actions-label">สรุปสมาชิก</span>
+                <span className="member-actions-label">{copy.memberSummary}</span>
                 <div className="member-actions-hint">
                   <FiBarChart2 />
-                  เปิดเล่น {formatNumber(member.configSummary?.enabledLotteryCount || 0)} ตลาด
+                  {copy.enabledMarketHint(formatNumber(member.configSummary?.enabledLotteryCount || 0))}
                 </div>
               </div>
               <div className="member-actions-buttons">
                 <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent/customers/${member.id}`)}>
-                  จัดการ
+                  {copy.manage}
                   <FiChevronRight />
                 </button>
               <button className="btn btn-danger btn-sm" onClick={() => deactivateMember(member)}>
                 <FiXCircle />
-                ปิดใช้งาน
+                {copy.deactivate}
               </button>
               </div>
             </div>
@@ -375,7 +376,7 @@ const AgentCustomers = () => {
         ))}
       </section>
 
-      <Modal isOpen={showWizard} onClose={closeWizard} title="เพิ่มสมาชิกใหม่" size="lg">
+      <Modal isOpen={showWizard} onClose={closeWizard} title={copy.wizardTitle} size="lg">
         {form && (
           <form onSubmit={submitCreate} className="wizard-form">
             <div className="wizard-steps">
@@ -389,27 +390,27 @@ const AgentCustomers = () => {
 
             {wizardStep === 0 && (
               <div className="wizard-grid">
-                <label><span>ชื่อผู้ใช้</span><input value={form.account.username} onChange={(event) => updateAccount('username', event.target.value)} required /></label>
-                <label><span>รหัสผ่าน</span><input type="password" value={form.account.password} onChange={(event) => updateAccount('password', event.target.value)} required /></label>
-                <label><span>ชื่อแสดงผล</span><input value={form.account.name} onChange={(event) => updateAccount('name', event.target.value)} required /></label>
-                <label><span>เบอร์โทร</span><input value={form.account.phone} onChange={(event) => updateAccount('phone', event.target.value)} /></label>
-                <label className="full"><span>รหัสสมาชิก</span><input value={form.account.memberCode} onChange={(event) => updateAccount('memberCode', event.target.value.toUpperCase())} placeholder="เว้นว่างไว้หากต้องการให้ระบบสร้างให้อัตโนมัติ" /></label>
+                <label><span>{copy.wizard.account.username}</span><input value={form.account.username} onChange={(event) => updateAccount('username', event.target.value)} required /></label>
+                <label><span>{copy.wizard.account.password}</span><input type="password" value={form.account.password} onChange={(event) => updateAccount('password', event.target.value)} required /></label>
+                <label><span>{copy.wizard.account.name}</span><input value={form.account.name} onChange={(event) => updateAccount('name', event.target.value)} required /></label>
+                <label><span>{copy.wizard.account.phone}</span><input value={form.account.phone} onChange={(event) => updateAccount('phone', event.target.value)} /></label>
+                <label className="full"><span>{copy.wizard.account.memberCode}</span><input value={form.account.memberCode} onChange={(event) => updateAccount('memberCode', event.target.value.toUpperCase())} placeholder={copy.wizard.account.memberCodePlaceholder} /></label>
               </div>
             )}
 
             {wizardStep === 1 && (
               <>
                 <div className="wizard-grid">
-                  <label><span>สถานะ</span><select value={form.profile.status} onChange={(event) => updateProfile('status', event.target.value)}>{statusOptions.filter(Boolean).map((status) => <option key={status} value={status}>{statusLabelMap[status] || status}</option>)}</select></label>
-                  <label><span>หุ้น %</span><input type="number" min="0" max="100" value={form.profile.stockPercent} onChange={(event) => updateProfile('stockPercent', event.target.value)} /></label>
-                  <label><span>เจ้าของ %</span><input type="number" min="0" max="100" value={form.profile.ownerPercent} onChange={(event) => updateProfile('ownerPercent', event.target.value)} /></label>
-                  <label><span>เก็บ %</span><input type="number" min="0" max="100" value={form.profile.keepPercent} onChange={(event) => updateProfile('keepPercent', event.target.value)} /></label>
-                  <label><span>คอมมิชชั่น %</span><input type="number" min="0" max="100" value={form.profile.commissionRate} onChange={(event) => updateProfile('commissionRate', event.target.value)} /></label>
-                  <label><span>เรทเริ่มต้น</span><select value={form.profile.defaultRateProfileId} onChange={(event) => updateProfile('defaultRateProfileId', event.target.value)}>{(bootstrap?.rateProfiles || []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
-                  <label className="full"><span>หมายเหตุ</span><textarea rows="4" value={form.profile.notes} onChange={(event) => updateProfile('notes', event.target.value)} /></label>
+                  <label><span>{copy.wizard.profile.status}</span><select value={form.profile.status} onChange={(event) => updateProfile('status', event.target.value)}>{statusOptions.filter(Boolean).map((status) => <option key={status} value={status}>{getUserStatusLabel(status)}</option>)}</select></label>
+                  <label><span>{copy.wizard.profile.stockPercent}</span><input type="number" min="0" max="100" value={form.profile.stockPercent} onChange={(event) => updateProfile('stockPercent', event.target.value)} /></label>
+                  <label><span>{copy.wizard.profile.ownerPercent}</span><input type="number" min="0" max="100" value={form.profile.ownerPercent} onChange={(event) => updateProfile('ownerPercent', event.target.value)} /></label>
+                  <label><span>{copy.wizard.profile.keepPercent}</span><input type="number" min="0" max="100" value={form.profile.keepPercent} onChange={(event) => updateProfile('keepPercent', event.target.value)} /></label>
+                  <label><span>{copy.wizard.profile.commissionRate}</span><input type="number" min="0" max="100" value={form.profile.commissionRate} onChange={(event) => updateProfile('commissionRate', event.target.value)} /></label>
+                  <label><span>{copy.wizard.profile.defaultRateProfileId}</span><select value={form.profile.defaultRateProfileId} onChange={(event) => updateProfile('defaultRateProfileId', event.target.value)}>{(bootstrap?.rateProfiles || []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
+                  <label className="full"><span>{copy.wizard.profile.notes}</span><textarea rows="4" value={form.profile.notes} onChange={(event) => updateProfile('notes', event.target.value)} /></label>
                 </div>
-                <div className="form-hint">สมาชิกใหม่จะเริ่มต้นด้วยเครดิต 0 ให้ใช้เมนูกระเป๋าหลังสร้างเสร็จเพื่อโอนเครดิตเข้า</div>
-                <div className="inline-actions"><button type="button" className="btn btn-secondary btn-sm" onClick={applyProfileToAllLotteries}>คัดลอกค่าโปรไฟล์ไปทุกตลาดหวย</button></div>
+                <div className="form-hint">{copy.wizard.profile.startCreditHint}</div>
+                <div className="inline-actions"><button type="button" className="btn btn-secondary btn-sm" onClick={applyProfileToAllLotteries}>{copy.wizard.profile.applyProfileToAll}</button></div>
               </>
             )}
 
@@ -425,45 +426,45 @@ const AgentCustomers = () => {
                             <strong>{lottery.lotteryName}</strong>
                             <span>{lottery.lotteryCode}</span>
                           </div>
-                          <label className="inline-check"><input type="checkbox" checked={lottery.isEnabled} onChange={(event) => patchLottery(lottery.lotteryTypeId, { isEnabled: event.target.checked })} />เปิดใช้งาน</label>
+                          <label className="inline-check"><input type="checkbox" checked={lottery.isEnabled} onChange={(event) => patchLottery(lottery.lotteryTypeId, { isEnabled: event.target.checked })} />{copy.wizard.lottery.enabled}</label>
                         </div>
 
                         <div className="wizard-grid">
-                          <label><span>โปรไฟล์เรท</span><select value={lottery.rateProfileId} onChange={(event) => patchLottery(lottery.lotteryTypeId, { rateProfileId: event.target.value })}>{lottery.availableRateProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
-                          <label><span>ขั้นต่ำ</span><input type="number" min="0" value={lottery.minimumBet} onChange={(event) => patchLottery(lottery.lotteryTypeId, { minimumBet: event.target.value })} /></label>
-                          <label><span>สูงสุด</span><input type="number" min="0" value={lottery.maximumBet} onChange={(event) => patchLottery(lottery.lotteryTypeId, { maximumBet: event.target.value })} /></label>
-                          <label><span>สูงสุดต่อเลข</span><input type="number" min="0" value={lottery.maximumPerNumber} onChange={(event) => patchLottery(lottery.lotteryTypeId, { maximumPerNumber: event.target.value })} /></label>
-                          <label><span>หุ้น %</span><input type="number" min="0" max="100" value={lottery.stockPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { stockPercent: event.target.value })} /></label>
-                          <label><span>เจ้าของ %</span><input type="number" min="0" max="100" value={lottery.ownerPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { ownerPercent: event.target.value })} /></label>
-                          <label><span>เก็บ %</span><input type="number" min="0" max="100" value={lottery.keepPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepPercent: event.target.value })} /></label>
-                          <label><span>คอมมิชชั่น %</span><input type="number" min="0" max="100" value={lottery.commissionRate} onChange={(event) => patchLottery(lottery.lotteryTypeId, { commissionRate: event.target.value })} /></label>
-                          <label><span>โหมดเก็บ</span><select value={lottery.keepMode} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepMode: event.target.value })}><option value="off">ปิด</option><option value="cap">จำกัดยอด</option></select></label>
-                          <label><span>เพดานเก็บ</span><input type="number" min="0" value={lottery.keepCapAmount} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepCapAmount: event.target.value })} /></label>
+                          <label><span>{copy.wizard.lottery.rateProfile}</span><select value={lottery.rateProfileId} onChange={(event) => patchLottery(lottery.lotteryTypeId, { rateProfileId: event.target.value })}>{lottery.availableRateProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
+                          <label><span>{copy.wizard.lottery.minimumBet}</span><input type="number" min="0" value={lottery.minimumBet} onChange={(event) => patchLottery(lottery.lotteryTypeId, { minimumBet: event.target.value })} /></label>
+                          <label><span>{copy.wizard.lottery.maximumBet}</span><input type="number" min="0" value={lottery.maximumBet} onChange={(event) => patchLottery(lottery.lotteryTypeId, { maximumBet: event.target.value })} /></label>
+                          <label><span>{copy.wizard.lottery.maximumPerNumber}</span><input type="number" min="0" value={lottery.maximumPerNumber} onChange={(event) => patchLottery(lottery.lotteryTypeId, { maximumPerNumber: event.target.value })} /></label>
+                          <label><span>{copy.wizard.profile.stockPercent}</span><input type="number" min="0" max="100" value={lottery.stockPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { stockPercent: event.target.value })} /></label>
+                          <label><span>{copy.wizard.profile.ownerPercent}</span><input type="number" min="0" max="100" value={lottery.ownerPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { ownerPercent: event.target.value })} /></label>
+                          <label><span>{copy.wizard.profile.keepPercent}</span><input type="number" min="0" max="100" value={lottery.keepPercent} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepPercent: event.target.value })} /></label>
+                          <label><span>{copy.wizard.profile.commissionRate}</span><input type="number" min="0" max="100" value={lottery.commissionRate} onChange={(event) => patchLottery(lottery.lotteryTypeId, { commissionRate: event.target.value })} /></label>
+                          <label><span>{copy.wizard.lottery.keepMode}</span><select value={lottery.keepMode} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepMode: event.target.value })}><option value="off">{copy.wizard.lottery.keepModes.off}</option><option value="cap">{copy.wizard.lottery.keepModes.cap}</option></select></label>
+                          <label><span>{copy.wizard.lottery.keepCapAmount}</span><input type="number" min="0" value={lottery.keepCapAmount} onChange={(event) => patchLottery(lottery.lotteryTypeId, { keepCapAmount: event.target.value })} /></label>
                         </div>
 
                         <div className="bet-type-row">
                           {lottery.supportedBetTypes.map((betType) => (
                             <button key={betType} type="button" className={`bet-chip ${lottery.enabledBetTypes.includes(betType) ? 'active' : ''}`} onClick={() => setForm((current) => ({ ...current, lotterySettings: toggleBetType(current.lotterySettings, lottery.lotteryTypeId, betType) }))}>
-                              {betTypeLabels[betType] || betType}
+                              {getBetTypeLabel(betType)}
                             </button>
                           ))}
                         </div>
 
                         <div className="lottery-advanced-row">
-                          <label className="inline-check"><input type="checkbox" checked={lottery.useCustomRates} onChange={(event) => patchLottery(lottery.lotteryTypeId, { useCustomRates: event.target.checked })} />ใช้เรทกำหนดเอง</label>
+                          <label className="inline-check"><input type="checkbox" checked={lottery.useCustomRates} onChange={(event) => patchLottery(lottery.lotteryTypeId, { useCustomRates: event.target.checked })} />{copy.wizard.lottery.customRates}</label>
                         </div>
 
                         {lottery.useCustomRates && (
                           <div className="wizard-grid">
-                            {Object.keys(betTypeLabels).map((betType) => (
-                              <label key={betType}><span>{betTypeLabels[betType]}</span><input type="number" min="0" value={lottery.customRates?.[betType] || 0} onChange={(event) => patchLottery(lottery.lotteryTypeId, { customRates: { ...lottery.customRates, [betType]: event.target.value } })} /></label>
+                            {lottery.supportedBetTypes.map((betType) => (
+                              <label key={betType}><span>{getBetTypeLabel(betType)}</span><input type="number" min="0" value={lottery.customRates?.[betType] || 0} onChange={(event) => patchLottery(lottery.lotteryTypeId, { customRates: { ...lottery.customRates, [betType]: event.target.value } })} /></label>
                             ))}
                           </div>
                         )}
 
                         <label className="wizard-grid-textarea">
-                          <span>เลขที่ปิดรับ</span>
-                          <textarea rows="3" value={(lottery.blockedNumbers || []).join('\n')} onChange={(event) => patchLottery(lottery.lotteryTypeId, { blockedNumbers: event.target.value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean) })} placeholder="หนึ่งเลขต่อหนึ่งบรรทัด" />
+                          <span>{copy.wizard.lottery.blockedNumbers}</span>
+                          <textarea rows="3" value={(lottery.blockedNumbers || []).join('\n')} onChange={(event) => patchLottery(lottery.lotteryTypeId, { blockedNumbers: event.target.value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean) })} placeholder={copy.wizard.lottery.blockedNumbersPlaceholder} />
                         </label>
                       </div>
                     ))}
@@ -473,12 +474,12 @@ const AgentCustomers = () => {
             )}
 
             <div className="modal-footer wizard-footer">
-              <button type="button" className="btn btn-secondary" onClick={closeWizard}>ยกเลิก</button>
+              <button type="button" className="btn btn-secondary" onClick={closeWizard}>{copy.wizard.cancel}</button>
               <div className="wizard-footer-right">
-                {wizardStep > 0 && <button type="button" className="btn btn-secondary" onClick={() => setWizardStep((current) => current - 1)}>ย้อนกลับ</button>}
+                {wizardStep > 0 && <button type="button" className="btn btn-secondary" onClick={() => setWizardStep((current) => current - 1)}>{copy.wizard.back}</button>}
                 {wizardStep < steps.length - 1
-                  ? <button type="button" className="btn btn-primary" onClick={() => setWizardStep((current) => current + 1)}>ถัดไป</button>
-                  : <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'กำลังสร้าง...' : 'สร้างสมาชิก'}</button>}
+                  ? <button type="button" className="btn btn-primary" onClick={() => setWizardStep((current) => current + 1)}>{copy.wizard.next}</button>
+                  : <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? copy.wizard.creating : copy.wizard.submit}</button>}
               </div>
             </div>
 

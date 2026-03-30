@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { getAgentBets } from '../../services/api';
+import { useEffect, useState } from 'react';
 import { FiCalendar } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
-
-const betTypeLabels = { '3top': '3 ตัวบน', '3tod': '3 ตัวโต๊ด', '2top': '2 ตัวบน', '2bottom': '2 ตัวล่าง', 'run_top': 'วิ่งบน', 'run_bottom': 'วิ่งล่าง' };
+import { agentCopy } from '../../i18n/th/agent';
+import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
+import { getAgentBets } from '../../services/api';
 
 const AgentBets = () => {
   const [bets, setBets] = useState([]);
@@ -18,8 +18,11 @@ const AgentBets = () => {
       if (roundDate) params.roundDate = roundDate;
       const res = await getAgentBets(params);
       setBets(res.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) return <PageSkeleton statCount={3} rows={5} sidebar={false} />;
@@ -35,7 +38,7 @@ const AgentBets = () => {
         <FiCalendar />
         <input
           type="text"
-          placeholder="กรองตามงวด เช่น 2024-12-16"
+          placeholder={agentCopy.bets.filterPlaceholder}
           value={roundDate}
           onChange={(e) => setRoundDate(e.target.value)}
         />
@@ -43,26 +46,26 @@ const AgentBets = () => {
 
       <div className="ag-bets-list">
         {bets.length === 0 ? (
-          <div className="empty-state"><div className="empty-state-text">ไม่มีข้อมูล</div></div>
+          <div className="empty-state"><div className="empty-state-text">{agentCopy.bets.empty}</div></div>
         ) : bets.map((b) => (
           <div key={b._id} className={`ag-bet-card ag-bet-card-${b.result || 'pending'}`}>
             <div className="ag-bet-card-top">
-              <span className="ag-bet-card-customer">{b.customerId?.name || 'ไม่ระบุสมาชิก'}</span>
+              <span className="ag-bet-card-customer">{b.customerId?.name || agentCopy.bets.unknownMember}</span>
               <span className={`ag-bet-badge ag-bet-badge-${b.result || 'pending'}`}>
-                {b.result === 'won' ? 'ถูก' : b.result === 'lost' ? 'ไม่ถูก' : 'รอผล'}
+                {getBetResultLabel(b.result || 'pending')}
               </span>
             </div>
             <div className="ag-bet-card-body">
               <span className="ag-bet-card-number">{b.number}</span>
               <div className="ag-bet-card-details">
-                <span className="ag-bet-card-type">{betTypeLabels[b.betType]} x{b.payRate}</span>
-                <span className="ag-bet-card-market">{b.marketName || 'รัฐบาลไทย'} • {b.roundDate}</span>
+                <span className="ag-bet-card-type">{getBetTypeLabel(b.betType)} x{b.payRate}</span>
+                <span className="ag-bet-card-market">{b.marketName || agentCopy.bets.defaultMarket} • {b.roundDate}</span>
               </div>
             </div>
             <div className="ag-bet-card-bottom">
-              <span>แทง {b.amount.toLocaleString()} ฿</span>
+              <span>แทง {b.amount.toLocaleString()} บาท</span>
               {b.wonAmount > 0 && (
-                <span className="ag-bet-card-won">+{b.wonAmount.toLocaleString()} ฿</span>
+                <span className="ag-bet-card-won">+{b.wonAmount.toLocaleString()} บาท</span>
               )}
             </div>
           </div>

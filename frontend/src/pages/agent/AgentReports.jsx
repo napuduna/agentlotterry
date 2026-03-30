@@ -2,37 +2,32 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiRefreshCw, FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import PageSkeleton from '../../components/PageSkeleton';
+import { agentCopy } from '../../i18n/th/agent';
+import { getBetTypeLabel } from '../../i18n/th/labels';
 import { getAgentReports } from '../../services/api';
 
+const copy = agentCopy.reports;
 const tabs = [
-  { id: 'sales', label: 'สรุปยอดขาย' },
-  { id: 'projected', label: 'คาดการณ์ความเสี่ยง' },
-  { id: 'exposure', label: 'สรุปยอดอั้นเลข' },
-  { id: 'profit', label: 'กำไร / ขาดทุน' },
-  { id: 'pending', label: 'รายการรอผล' },
-  { id: 'winners', label: 'รายการถูกรางวัล' }
+  { id: 'sales', label: copy.tabs.sales },
+  { id: 'projected', label: copy.tabs.projected },
+  { id: 'exposure', label: copy.tabs.exposure },
+  { id: 'profit', label: copy.tabs.profit },
+  { id: 'pending', label: copy.tabs.pending },
+  { id: 'winners', label: copy.tabs.winners }
 ];
 const sortOptions = [
-  { id: 'default', label: 'ลำดับปกติ' },
-  { id: 'value_desc', label: 'เรียงตามมูลค่าสูงสุด' },
-  { id: 'payout_desc', label: 'เรียงตามยอดจ่ายสูงสุด' },
-  { id: 'volume_desc', label: 'เรียงตามจำนวนรายการมากสุด' }
+  { id: 'default', label: copy.sortOptions.default },
+  { id: 'value_desc', label: copy.sortOptions.value_desc },
+  { id: 'payout_desc', label: copy.sortOptions.payout_desc },
+  { id: 'volume_desc', label: copy.sortOptions.volume_desc }
 ];
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const labelOrDash = (value) => value || '-';
-const betTypeLabels = {
-  '3top': '3 ตัวบน',
-  '3tod': '3 ตัวโต๊ด',
-  '2top': '2 ตัวบน',
-  '2bottom': '2 ตัวล่าง',
-  'run_top': 'วิ่งบน',
-  'run_bottom': 'วิ่งล่าง'
-};
 
 const renderTable = ({ columns, rows }) => {
   if (!rows?.length) {
-    return <div className="empty-state"><div className="empty-state-text">ยังไม่มีข้อมูลตามตัวกรองที่เลือก</div></div>;
+    return <div className="empty-state"><div className="empty-state-text">{copy.empty}</div></div>;
   }
 
   return (
@@ -84,7 +79,7 @@ const AgentReports = () => {
       setReport(res.data);
     } catch (error) {
       console.error(error);
-      toast.error('โหลดรายงานไม่สำเร็จ');
+      toast.error(copy.loadError);
     } finally {
       setLoading(false);
     }
@@ -97,67 +92,67 @@ const AgentReports = () => {
   const overview = report?.overview || {};
 
   const salesColumns = useMemo(() => ([
-    { key: 'roundDate', label: 'งวด' },
-    { key: 'marketName', label: 'ตลาด' },
-    { key: 'totalSales', label: 'ยอดขาย', render: (row) => `${money(row.totalSales)} บาท` },
-    { key: 'totalPayout', label: 'ยอดจ่าย', render: (row) => `${money(row.totalPayout)} บาท` },
-    { key: 'netProfit', label: 'ผลสุทธิ', render: (row) => `${money(row.netProfit)} บาท` },
-    { key: 'itemCount', label: 'จำนวนรายการ' },
-    { key: 'slipCount', label: 'จำนวนโพย' },
-    { key: 'memberCount', label: 'จำนวนสมาชิก' }
+    { key: 'roundDate', label: copy.columns.roundDate },
+    { key: 'marketName', label: copy.columns.marketName },
+    { key: 'totalSales', label: copy.columns.totalSales, render: (row) => `${money(row.totalSales)} บาท` },
+    { key: 'totalPayout', label: copy.columns.totalPayout, render: (row) => `${money(row.totalPayout)} บาท` },
+    { key: 'netProfit', label: copy.columns.netProfit, render: (row) => `${money(row.netProfit)} บาท` },
+    { key: 'itemCount', label: copy.columns.itemCount },
+    { key: 'slipCount', label: copy.columns.slipCount },
+    { key: 'memberCount', label: copy.columns.memberCount }
   ]), []);
 
   const projectedColumns = useMemo(() => ([
-    { key: 'roundDate', label: 'งวด' },
-    { key: 'marketName', label: 'ตลาด' },
-    { key: 'pendingStake', label: 'ยอดรอผล', render: (row) => `${money(row.pendingStake)} บาท` },
-    { key: 'pendingPotentialPayout', label: 'ยอดจ่ายสูงสุด', render: (row) => `${money(row.pendingPotentialPayout)} บาท` },
-    { key: 'projectedLiability', label: 'ภาระความเสี่ยง', render: (row) => `${money(row.projectedLiability)} บาท` },
-    { key: 'itemCount', label: 'จำนวนรายการ' },
-    { key: 'memberCount', label: 'จำนวนสมาชิก' }
+    { key: 'roundDate', label: copy.columns.roundDate },
+    { key: 'marketName', label: copy.columns.marketName },
+    { key: 'pendingStake', label: copy.columns.pendingStake, render: (row) => `${money(row.pendingStake)} บาท` },
+    { key: 'pendingPotentialPayout', label: copy.columns.pendingPotentialPayout, render: (row) => `${money(row.pendingPotentialPayout)} บาท` },
+    { key: 'projectedLiability', label: copy.columns.projectedLiability, render: (row) => `${money(row.projectedLiability)} บาท` },
+    { key: 'itemCount', label: copy.columns.itemCount },
+    { key: 'memberCount', label: copy.columns.memberCount }
   ]), []);
 
   const exposureColumns = useMemo(() => ([
-    { key: 'roundDate', label: 'งวด' },
-    { key: 'marketName', label: 'ตลาด' },
-    { key: 'betType', label: 'ประเภท', render: (row) => betTypeLabels[row.betType] || row.betType },
-    { key: 'number', label: 'เลข' },
-    { key: 'totalAmount', label: 'ยอดอั้น', render: (row) => `${money(row.totalAmount)} บาท` },
-    { key: 'totalPotentialPayout', label: 'ยอดจ่ายสูงสุด', render: (row) => `${money(row.totalPotentialPayout)} บาท` },
-    { key: 'itemCount', label: 'จำนวนรายการ' },
-    { key: 'memberCount', label: 'จำนวนสมาชิก' }
+    { key: 'roundDate', label: copy.columns.roundDate },
+    { key: 'marketName', label: copy.columns.marketName },
+    { key: 'betType', label: copy.columns.betType, render: (row) => getBetTypeLabel(row.betType) },
+    { key: 'number', label: copy.columns.number },
+    { key: 'totalAmount', label: copy.columns.totalAmount, render: (row) => `${money(row.totalAmount)} บาท` },
+    { key: 'totalPotentialPayout', label: copy.columns.totalPotentialPayout, render: (row) => `${money(row.totalPotentialPayout)} บาท` },
+    { key: 'itemCount', label: copy.columns.itemCount },
+    { key: 'memberCount', label: copy.columns.memberCount }
   ]), []);
 
   const profitColumns = useMemo(() => ([
-    { key: 'roundDate', label: 'งวด' },
-    { key: 'marketName', label: 'ตลาด' },
-    { key: 'resolvedSales', label: 'ยอดขายที่สรุปแล้ว', render: (row) => `${money(row.resolvedSales)} บาท` },
-    { key: 'resolvedPayout', label: 'ยอดจ่ายที่สรุปแล้ว', render: (row) => `${money(row.resolvedPayout)} บาท` },
-    { key: 'netProfit', label: 'ผลสุทธิ', render: (row) => `${money(row.netProfit)} บาท` },
-    { key: 'wonItems', label: 'ถูก' },
-    { key: 'lostItems', label: 'ไม่ถูก' }
+    { key: 'roundDate', label: copy.columns.roundDate },
+    { key: 'marketName', label: copy.columns.marketName },
+    { key: 'resolvedSales', label: copy.columns.resolvedSales, render: (row) => `${money(row.resolvedSales)} บาท` },
+    { key: 'resolvedPayout', label: copy.columns.resolvedPayout, render: (row) => `${money(row.resolvedPayout)} บาท` },
+    { key: 'netProfit', label: copy.columns.netProfit, render: (row) => `${money(row.netProfit)} บาท` },
+    { key: 'wonItems', label: copy.columns.wonItems },
+    { key: 'lostItems', label: copy.columns.lostItems }
   ]), []);
 
   const pendingColumns = useMemo(() => ([
-    { key: 'marketName', label: 'ตลาด' },
-    { key: 'roundDate', label: 'งวด' },
-    { key: 'customerId', label: 'สมาชิก', render: (row) => row.customerId?.name || '-' },
-    { key: 'betType', label: 'ประเภท', render: (row) => betTypeLabels[row.betType] || row.betType },
-    { key: 'number', label: 'เลข' },
-    { key: 'amount', label: 'ยอดแทง', render: (row) => `${money(row.amount)} บาท` },
-    { key: 'potentialPayout', label: 'ยอดจ่ายสูงสุด', render: (row) => `${money(row.potentialPayout)} บาท` },
-    { key: 'netRisk', label: 'ความเสี่ยงสุทธิ', render: (row) => `${money(row.netRisk)} บาท` }
+    { key: 'marketName', label: copy.columns.marketName },
+    { key: 'roundDate', label: copy.columns.roundDate },
+    { key: 'customerId', label: copy.columns.customer, render: (row) => row.customerId?.name || '-' },
+    { key: 'betType', label: copy.columns.betType, render: (row) => getBetTypeLabel(row.betType) },
+    { key: 'number', label: copy.columns.number },
+    { key: 'amount', label: copy.columns.amount, render: (row) => `${money(row.amount)} บาท` },
+    { key: 'potentialPayout', label: copy.columns.potentialPayout, render: (row) => `${money(row.potentialPayout)} บาท` },
+    { key: 'netRisk', label: copy.columns.netRisk, render: (row) => `${money(row.netRisk)} บาท` }
   ]), []);
 
   const winnerColumns = useMemo(() => ([
-    { key: 'marketName', label: 'ตลาด' },
-    { key: 'roundDate', label: 'งวด' },
-    { key: 'customerId', label: 'สมาชิก', render: (row) => row.customerId?.name || '-' },
-    { key: 'betType', label: 'ประเภท', render: (row) => betTypeLabels[row.betType] || row.betType },
-    { key: 'number', label: 'เลข' },
-    { key: 'amount', label: 'ยอดแทง', render: (row) => `${money(row.amount)} บาท` },
-    { key: 'wonAmount', label: 'ยอดถูก', render: (row) => `${money(row.wonAmount)} บาท` },
-    { key: 'payRate', label: 'เรทจ่าย', render: (row) => `x${row.payRate}` }
+    { key: 'marketName', label: copy.columns.marketName },
+    { key: 'roundDate', label: copy.columns.roundDate },
+    { key: 'customerId', label: copy.columns.customer, render: (row) => row.customerId?.name || '-' },
+    { key: 'betType', label: copy.columns.betType, render: (row) => getBetTypeLabel(row.betType) },
+    { key: 'number', label: copy.columns.number },
+    { key: 'amount', label: copy.columns.amount, render: (row) => `${money(row.amount)} บาท` },
+    { key: 'wonAmount', label: copy.columns.wonAmount, render: (row) => `${money(row.wonAmount)} บาท` },
+    { key: 'payRate', label: copy.columns.payRate, render: (row) => `x${row.payRate}` }
   ]), []);
 
   const sortRows = (rows = []) => {
@@ -205,12 +200,12 @@ const AgentReports = () => {
   };
 
   const overviewCards = [
-    { label: 'ยอดขาย', value: `${money(overview.totalSales)} บาท`, hint: 'รวมยอดขายที่สรุปแล้วและยังรอผล' },
-    { label: 'ยอดจ่าย', value: `${money(overview.totalPayout)} บาท`, hint: 'ยอดจ่ายของรายการที่สรุปผลแล้ว' },
-    { label: 'ยอดรอผล', value: `${money(overview.pendingStake)} บาท`, hint: 'ยอดแทงที่ยังรอผลของงวด' },
-    { label: 'จ่ายสูงสุด', value: `${money(overview.pendingPotentialPayout)} บาท`, hint: 'ยอดจ่ายสูงสุดของรายการรอผล' },
-    { label: 'รายการรอผล', value: money(overview.pendingItems), hint: 'จำนวนรายการที่ยังเปิดอยู่' },
-    { label: 'สมาชิก', value: money(overview.totalCustomers), hint: 'สมาชิกที่อยู่ในขอบเขตรายงานนี้' }
+    { label: copy.overviewCards.totalSales.label, value: `${money(overview.totalSales)} บาท`, hint: copy.overviewCards.totalSales.hint },
+    { label: copy.overviewCards.totalPayout.label, value: `${money(overview.totalPayout)} บาท`, hint: copy.overviewCards.totalPayout.hint },
+    { label: copy.overviewCards.pendingStake.label, value: `${money(overview.pendingStake)} บาท`, hint: copy.overviewCards.pendingStake.hint },
+    { label: copy.overviewCards.pendingPotentialPayout.label, value: `${money(overview.pendingPotentialPayout)} บาท`, hint: copy.overviewCards.pendingPotentialPayout.hint },
+    { label: copy.overviewCards.pendingItems.label, value: money(overview.pendingItems), hint: copy.overviewCards.pendingItems.hint },
+    { label: copy.overviewCards.totalCustomers.label, value: money(overview.totalCustomers), hint: copy.overviewCards.totalCustomers.hint }
   ];
 
   if (loading && !report) return <PageSkeleton statCount={6} rows={6} sidebar={false} />;
@@ -219,24 +214,24 @@ const AgentReports = () => {
     <div className="agent-report-page animate-fade-in">
       <section className="report-hero-card card">
         <div className="report-hero-copy">
-          <span className="section-eyebrow">พื้นที่วิเคราะห์</span>
-          <h1 className="page-title">รายงานเจ้ามือ</h1>
-          <p className="page-subtitle">ดูยอดขาย ความเสี่ยง รายการรอผล และรายการถูกรางวัลจากจอรายงานเดียว</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
 
         <div className="report-hero-actions">
           <div className={`report-hero-summary ${(overview.resolvedNetProfit || 0) >= 0 ? 'positive' : 'negative'}`}>
-            <span>ผลสุทธิที่สรุปแล้ว</span>
+            <span>{copy.resolvedNetProfit}</span>
             <strong>{(overview.resolvedNetProfit || 0) >= 0 ? '+' : ''}{money(overview.resolvedNetProfit)} บาท</strong>
             <small>
               {(overview.resolvedNetProfit || 0) >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-              ภาระรอผล {money(overview.projectedLiability)} บาท
+              {copy.pendingLiability(money(overview.projectedLiability))}
             </small>
           </div>
 
           <button className="btn btn-secondary" onClick={() => load(filters)} disabled={loading}>
             <FiRefreshCw className={loading ? 'spin-animation' : ''} />
-            รีเฟรช
+            {copy.refresh}
           </button>
         </div>
       </section>
@@ -254,31 +249,31 @@ const AgentReports = () => {
       <section className="card report-filter-card">
         <div className="report-filter-head">
           <div>
-            <div className="filter-title">ตัวกรอง</div>
-            <div className="filter-subtitle">ปรับช่วงรายงานตามงวด ตลาด หรือช่วงวันที่ ก่อนสลับดูแต่ละแท็บรายงาน</div>
+            <div className="filter-title">{copy.filterTitle}</div>
+            <div className="filter-subtitle">{copy.filterSubtitle}</div>
           </div>
           <div className="filter-chip">{tabs.find((tab) => tab.id === activeTab)?.label}</div>
         </div>
 
         <div className="report-filter-grid">
           <label>
-            <span>งวด</span>
+            <span>{copy.roundDate}</span>
             <input value={draftFilters.roundDate} onChange={(event) => setDraftFilters((current) => ({ ...current, roundDate: event.target.value }))} placeholder="2026-03-16" />
           </label>
           <label>
-            <span>รหัสตลาด</span>
+            <span>{copy.marketId}</span>
             <input value={draftFilters.marketId} onChange={(event) => setDraftFilters((current) => ({ ...current, marketId: event.target.value }))} placeholder="thai_government" />
           </label>
           <label>
-            <span>วันที่เริ่ม</span>
+            <span>{copy.startDate}</span>
             <input type="date" value={draftFilters.startDate} onChange={(event) => setDraftFilters((current) => ({ ...current, startDate: event.target.value }))} />
           </label>
           <label>
-            <span>วันที่สิ้นสุด</span>
+            <span>{copy.endDate}</span>
             <input type="date" value={draftFilters.endDate} onChange={(event) => setDraftFilters((current) => ({ ...current, endDate: event.target.value }))} />
           </label>
           <label>
-            <span>เรียงแถว</span>
+            <span>{copy.sortLabel}</span>
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
               {sortOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select>
@@ -286,8 +281,8 @@ const AgentReports = () => {
         </div>
 
         <div className="report-filter-actions">
-          <button className="btn btn-secondary" onClick={() => setDraftFilters({ roundDate: '', marketId: '', startDate: '', endDate: '' })}>ล้างตัวกรอง</button>
-          <button className="btn btn-primary" onClick={() => setFilters({ ...draftFilters })}>ใช้ตัวกรอง</button>
+          <button className="btn btn-secondary" onClick={() => setDraftFilters({ roundDate: '', marketId: '', startDate: '', endDate: '' })}>{copy.clearFilters}</button>
+          <button className="btn btn-primary" onClick={() => setFilters({ ...draftFilters })}>{copy.applyFilters}</button>
         </div>
       </section>
 

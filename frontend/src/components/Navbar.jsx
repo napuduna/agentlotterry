@@ -69,7 +69,7 @@ const Navbar = () => {
           </button>
           <Link to={`/${user?.role}`} className="navbar-brand">
             <div className="navbar-logo">L</div>
-            <span className="navbar-brand-text">Agent Lottery</span>
+            <span className="navbar-brand-text">หวยเอเย่นต์</span>
           </Link>
         </div>
 

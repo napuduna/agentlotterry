@@ -1,23 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiBell, FiClock, FiDollarSign, FiTrendingUp, FiUsers, FiWifi } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { agentCopy } from '../../i18n/th/agent';
+import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
 import { getAgentDashboard } from '../../services/api';
 import { useCatalog } from '../../context/CatalogContext';
 
-const betTypeLabels = {
-  '3top': '3 Top',
-  '3tod': '3 Tod',
-  '2top': '2 Top',
-  '2bottom': '2 Bottom',
-  'run_top': 'Run Top',
-  'run_bottom': 'Run Bottom'
-};
-
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const formatDateTime = (value) => {
-  if (!value) return 'No recent activity';
+  if (!value) return agentCopy.dashboard.noRecentActivity;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'No recent activity';
+  if (Number.isNaN(date.getTime())) return agentCopy.dashboard.noRecentActivity;
   return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
@@ -49,38 +42,38 @@ const AgentDashboard = () => {
     {
       icon: FiUsers,
       value: stats.totalCustomers || 0,
-      label: 'Members',
-      hint: `${stats.activeCustomers || 0} active profiles`
+      label: agentCopy.dashboard.statCards.members.label,
+      hint: agentCopy.dashboard.statCards.members.hint(stats.activeCustomers || 0)
     },
     {
       icon: FiWifi,
       value: stats.onlineCustomers || 0,
-      label: 'Online now',
-      hint: 'Recently active in the system'
+      label: agentCopy.dashboard.statCards.onlineNow.label,
+      hint: agentCopy.dashboard.statCards.onlineNow.hint
     },
     {
       icon: FiClock,
       value: stats.pendingBets || 0,
-      label: 'Pending items',
-      hint: `${stats.totalBets || 0} total submitted items`
+      label: agentCopy.dashboard.statCards.pendingItems.label,
+      hint: agentCopy.dashboard.statCards.pendingItems.hint(stats.totalBets || 0)
     },
     {
       icon: FiDollarSign,
       value: money(stats.agentCreditBalance),
-      label: 'Agent credit',
-      hint: 'Available wallet balance'
+      label: agentCopy.dashboard.statCards.agentCredit.label,
+      hint: agentCopy.dashboard.statCards.agentCredit.hint
     },
     {
       icon: FiDollarSign,
       value: money(stats.totalCreditBalance),
-      label: 'Member credit',
-      hint: 'Balance across all members'
+      label: agentCopy.dashboard.statCards.memberCredit.label,
+      hint: agentCopy.dashboard.statCards.memberCredit.hint
     },
     {
       icon: FiTrendingUp,
       value: `${Number(stats.averageStockPercent || 0).toFixed(1)}%`,
-      label: 'Average stock',
-      hint: 'Across member profiles'
+      label: agentCopy.dashboard.statCards.averageStock.label,
+      hint: agentCopy.dashboard.statCards.averageStock.hint
     }
   ]), [stats]);
 
@@ -90,30 +83,30 @@ const AgentDashboard = () => {
     <div className="agent-dash-page animate-fade-in">
       <section className="agent-dash-hero card">
         <div className="agent-dash-hero-copy">
-          <span className="section-eyebrow">Operations overview</span>
-          <h1 className="page-title">Agent Dashboard</h1>
-          <p className="page-subtitle">Track member activity, credit exposure, and the latest submitted items from one calm control room.</p>
+          <span className="section-eyebrow">{agentCopy.dashboard.heroEyebrow}</span>
+          <h1 className="page-title">{agentCopy.dashboard.heroTitle}</h1>
+          <p className="page-subtitle">{agentCopy.dashboard.heroSubtitle}</p>
         </div>
 
         <div className="hero-insight-grid">
           <div className={`net-result-panel ${(stats.netProfit || 0) >= 0 ? 'positive' : 'negative'}`}>
-            <span>Net result</span>
-            <strong>{(stats.netProfit || 0) >= 0 ? '+' : ''}{money(stats.netProfit)} ฿</strong>
-            <small>Total won {money(stats.totalWon)} ฿ from sales {money(stats.totalAmount)} ฿</small>
+            <span>{agentCopy.dashboard.netResult}</span>
+            <strong>{(stats.netProfit || 0) >= 0 ? '+' : ''}{money(stats.netProfit)} บาท</strong>
+            <small>{agentCopy.dashboard.totalWonFromSales(money(stats.totalWon), money(stats.totalAmount))}</small>
           </div>
 
           <div className="hero-mini-card">
             <div className="hero-mini-icon"><FiWifi /></div>
-            <span>Online members</span>
+            <span>{agentCopy.dashboard.onlineMembers}</span>
             <strong>{stats.onlineCustomers || 0}</strong>
-            <small>Live presence from member heartbeat</small>
+            <small>{agentCopy.dashboard.onlineMembersHint}</small>
           </div>
 
           <div className="hero-mini-card">
             <div className="hero-mini-icon"><FiBell /></div>
-            <span>Unread notices</span>
+            <span>{agentCopy.dashboard.unreadNotices}</span>
             <strong>{unreadAnnouncements}</strong>
-            <small>{announcements.length} total announcement{announcements.length === 1 ? '' : 's'}</small>
+            <small>{agentCopy.dashboard.announcementsTotal(announcements.length)}</small>
           </div>
         </div>
       </section>
@@ -133,10 +126,10 @@ const AgentDashboard = () => {
         <section className="card panel-card">
           <div className="panel-head">
             <div>
-              <div className="panel-eyebrow">Activity feed</div>
-              <h3 className="card-title">Latest items</h3>
+              <div className="panel-eyebrow">{agentCopy.dashboard.activityEyebrow}</div>
+              <h3 className="card-title">{agentCopy.dashboard.activityTitle}</h3>
             </div>
-            <span className="panel-count">{data?.recentBets?.length || 0} items</span>
+            <span className="panel-count">{agentCopy.dashboard.items(data?.recentBets?.length || 0)}</span>
           </div>
 
           <div className="recent-list">
@@ -145,18 +138,18 @@ const AgentDashboard = () => {
                 <div className="recent-main">
                   <div className="recent-topline">
                     <strong>{bet.number}</strong>
-                    <span className={`result-pill result-${bet.result || 'pending'}`}>{bet.result || 'pending'}</span>
+                    <span className={`result-pill result-${bet.result || 'pending'}`}>{getBetResultLabel(bet.result || 'pending')}</span>
                   </div>
-                  <div className="recent-meta">{bet.customerId?.name || 'Unknown'} • {betTypeLabels[bet.betType] || bet.betType}</div>
+                  <div className="recent-meta">{bet.customerId?.name || agentCopy.dashboard.unknownMember} • {getBetTypeLabel(bet.betType)}</div>
                   <div className="recent-meta">{bet.marketName || bet.marketId} • {bet.roundTitle || bet.roundDate}</div>
                 </div>
                 <div className="recent-right">
-                  <strong>{money(bet.amount)} ฿</strong>
-                  <span>Potential {money(bet.potentialPayout)} ฿</span>
+                  <strong>{money(bet.amount)} บาท</strong>
+                  <span>{agentCopy.dashboard.potentialPayout(money(bet.potentialPayout))}</span>
                 </div>
               </article>
             )) : (
-              <div className="empty-state"><div className="empty-state-text">No recent items.</div></div>
+              <div className="empty-state"><div className="empty-state-text">{agentCopy.dashboard.noRecentItems}</div></div>
             )}
           </div>
         </section>
@@ -167,8 +160,8 @@ const AgentDashboard = () => {
               <section className="card panel-card compact-panel">
                 <div className="panel-head">
                   <div>
-                    <div className="panel-eyebrow">Presence</div>
-                    <h3 className="card-title">Members online</h3>
+                    <div className="panel-eyebrow">{agentCopy.dashboard.presenceEyebrow}</div>
+                    <h3 className="card-title">{agentCopy.dashboard.membersOnline}</h3>
                   </div>
                   <span className="panel-count">{data.onlineMembers.length}</span>
                 </div>
@@ -179,7 +172,7 @@ const AgentDashboard = () => {
                       <div className="recent-main">
                         <div className="recent-topline">
                           <strong>{member.name}</strong>
-                          <span className="result-pill result-pending">online</span>
+                          <span className="result-pill result-pending">{agentCopy.dashboard.online}</span>
                         </div>
                         <div className="recent-meta">@{member.username} • {member.memberCode || '-'}</div>
                       </div>
@@ -196,10 +189,10 @@ const AgentDashboard = () => {
               <section className="card panel-card compact-panel">
                 <div className="panel-head">
                   <div>
-                    <div className="panel-eyebrow">Broadcast</div>
-                    <h3 className="card-title">Announcements</h3>
+                    <div className="panel-eyebrow">{agentCopy.dashboard.broadcastEyebrow}</div>
+                    <h3 className="card-title">{agentCopy.dashboard.announcementsTitle}</h3>
                   </div>
-                  <span className="panel-count">{unreadAnnouncements} unread</span>
+                  <span className="panel-count">{agentCopy.dashboard.unread(unreadAnnouncements)}</span>
                 </div>
 
                 <div className="recent-list">
@@ -208,17 +201,17 @@ const AgentDashboard = () => {
                       <div className="recent-main">
                         <div className="recent-topline">
                           <strong>{announcement.title}</strong>
-                          {!announcement.isRead ? <span className="result-pill result-pending">new</span> : null}
+                          {!announcement.isRead ? <span className="result-pill result-pending">{agentCopy.dashboard.newBadge}</span> : null}
                         </div>
                         <div className="recent-meta">{announcement.body}</div>
                       </div>
                       <div className="recent-right">
                         {!announcement.isRead ? (
                           <button className="btn btn-secondary btn-sm" onClick={() => markAnnouncementRead(announcement.id)}>
-                            Mark read
+                            {agentCopy.dashboard.markRead}
                           </button>
                         ) : (
-                          <span>Read</span>
+                          <span>{agentCopy.dashboard.read}</span>
                         )}
                       </div>
                     </article>
@@ -478,7 +471,6 @@ const AgentDashboard = () => {
           border-radius: 999px;
           font-size: 0.72rem;
           font-weight: 700;
-          text-transform: capitalize;
         }
 
         .result-pending {

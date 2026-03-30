@@ -1,15 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { FiActivity, FiArrowRight, FiClock, FiLayers, FiTrendingUp } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { memberCopy } from '../../i18n/th/member';
+import { getBetTypeLabel, getProviderLabel, getRoundStatusLabel } from '../../i18n/th/labels';
 import { useCatalog } from '../../context/CatalogContext';
-
-const statusLabels = {
-  open: 'Open',
-  upcoming: 'Upcoming',
-  closed: 'Closed',
-  resulted: 'Resulted',
-  missing: 'No round'
-};
 
 const formatCountdown = (seconds) => {
   if (seconds === null || seconds === undefined) return '-';
@@ -20,16 +14,8 @@ const formatCountdown = (seconds) => {
   return [hours, minutes, secs].map((value) => String(value).padStart(2, '0')).join(':');
 };
 
-const betTypeLabels = {
-  '3top': '3 Top',
-  '3tod': '3 Tod',
-  '2top': '2 Top',
-  '2bottom': '2 Bottom',
-  'run_top': 'Run Top',
-  'run_bottom': 'Run Bottom'
-};
-
 const CustomerOverview = () => {
+  const copy = memberCopy.overview;
   const navigate = useNavigate();
   const {
     leagues,
@@ -52,40 +38,40 @@ const CustomerOverview = () => {
     <div className="animate-fade-in customer-market-page">
       <section className="market-hero card">
         <div className="market-hero-copy">
-          <span className="section-eyebrow">Markets board</span>
-          <h1 className="page-title">Choose your market</h1>
-          <p className="page-subtitle">Browse active lotteries, review round timing, compare rate profiles, and jump into the betting console from one clean board.</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
           <div className="market-hero-meta">
-            <span><FiActivity /> {lotteryCount} markets</span>
-            <span><FiTrendingUp /> {openCount} open now</span>
-            <span><FiClock /> Countdown {formatCountdown(selectedLottery?.countdownSeconds)}</span>
+            <span><FiActivity /> {copy.marketCount(lotteryCount)}</span>
+            <span><FiTrendingUp /> {copy.openCount(openCount)}</span>
+            <span><FiClock /> {copy.countdown(formatCountdown(selectedLottery?.countdownSeconds))}</span>
           </div>
         </div>
         <Link to="/customer/bet" className="btn btn-primary">
-          Open betting console <FiArrowRight />
+          {copy.cta} <FiArrowRight />
         </Link>
       </section>
 
       <section className="market-stat-grid">
         <article className="market-stat-card">
-          <span>Selected market</span>
+          <span>{copy.stats.selectedMarket}</span>
           <strong>{selectedLottery?.name || '-'}</strong>
-          <small>{selectedLottery?.provider || 'No provider selected'}</small>
+          <small>{getProviderLabel(selectedLottery?.provider, copy.stats.noProviderSelected)}</small>
         </article>
         <article className="market-stat-card">
-          <span>Current round</span>
+          <span>{copy.stats.currentRound}</span>
           <strong>{selectedRound?.displayDate || selectedRound?.title || '-'}</strong>
-          <small>{selectedRound?.displayCloseAt || 'No round loaded'}</small>
+          <small>{selectedRound?.displayCloseAt || copy.stats.noRoundLoaded}</small>
         </article>
         <article className="market-stat-card">
-          <span>Rate profile</span>
+          <span>{copy.stats.rateProfile}</span>
           <strong>{selectedRateProfile?.name || '-'}</strong>
-          <small>{selectedLottery?.supportedBetTypes?.length || 0} bet types supported</small>
+          <small>{copy.stats.supportedBetTypes(selectedLottery?.supportedBetTypes?.length || 0)}</small>
         </article>
         <article className="market-stat-card">
-          <span>Status</span>
-          <strong>{statusLabels[selectedLottery?.status] || '-'}</strong>
-          <small>{selectedLottery?.description || 'Select a market to see more details'}</small>
+          <span>{copy.stats.status}</span>
+          <strong>{getRoundStatusLabel(selectedLottery?.status)}</strong>
+          <small>{selectedLottery?.description || copy.stats.selectMarketHint}</small>
         </article>
       </section>
 
@@ -93,8 +79,8 @@ const CustomerOverview = () => {
         <section className="card market-panel">
           <div className="panel-head">
             <div>
-              <div className="panel-eyebrow">Notice board</div>
-              <h3 className="card-title">Announcements</h3>
+              <div className="panel-eyebrow">{copy.announcements.eyebrow}</div>
+              <h3 className="card-title">{copy.announcements.title}</h3>
             </div>
           </div>
           <div className="announcement-list">
@@ -106,10 +92,10 @@ const CustomerOverview = () => {
                 </div>
                 {!announcement.isRead ? (
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => markAnnouncementRead(announcement.id)}>
-                    Mark read
+                    {copy.announcements.markRead}
                   </button>
                 ) : (
-                  <span className="read-pill">Read</span>
+                  <span className="read-pill">{copy.announcements.read}</span>
                 )}
               </article>
             ))}
@@ -121,15 +107,15 @@ const CustomerOverview = () => {
         <section className="card market-panel">
           <div className="panel-head">
             <div>
-              <div className="panel-eyebrow">Selected market</div>
+              <div className="panel-eyebrow">{copy.selectedMarket.eyebrow}</div>
               <h3 className="card-title">{selectedLottery.name}</h3>
             </div>
           </div>
 
           <div className="selected-market-summary">
-            <span>Round {selectedRound?.title || '-'}</span>
-            <span>Close {selectedRound?.displayCloseAt || '-'}</span>
-            <span>Draw {selectedRound?.displayDrawAt || '-'}</span>
+            <span>{copy.selectedMarket.round} {selectedRound?.title || '-'}</span>
+            <span>{copy.selectedMarket.close} {selectedRound?.displayCloseAt || '-'}</span>
+            <span>{copy.selectedMarket.draw} {selectedRound?.displayDrawAt || '-'}</span>
           </div>
 
           <div className="catalog-rate-chips">
@@ -144,14 +130,14 @@ const CustomerOverview = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Bet type</th>
-                  <th>Rate</th>
+                  <th>{copy.selectedMarket.betType}</th>
+                  <th>{copy.selectedMarket.rate}</th>
                 </tr>
               </thead>
               <tbody>
                 {selectedLottery.supportedBetTypes.map((betType) => (
                   <tr key={betType}>
-                    <td>{betTypeLabels[betType]}</td>
+                    <td>{getBetTypeLabel(betType)}</td>
                     <td>x{selectedRateProfile?.rates?.[betType] || 0}</td>
                   </tr>
                 ))}
@@ -180,27 +166,27 @@ const CustomerOverview = () => {
                   <div className="market-card-header">
                     <div>
                       <div className="market-card-title">{lottery.name}</div>
-                      <div className="market-card-date">{lottery.activeRound?.title || 'No round'}</div>
+                      <div className="market-card-date">{lottery.activeRound?.title || copy.cards.noRound}</div>
                     </div>
                     <span className={`badge badge-${lottery.status === 'open' ? 'success' : lottery.status === 'upcoming' ? 'warning' : lottery.status === 'closed' ? 'info' : 'danger'}`}>
-                      {statusLabels[lottery.status] || lottery.status}
+                      {getRoundStatusLabel(lottery.status)}
                     </span>
                   </div>
 
                   <div className="market-card-headline">
-                    {latestResult?.headline || lottery.activeRound?.displayDate || 'Waiting for data'}
+                    {latestResult?.headline || lottery.activeRound?.displayDate || copy.cards.waitingForData}
                   </div>
 
                   <div className="market-chip-list">
-                    <div className="market-chip"><span className="market-chip-label">Close</span><strong>{lottery.activeRound?.displayCloseAt || '-'}</strong></div>
-                    <div className="market-chip"><span className="market-chip-label">Countdown</span><strong>{formatCountdown(lottery.countdownSeconds)}</strong></div>
-                    <div className="market-chip"><span className="market-chip-label">Rate</span><strong>{lottery.rateProfiles?.[0]?.name || '-'}</strong></div>
-                    <div className="market-chip"><span className="market-chip-label">Latest result</span><strong>{latestResult?.headline || latestResult?.twoBottom || latestResult?.threeTop || 'No result yet'}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">{copy.cards.close}</span><strong>{lottery.activeRound?.displayCloseAt || '-'}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">{copy.cards.countdown}</span><strong>{formatCountdown(lottery.countdownSeconds)}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">{copy.cards.baseRate}</span><strong>{lottery.rateProfiles?.[0]?.name || '-'}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">{copy.cards.latestResult}</span><strong>{latestResult?.headline || latestResult?.twoBottom || latestResult?.threeTop || copy.cards.noResultYet}</strong></div>
                   </div>
 
                   <div className="market-card-footer">
-                    <div className="market-card-note">{lottery.supportedBetTypes.length} bet types available</div>
-                    <div className="market-card-provider">{lottery.provider}</div>
+                    <div className="market-card-note">{copy.cards.supportedBetTypes(lottery.supportedBetTypes.length)}</div>
+                    <div className="market-card-provider">{getProviderLabel(lottery.provider)}</div>
                   </div>
                 </button>
               );

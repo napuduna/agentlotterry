@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { FiArrowDownLeft, FiArrowUpRight, FiClock } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { memberCopy } from '../../i18n/th/member';
+import { getWalletEntryTypeLabel, getWalletReasonLabel } from '../../i18n/th/labels';
 import { getWalletHistory, getWalletSummary } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerWallet = () => {
+  const copy = memberCopy.wallet;
   const { checkAuth } = useAuth();
   const [summary, setSummary] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -42,45 +45,45 @@ const CustomerWallet = () => {
     <div className="wallet-page animate-fade-in">
       <section className="wallet-hero card">
         <div className="wallet-hero-copy">
-          <span className="section-eyebrow">Ledger overview</span>
-          <h1 className="page-title">Wallet</h1>
-          <p className="page-subtitle">Track your current balance, total credit flow, and every ledger entry that touched this account.</p>
+          <span className="section-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
         <div className="wallet-balance-block">
-          <span>Current balance</span>
+          <span>{copy.currentBalance}</span>
           <strong>{money(account.creditBalance)} ฿</strong>
-          <small>{totals.transactionCount || 0} ledger entries</small>
+          <small>{copy.transactionCount(totals.transactionCount || 0)}</small>
         </div>
       </section>
 
       <section className="wallet-grid">
-        <article className="wallet-stat"><span>Credit in</span><strong>{money(totals.totalCreditIn)}</strong><small>Total incoming value</small></article>
-        <article className="wallet-stat"><span>Credit out</span><strong>{money(totals.totalCreditOut)}</strong><small>Total outgoing value</small></article>
-        <article className="wallet-stat"><span>Net flow</span><strong>{money(totals.netFlow)}</strong><small>Net movement over time</small></article>
+        <article className="wallet-stat"><span>{copy.stats.creditIn}</span><strong>{money(totals.totalCreditIn)}</strong><small>{copy.stats.creditInHint}</small></article>
+        <article className="wallet-stat"><span>{copy.stats.creditOut}</span><strong>{money(totals.totalCreditOut)}</strong><small>{copy.stats.creditOutHint}</small></article>
+        <article className="wallet-stat"><span>{copy.stats.netFlow}</span><strong>{money(totals.netFlow)}</strong><small>{copy.stats.netFlowHint}</small></article>
       </section>
 
       <section className="card wallet-list">
         <div className="panel-head">
           <div>
-            <div className="panel-eyebrow">Ledger feed</div>
-            <h3 className="card-title">Transactions</h3>
+            <div className="panel-eyebrow">{copy.panelEyebrow}</div>
+            <h3 className="card-title">{copy.panelTitle}</h3>
           </div>
         </div>
 
         {entries.length === 0 ? (
-          <div className="empty-state"><div className="empty-state-text">No wallet activity yet.</div></div>
+          <div className="empty-state"><div className="empty-state-text">{copy.empty}</div></div>
         ) : entries.map((entry) => (
           <article key={entry.id} className={`wallet-row wallet-${entry.direction}`}>
             <div className="wallet-row-icon">{entry.direction === 'credit' ? <FiArrowDownLeft /> : <FiArrowUpRight />}</div>
             <div className="wallet-row-main">
               <div className="wallet-row-top">
-                <strong>{entry.entryType === 'transfer' ? 'Transfer' : 'Adjustment'}</strong>
+                <strong>{getWalletEntryTypeLabel(entry.entryType)}</strong>
                 <span className={`wallet-amount ${entry.direction}`}>{entry.direction === 'credit' ? '+' : '-'}{money(entry.amount)}</span>
               </div>
               <div className="wallet-row-meta">
-                <span>{entry.counterparty?.name || entry.performedBy?.name || 'System'}</span>
-                <span>{entry.reasonCode || '-'}</span>
-                <span>Balance {money(entry.balanceAfter)}</span>
+                <span>{entry.counterparty?.name || entry.performedBy?.name || 'ระบบ'}</span>
+                <span>{getWalletReasonLabel(entry.reasonCode)}</span>
+                <span>{copy.balanceAfter(money(entry.balanceAfter))}</span>
               </div>
               {entry.note ? <div className="wallet-row-note">{entry.note}</div> : null}
             </div>

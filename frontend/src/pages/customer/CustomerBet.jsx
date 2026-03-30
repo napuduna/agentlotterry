@@ -2,37 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { FiAlertCircle, FiClock, FiLayers, FiRefreshCw, FiRotateCcw, FiSave, FiSend, FiShuffle, FiStar } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import { memberCopy } from '../../i18n/th/member';
+import { getBetTypeLabel, getRoundStatusLabel, getSourceFlagLabel } from '../../i18n/th/labels';
 import { createMemberSlip, getCatalogRounds, parseMemberSlip } from '../../services/api';
 import { useCatalog } from '../../context/CatalogContext';
-
-const betTypeLabels = {
-  '3top': '3 ตัวบน',
-  '3tod': '3 ตัวโต๊ด',
-  '2top': '2 ตัวบน',
-  '2bottom': '2 ตัวล่าง',
-  'run_top': 'วิ่งบน',
-  'run_bottom': 'วิ่งล่าง'
-};
-
-const roundStatusLabels = {
-  open: 'เปิดรับ',
-  upcoming: 'กำลังจะเปิด',
-  closed: 'ปิดรับ',
-  resulted: 'ประกาศผลแล้ว',
-  missing: 'ยังไม่มีงวด'
-};
-
-const sourceFlagLabels = {
-  doubleSet: 'เลขเบิ้ล',
-  reverse: 'กลับเลข',
-  manual: 'พิมพ์ตรง'
-};
 
 const quickAmountOptions = ['10', '20', '50', '100'];
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerBet = () => {
+  const copy = memberCopy.bet;
   const {
     loading,
     flatLotteries,
@@ -82,7 +62,7 @@ const CustomerBet = () => {
         }
       } catch (error) {
         console.error(error);
-        toast.error('โหลดงวดไม่สำเร็จ');
+        toast.error(copy.loadRoundsError);
       } finally {
         setLoadingRounds(false);
       }
@@ -108,13 +88,13 @@ const CustomerBet = () => {
   const helperLabel = useMemo(() => {
     if (includeDoubleSet) {
       return activeBetType.startsWith('3')
-        ? 'เปิดเลขเบิ้ล 3 ตัว'
+        ? copy.helperDoubleSet3
         : activeBetType.startsWith('2')
-          ? 'เปิดเลขเบิ้ล 2 ตัว'
-          : 'เปิดตัวช่วย';
+          ? copy.helperDoubleSet2
+          : copy.helperExtra;
     }
-    return 'เพิ่มเลขเบิ้ล';
-  }, [includeDoubleSet, activeBetType]);
+    return copy.helperDefault;
+  }, [includeDoubleSet, activeBetType, copy.helperDefault, copy.helperDoubleSet2, copy.helperDoubleSet3, copy.helperExtra]);
 
   const buildPayload = () => ({
     lotteryId: selectedLottery?.id,
@@ -130,7 +110,7 @@ const CustomerBet = () => {
 
   const handlePreview = async () => {
     if (!selectedLottery?.id || !selectedRoundMeta?.id) {
-      toast.error('กรุณาเลือกหวยและงวดก่อน');
+      toast.error(copy.selectLotteryAndRound);
       return;
     }
 
@@ -140,7 +120,7 @@ const CustomerBet = () => {
       setPreview(res.data);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'สร้างตัวอย่างโพยไม่สำเร็จ');
+      toast.error(error.response?.data?.message || copy.previewError);
     } finally {
       setPreviewing(false);
     }
@@ -156,7 +136,7 @@ const CustomerBet = () => {
     setLoadingState(true);
     try {
       const res = await createMemberSlip({ ...buildPayload(), action });
-      toast.success(action === 'draft' ? `บันทึกโพย ${res.data.slipNumber} แล้ว` : `ส่งรายการซื้อ ${res.data.slipNumber} แล้ว`);
+      toast.success(action === 'draft' ? copy.draftSaved(res.data.slipNumber) : copy.submitted(res.data.slipNumber));
       setRawInput('');
       setMemo('');
       setDefaultAmount('');
@@ -165,7 +145,7 @@ const CustomerBet = () => {
       setPreview(null);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'สร้างโพยไม่สำเร็จ');
+      toast.error(error.response?.data?.message || copy.createSlipError);
     } finally {
       setLoadingState(false);
     }
@@ -193,15 +173,15 @@ const CustomerBet = () => {
         <section className="card bet-composer-panel">
           <div className="bet-panel-head">
             <div>
-              <div className="panel-eyebrow">หน้าซื้อหลัก</div>
-              <h1 className="page-title">คอนโซลแทงหวย</h1>
-              <p className="page-subtitle">เลือกตลาด เลือกงวด ใส่โพยแบบเร็ว ดูตัวอย่าง แล้วค่อยบันทึกหรือส่งซื้อจริงในจอเดียว</p>
+              <div className="panel-eyebrow">{copy.heroEyebrow}</div>
+              <h1 className="page-title">{copy.heroTitle}</h1>
+              <p className="page-subtitle">{copy.heroSubtitle}</p>
             </div>
           </div>
 
           <div className="bet-market-grid">
             <label className="bet-field">
-              <span>ตลาดหวย</span>
+              <span>{copy.lotteryField}</span>
               <select value={selectedLottery?.id || ''} onChange={(event) => setSelectedLottery(event.target.value)} disabled={!flatLotteries.length}>
                 {flatLotteries.map((lottery) => (
                   <option key={lottery.id} value={lottery.id}>{lottery.leagueName} • {lottery.name}</option>
@@ -210,10 +190,10 @@ const CustomerBet = () => {
             </label>
 
             <label className="bet-field">
-              <span>งวด</span>
+              <span>{copy.roundField}</span>
               <select value={selectedRoundMeta?.id || ''} onChange={(event) => setSelectedRound(event.target.value)} disabled={loadingRounds || !selectableRounds.length}>
                 {selectableRounds.map((round) => (
-                  <option key={round.id} value={round.id}>{round.title} • {roundStatusLabels[round.status] || round.status}</option>
+                  <option key={round.id} value={round.id}>{round.title} • {getRoundStatusLabel(round.status)}</option>
                 ))}
               </select>
             </label>
@@ -222,8 +202,8 @@ const CustomerBet = () => {
           <div className="bet-context-row">
             <span><FiLayers /> {selectedLottery?.name || '-'}</span>
             <span><FiClock /> {selectedRoundMeta?.title || '-'}</span>
-            <span>{roundStatusLabels[selectedRoundMeta?.status] || '-'}</span>
-            <span>เรท {selectedRateProfile?.name || '-'}</span>
+            <span>{getRoundStatusLabel(selectedRoundMeta?.status)}</span>
+            <span>{copy.rateChip(selectedRateProfile?.name)}</span>
           </div>
 
           <div className="catalog-rate-chips">
@@ -237,7 +217,7 @@ const CustomerBet = () => {
           <div className="bet-type-tabs">
             {(selectedLottery?.supportedBetTypes || []).map((betType) => (
               <button key={betType} type="button" className={`bet-type-tab ${activeBetType === betType ? 'active' : ''}`} onClick={() => setActiveBetType(betType)}>
-                <span className="bet-type-tab-label">{betTypeLabels[betType]}</span>
+                <span className="bet-type-tab-label">{getBetTypeLabel(betType)}</span>
                 <span className="bet-type-tab-rate">x{selectedRateProfile?.rates?.[betType] || 0}</span>
               </button>
             ))}
@@ -245,13 +225,13 @@ const CustomerBet = () => {
 
           <div className="bet-form-grid">
             <label className="bet-field">
-              <span>จำนวนมาตรฐาน</span>
+              <span>{copy.defaultAmount}</span>
               <input type="number" min="1" placeholder="เช่น 10" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} />
             </label>
 
             <label className="bet-field">
-              <span>บันทึกช่วยจำ</span>
-              <input type="text" placeholder="เช่น โพยเช้า หรือเลขเน้น" value={memo} onChange={(event) => setMemo(event.target.value)} />
+              <span>{copy.memoField}</span>
+              <input type="text" placeholder={copy.memoPlaceholder} value={memo} onChange={(event) => setMemo(event.target.value)} />
             </label>
           </div>
 
@@ -263,25 +243,25 @@ const CustomerBet = () => {
                 className={`preset-chip ${defaultAmount === amount ? 'active' : ''}`}
                 onClick={() => applyQuickAmount(amount)}
               >
-                {amount} บาท
+                {amount} {copy.presetsSuffix}
               </button>
             ))}
           </div>
 
           <div className="bet-helper-row">
             <button type="button" className={`helper-btn ${reverse ? 'active' : ''}`} onClick={() => setReverse((value) => !value)}>
-              <FiShuffle /> กลับเลข
+              <FiShuffle /> {copy.reverse}
             </button>
             <button type="button" className={`helper-btn ${includeDoubleSet ? 'active' : ''}`} onClick={() => setIncludeDoubleSet((value) => !value)}>
               <FiStar /> {helperLabel}
             </button>
             <button type="button" className="helper-btn" onClick={clearComposer}>
-              <FiRotateCcw /> ล้างทั้งหมด
+              <FiRotateCcw /> {copy.clearAll}
             </button>
           </div>
 
           <label className="bet-field">
-            <span>กรอกโพยแบบเร็ว</span>
+            <span>{copy.fastInput}</span>
             <textarea
               rows="14"
               placeholder={'พิมพ์ 1 บรรทัดต่อ 1 รายการ\n123 10\n456=20\n789'}
@@ -292,19 +272,19 @@ const CustomerBet = () => {
 
           <div className="bet-note">
             <FiAlertCircle />
-            <span>รองรับรูปแบบ `123 10`, `123=10`, `123/10` หรือพิมพ์เลขอย่างเดียวแล้วใช้จำนวนมาตรฐานด้านบน</span>
+            <span>{copy.helperNote}</span>
           </div>
         </section>
 
         <aside className="card bet-preview-panel">
           <div className="bet-panel-head">
             <div>
-              <div className="panel-eyebrow">ตัวอย่างโพย</div>
-              <h3 className="card-title">ตรวจรายการก่อนส่ง</h3>
+              <div className="panel-eyebrow">{copy.previewEyebrow}</div>
+              <h3 className="card-title">{copy.previewTitle}</h3>
             </div>
             <button className="btn btn-secondary btn-sm" onClick={handlePreview} disabled={previewing || !selectedLottery}>
               {previewing ? <FiRefreshCw className="spin-animation" /> : <FiLayers />}
-              รีวิวโพย
+              {copy.previewButton}
             </button>
           </div>
 
@@ -312,16 +292,16 @@ const CustomerBet = () => {
             <div className="preview-empty">
               <div className="empty-state">
                 <div className="empty-state-icon"><FiLayers /></div>
-                <div className="empty-state-text">กดรีวิวโพยเพื่อดูรายการที่ระบบสร้างให้ก่อนบันทึกหรือส่งซื้อ</div>
+                <div className="empty-state-text">{copy.previewEmpty}</div>
               </div>
             </div>
           ) : (
             <>
               <div className="preview-summary-grid">
-                <div className="preview-stat"><span>จำนวนรายการ</span><strong>{previewSummary.itemCount || 0}</strong></div>
-                <div className="preview-stat"><span>ยอดแทง</span><strong>{money(previewSummary.totalAmount)} บาท</strong></div>
-                <div className="preview-stat"><span>จ่ายสูงสุด</span><strong>{money(previewSummary.potentialPayout)} บาท</strong></div>
-                <div className="preview-stat"><span>สถานะงวด</span><strong>{roundStatusLabels[preview.roundStatus?.status] || '-'}</strong></div>
+                <div className="preview-stat"><span>{copy.previewStats.itemCount}</span><strong>{previewSummary.itemCount || 0}</strong></div>
+                <div className="preview-stat"><span>{copy.previewStats.totalAmount}</span><strong>{money(previewSummary.totalAmount)} บาท</strong></div>
+                <div className="preview-stat"><span>{copy.previewStats.potentialPayout}</span><strong>{money(previewSummary.potentialPayout)} บาท</strong></div>
+                <div className="preview-stat"><span>{copy.previewStats.roundStatus}</span><strong>{getRoundStatusLabel(preview.roundStatus?.status)}</strong></div>
               </div>
 
               <div className="preview-items">
@@ -331,10 +311,10 @@ const CustomerBet = () => {
                       <strong>{item.number}</strong>
                       <div className="preview-item-meta">
                         {item.sourceFlags.fromDoubleSet
-                          ? sourceFlagLabels.doubleSet
+                          ? getSourceFlagLabel('doubleSet')
                           : item.sourceFlags.fromReverse
-                            ? sourceFlagLabels.reverse
-                            : sourceFlagLabels.manual}
+                            ? getSourceFlagLabel('reverse')
+                            : getSourceFlagLabel('manual')}
                       </div>
                     </div>
                     <div className="preview-item-right">
@@ -348,7 +328,7 @@ const CustomerBet = () => {
               {preview.items.length > 12 ? (
                 <div className="bet-note compact">
                   <FiAlertCircle />
-                  <span>ตอนนี้แสดง 12 รายการแรกจากทั้งหมด {preview.items.length} รายการ</span>
+                  <span>{copy.previewLimitNotice(preview.items.length)}</span>
                 </div>
               ) : null}
             </>
@@ -356,12 +336,12 @@ const CustomerBet = () => {
 
           <div className="preview-action-stack">
             <button className="btn btn-secondary" onClick={() => handleCreateSlip('draft')} disabled={previewing || savingDraft || submitting || !preview}>
-              <FiSave /> {savingDraft ? 'กำลังบันทึก...' : 'บันทึกโพย'}
+              <FiSave /> {savingDraft ? copy.savingDraft : copy.saveDraft}
             </button>
             <button className="btn btn-primary" onClick={() => handleCreateSlip('submit')} disabled={previewing || savingDraft || submitting || !preview || !canSubmit}>
-              <FiSend /> {submitting ? 'กำลังส่ง...' : 'ส่งรายการซื้อ'}
+              <FiSend /> {submitting ? copy.submitting : copy.submit}
             </button>
-            {!canSubmit ? <div className="submit-warning">งวดนี้ยังไม่เปิดรับซื้อ จึงยังส่งโพยไม่ได้</div> : null}
+            {!canSubmit ? <div className="submit-warning">{copy.submitWarning}</div> : null}
           </div>
         </aside>
       </section>

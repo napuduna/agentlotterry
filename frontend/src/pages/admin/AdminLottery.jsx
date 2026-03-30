@@ -3,7 +3,10 @@ import toast from 'react-hot-toast';
 import { FiActivity, FiAward, FiClock, FiDownload, FiEdit3, FiRefreshCw } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
+import { adminCopy } from '../../i18n/th/admin';
 import { fetchLottery, getLatestLottery, getLotteryResults, manualLottery } from '../../services/api';
+
+const copy = adminCopy.lottery;
 
 const resultStatusBadge = (result) => {
   if (result?.isCalculated) return 'badge-success';
@@ -11,9 +14,9 @@ const resultStatusBadge = (result) => {
 };
 
 const resultStatusLabel = (result) => {
-  if (result?.isCalculated) return 'สรุปโพยแล้ว';
-  if (result?.firstPrize) return 'บันทึกผลแล้ว';
-  return 'รอผล';
+  if (result?.isCalculated) return copy.settled;
+  if (result?.firstPrize) return copy.resultSaved;
+  return copy.waitingResult;
 };
 
 const AdminLottery = () => {
@@ -49,85 +52,85 @@ const AdminLottery = () => {
   };
 
   const overviewCards = useMemo(() => {
-    const latestRound = latest?.roundDate || 'No round';
+    const latestRound = latest?.roundDate || copy.noRound;
     const latestFirstPrize = latest?.firstPrize || '-';
     const latestTop = latest?.firstPrize?.slice(-3) || '-';
     const latestBottom = latest?.twoBottom || '-';
 
     return [
       {
-        label: 'งวดล่าสุด',
+        label: copy.overviewCards.latestRound.label,
         value: latestRound,
-        hint: latest?.isCalculated ? 'สรุปโพยครบแล้ว' : 'รอระบบสรุปโพย'
+        hint: latest?.isCalculated ? copy.overviewCards.latestRound.settled : copy.overviewCards.latestRound.pending
       },
       {
-        label: 'รางวัลที่ 1',
+        label: copy.overviewCards.firstPrize.label,
         value: latestFirstPrize,
-        hint: 'เลขรางวัลหลักของงวด'
+        hint: copy.overviewCards.firstPrize.hint
       },
       {
-        label: '3 ตัวบน',
+        label: copy.overviewCards.top3.label,
         value: latestTop,
-        hint: 'ตัดจากรางวัลที่ 1'
+        hint: copy.overviewCards.top3.hint
       },
       {
-        label: '2 ตัวล่าง',
+        label: copy.overviewCards.bottom2.label,
         value: latestBottom,
-        hint: `บันทึกผลแล้ว ${results.length} งวด`
+        hint: copy.overviewCards.bottom2.hint(results.length)
       }
     ];
   }, [latest, results.length]);
 
   const handleFetch = async () => {
     if (!fetchDate) {
-      toast.error('กรุณาเลือกวันที่งวดก่อน');
+      toast.error(copy.fetchErrorNoDate);
       return;
     }
 
-    const toastId = toast.loading('กำลังดึงผลจาก API ภายนอก...');
+    const toastId = toast.loading(copy.fetchingExternal);
 
     try {
       const res = await fetchLottery({ roundDate: fetchDate });
       const settlement = res.data?.settlement;
       if (settlement) {
-        toast.success(`ดึงผลและสรุปโพยแล้ว ถูก ${settlement.wonCount} รายการ ไม่ถูก ${settlement.lostCount} รายการ`, { id: toastId });
+        toast.success(copy.fetchAndSettleSuccess(settlement.wonCount, settlement.lostCount), { id: toastId });
       } else {
-        toast.success('ดึงผลสำเร็จ', { id: toastId });
+        toast.success(copy.fetchSuccess, { id: toastId });
       }
       await loadData();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'ดึงผลไม่สำเร็จ', { id: toastId });
+      toast.error(error.response?.data?.message || copy.fetchError, { id: toastId });
     }
   };
 
   const handleQuickSync = async () => {
     const targetDate = fetchDate || latest?.roundDate;
     if (!targetDate) {
-      toast.error('ยังไม่มีงวดให้ดึงผลในตอนนี้');
+      toast.error(copy.noRoundToSync);
       return;
     }
 
     setFetchDate(targetDate);
-    const toastId = toast.loading(`กำลังดึงผลของงวด ${targetDate}...`);
+    const toastId = toast.loading(copy.quickSyncLoading(targetDate));
 
     try {
       const res = await fetchLottery({ roundDate: targetDate });
       const settlement = res.data?.settlement;
       if (settlement) {
-        toast.success(`งวด ${targetDate} ถูกดึงผลและสรุปโพยแล้ว`, { id: toastId });
+        toast.success(copy.quickSyncSettled(targetDate), { id: toastId });
       } else {
-        toast.success(`ดึงผลของงวด ${targetDate} สำเร็จ`, { id: toastId });
+        toast.success(copy.quickSyncSuccess(targetDate), { id: toastId });
       }
       await loadData();
     } catch (error) {
-      toast.error(error.response?.data?.message || `ดึงผลของงวด ${targetDate} ไม่สำเร็จ`, { id: toastId });
+      toast.error(error.response?.data?.message || copy.quickSyncError(targetDate), { id: toastId });
     }
   };
 
   const handleManualSave = async (event) => {
     event.preventDefault();
 
-    const toastId = toast.loading('กำลังบันทึกผลแบบ manual...');
+    const toastId = toast.loading(copy.manualLoading);
 
     try {
       const payload = {
@@ -141,9 +144,9 @@ const AdminLottery = () => {
       const res = await manualLottery(payload);
       const settlement = res.data?.settlement;
       if (settlement) {
-        toast.success(`บันทึกผลแล้ว ถูก ${settlement.wonCount} รายการ ไม่ถูก ${settlement.lostCount} รายการ`, { id: toastId });
+        toast.success(copy.manualSettled(settlement.wonCount, settlement.lostCount), { id: toastId });
       } else {
-        toast.success('บันทึกผลสำเร็จ', { id: toastId });
+        toast.success(copy.manualSuccess, { id: toastId });
       }
 
       setShowManual(false);
@@ -158,7 +161,7 @@ const AdminLottery = () => {
       });
       await loadData();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'บันทึกผลไม่สำเร็จ', { id: toastId });
+      toast.error(error.response?.data?.message || copy.manualError, { id: toastId });
     }
   };
 
@@ -170,15 +173,15 @@ const AdminLottery = () => {
     <div className="ops-page animate-fade-in">
       <section className="ops-hero">
         <div className="ops-hero-copy">
-          <span className="ui-eyebrow">ศูนย์จัดการผลหวย</span>
-          <h1 className="page-title">ผลหวย</h1>
-          <p className="page-subtitle">ดึงผลจาก API ภายนอก เก็บประวัติผลย้อนหลัง และใช้การกรอกมือเฉพาะตอนที่ feed ภายนอกยังไม่พร้อม</p>
+          <span className="ui-eyebrow">{copy.heroEyebrow}</span>
+          <h1 className="page-title">{copy.heroTitle}</h1>
+          <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
 
         <div className="ops-hero-side">
-          <span>สถานะผลล่าสุด</span>
-          <strong>{latest?.roundDate || 'ยังไม่มีงวด'}</strong>
-          <small>{latest?.firstPrize ? `รางวัลที่ 1 ${latest.firstPrize}` : 'ยังไม่มีผลถูกบันทึก'}</small>
+          <span>{copy.latestStatus}</span>
+          <strong>{latest?.roundDate || copy.noRound}</strong>
+          <small>{latest?.firstPrize ? `${copy.firstPrize} ${latest.firstPrize}` : copy.noSavedResult}</small>
         </div>
       </section>
 
@@ -196,14 +199,14 @@ const AdminLottery = () => {
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">API ภายนอก</div>
-              <h3 className="card-title">ดึงผลตามงวด</h3>
+              <div className="ui-eyebrow">{copy.externalEyebrow}</div>
+              <h3 className="card-title">{copy.externalTitle}</h3>
             </div>
-            <span className="ui-pill">เปิด sync อัตโนมัติ</span>
+            <span className="ui-pill">{copy.autoSyncEnabled}</span>
           </div>
 
           <div className="ops-stack">
-            <label className="form-label" htmlFor="lottery-round-date">วันที่งวด</label>
+            <label className="form-label" htmlFor="lottery-round-date">{copy.roundDate}</label>
             <input
               id="lottery-round-date"
               type="date"
@@ -215,23 +218,23 @@ const AdminLottery = () => {
             <div className="ops-actions">
               <button className="btn btn-primary" onClick={handleFetch}>
                 <FiDownload />
-                ดึงผลตามวันที่เลือก
+                {copy.fetchByDate}
               </button>
               <button className="btn btn-secondary" onClick={handleQuickSync}>
                 <FiRefreshCw />
-                ดึงผลล่าสุด
+                {copy.fetchLatest}
               </button>
             </div>
 
-            <p className="ops-table-note">ใช้ช่องนี้เมื่อต้องการดึงผลย้อนหลังหรือดึงผลของงวดใดงวดหนึ่งใหม่จาก feed ภายนอก</p>
+            <p className="ops-table-note">{copy.externalHint}</p>
           </div>
         </section>
 
         <section className="card ops-section">
           <div className="ui-panel-head">
             <div>
-              <div className="ui-eyebrow">ช่องทางสำรอง</div>
-              <h3 className="card-title">กรอกผลด้วยมือ</h3>
+              <div className="ui-eyebrow">{copy.fallbackEyebrow}</div>
+              <h3 className="card-title">{copy.fallbackTitle}</h3>
             </div>
             <span className={`badge ${resultStatusBadge(latest)}`}>{resultStatusLabel(latest)}</span>
           </div>
@@ -239,19 +242,19 @@ const AdminLottery = () => {
           <div className="ops-stack">
             <div className="ops-feed-row">
               <div>
-                <strong>รางวัลที่ 1 ล่าสุด</strong>
-                <div className="ops-feed-meta">{latest?.firstPrize || 'ยังไม่มีรางวัลที่ 1 ถูกบันทึก'}</div>
+                <strong>{copy.latestFirstPrize}</strong>
+                <div className="ops-feed-meta">{latest?.firstPrize || copy.noFirstPrize}</div>
               </div>
               <div className="ops-feed-right">
                 <strong>{latest?.twoBottom || '-'}</strong>
-                <span className="ops-feed-meta">2 ตัวล่าง</span>
+                <span className="ops-feed-meta">{copy.bottom2Short}</span>
               </div>
             </div>
 
-            <p className="ops-table-note">การกรอกมือใช้เป็นทางสำรองเท่านั้น และยังใช้ flow สรุปโพยเดียวกับการดึงผลอัตโนมัติ</p>
+            <p className="ops-table-note">{copy.fallbackHint}</p>
             <button className="btn btn-secondary" onClick={() => setShowManual(true)}>
               <FiEdit3 />
-              เปิดฟอร์มกรอกผล
+              {copy.openManualForm}
             </button>
           </div>
         </section>
@@ -260,12 +263,12 @@ const AdminLottery = () => {
       <section className="card ops-section">
         <div className="ops-table-head">
           <div>
-            <div className="ui-eyebrow">ประวัติผล</div>
-            <h3 className="card-title">รายการผลที่บันทึกแล้ว</h3>
-            <p className="ops-table-note">ตรวจดูงวดที่เคยบันทึกไว้ และเช็กว่าแต่ละงวดถูกสรุปโพยกับระบบแล้วหรือยัง</p>
+            <div className="ui-eyebrow">{copy.historyEyebrow}</div>
+            <h3 className="card-title">{copy.historyTitle}</h3>
+            <p className="ops-table-note">{copy.historyNote}</p>
           </div>
           <div className="ops-actions">
-            <span className="ui-pill"><FiActivity /> {results.length} งวด</span>
+            <span className="ui-pill"><FiActivity /> {copy.roundsCount(results.length)}</span>
             <span className={`badge ${resultStatusBadge(latest)}`}>{resultStatusLabel(latest)}</span>
           </div>
         </div>
@@ -274,17 +277,17 @@ const AdminLottery = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>งวด</th>
-                <th>รางวัลที่ 1</th>
-                <th>3 ตัวบน</th>
-                <th>2 ตัวล่าง</th>
+                <th>{copy.roundDate}</th>
+                <th>{copy.firstPrize}</th>
+                <th>{copy.overviewCards.top3.label}</th>
+                <th>{copy.bottom2Short}</th>
                 <th>สถานะ</th>
               </tr>
             </thead>
             <tbody>
               {results.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center text-muted" style={{ padding: 40 }}>ยังไม่มีผลถูกบันทึกในระบบ</td>
+                  <td colSpan="5" className="text-center text-muted" style={{ padding: 40 }}>{copy.noResults}</td>
                 </tr>
               ) : (
                 results.map((result) => (
@@ -306,11 +309,11 @@ const AdminLottery = () => {
         </div>
       </section>
 
-      <Modal isOpen={showManual} onClose={() => setShowManual(false)} title="กรอกผลแบบ manual" size="lg">
+      <Modal isOpen={showManual} onClose={() => setShowManual(false)} title={copy.manualTitle} size="lg">
         <form onSubmit={handleManualSave}>
           <div className="ops-form-grid">
             <div className="form-group">
-              <label className="form-label">วันที่งวด *</label>
+              <label className="form-label">{copy.roundDate} *</label>
               <input
                 type="date"
                 className="form-input"
@@ -321,7 +324,7 @@ const AdminLottery = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">รางวัลที่ 1 *</label>
+              <label className="form-label">{copy.firstPrize} *</label>
               <input
                 className="form-input"
                 value={manualForm.firstPrize}
@@ -332,7 +335,7 @@ const AdminLottery = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">2 ตัวล่าง</label>
+              <label className="form-label">{copy.bottom2Short}</label>
               <input
                 className="form-input"
                 value={manualForm.twoBottom}
@@ -342,7 +345,7 @@ const AdminLottery = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">รายการ 3 ตัวบน</label>
+              <label className="form-label">{copy.threeTopList}</label>
               <input
                 className="form-input"
                 placeholder="123, 456"
@@ -352,7 +355,7 @@ const AdminLottery = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">รายการ 3 ตัวล่าง</label>
+              <label className="form-label">{copy.threeBottomList}</label>
               <input
                 className="form-input"
                 placeholder="321, 654"
@@ -362,7 +365,7 @@ const AdminLottery = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">วิ่งบน</label>
+              <label className="form-label">{copy.runTop}</label>
               <input
                 className="form-input"
                 placeholder="1, 2, 3"
@@ -372,7 +375,7 @@ const AdminLottery = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">วิ่งล่าง</label>
+              <label className="form-label">{copy.runBottom}</label>
               <input
                 className="form-input"
                 placeholder="4, 5, 6"
@@ -383,10 +386,10 @@ const AdminLottery = () => {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setShowManual(false)}>ยกเลิก</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowManual(false)}>{adminCopy.common.cancel}</button>
             <button type="submit" className="btn btn-primary">
               <FiAward />
-              บันทึกผล
+              {copy.saveResult}
             </button>
           </div>
         </form>
