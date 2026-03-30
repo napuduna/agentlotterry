@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { FiActivity, FiAward, FiExternalLink } from 'react-icons/fi';
+import PageSkeleton from '../../components/PageSkeleton';
 import { useCatalog } from '../../context/CatalogContext';
 
 const LotteryResults = () => {
@@ -15,87 +16,66 @@ const LotteryResults = () => {
     }, {});
   }, [recentResults]);
 
-  if (loading) return <div className="loading-container"><div className="spinner"></div></div>;
+  if (loading) return <PageSkeleton statCount={3} rows={5} sidebar={false} />;
 
   return (
-    <div className="animate-fade-in market-section-stack">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">ผลรางวัลหลายตลาด</h1>
-          <p className="page-subtitle">แสดงผลรางวัลล่าสุดที่ถูกบันทึกไว้ในระบบจากทุกตลาด</p>
+    <div className="animate-fade-in results-page">
+      <section className="results-hero card">
+        <div className="results-hero-copy">
+          <span className="section-eyebrow">Results feed</span>
+          <h1 className="page-title">Latest results</h1>
+          <p className="page-subtitle">Track the latest published results from every market that has been synced into your system.</p>
         </div>
-      </div>
+      </section>
 
       {latest ? (
-        <div className="card mb-lg" style={{ borderColor: 'var(--border-accent)', boxShadow: 'var(--shadow-glow)' }}>
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: 8 }}>
-              <FiAward style={{ marginRight: 6 }} />
-              {latest.lotteryName} • {latest.roundCode}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
-              ผลล่าสุดที่พร้อมใช้งาน
-            </div>
-            <div style={{
-              fontSize: '3.5rem', fontWeight: 800, letterSpacing: '0.2em',
-              color: 'var(--primary-light)',
-              textShadow: '0 0 30px rgba(16, 185, 129, 0.3)',
-              marginBottom: 24
-            }}>
-              {latest.headline || '-'}
-            </div>
-            <div className="grid grid-3" style={{ maxWidth: 600, margin: '0 auto', gap: 16 }}>
-              <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>3 ตัวบน</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{latest.threeTop || '-'}</div>
-              </div>
-              <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>2 ตัวล่าง</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{latest.twoBottom || '-'}</div>
-              </div>
-              <div style={{ padding: 16, background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>แหล่งที่มา</div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, textTransform: 'uppercase' }}>{latest.sourceType || '-'}</div>
-              </div>
-            </div>
+        <section className="card featured-result">
+          <div className="featured-result-topline"><FiAward /> {latest.lotteryName} • {latest.roundCode}</div>
+          <div className="featured-result-headline">{latest.headline || '-'}</div>
+          <div className="featured-result-grid">
+            <div className="featured-result-card"><span>3 Top</span><strong>{latest.threeTop || '-'}</strong></div>
+            <div className="featured-result-card"><span>2 Bottom</span><strong>{latest.twoBottom || '-'}</strong></div>
+            <div className="featured-result-card"><span>Source</span><strong>{latest.sourceType || '-'}</strong></div>
           </div>
-        </div>
+        </section>
       ) : (
-        <div className="card mb-lg">
+        <section className="card">
           <div className="empty-state">
-            <div className="empty-state-icon">🎰</div>
-            <div className="empty-state-text">ยังไม่มีผลรางวัลในระบบ กรุณาให้แอดมินดึงหรือบันทึกผลก่อน</div>
+            <div className="empty-state-icon"><FiAward /></div>
+            <div className="empty-state-text">No results have been published yet.</div>
           </div>
-        </div>
+        </section>
       )}
 
       {Object.entries(grouped).map(([key, items]) => (
-        <div key={key} className="card">
-          <div className="card-header">
-            <h3 className="card-title"><FiActivity style={{ marginRight: 8 }} />{items[0]?.lotteryName || key}</h3>
+        <section key={key} className="card results-panel">
+          <div className="panel-head">
+            <div>
+              <div className="panel-eyebrow">Market feed</div>
+              <h3 className="card-title"><FiActivity style={{ marginRight: 8 }} />{items[0]?.lotteryName || key}</h3>
+            </div>
           </div>
+
           <div className="table-container">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>งวด</th>
-                  <th>ผลหลัก</th>
-                  <th>3 ตัวบน</th>
-                  <th>2 ตัวล่าง</th>
-                  <th>แหล่งที่มา</th>
+                  <th>Round</th>
+                  <th>Headline</th>
+                  <th>3 Top</th>
+                  <th>2 Bottom</th>
+                  <th>Source</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((result) => (
                   <tr key={result.id}>
-                    <td style={{ fontWeight: 600 }}>{result.roundCode}</td>
-                    <td style={{ color: 'var(--primary-light)', fontWeight: 700, fontSize: '1.1rem', letterSpacing: '0.08em' }}>
-                      {result.headline || '-'}
-                    </td>
+                    <td>{result.roundCode}</td>
+                    <td className="result-headline-cell">{result.headline || '-'}</td>
                     <td>{result.threeTop || '-'}</td>
                     <td>{result.twoBottom || '-'}</td>
                     <td>
-                      <span className="badge badge-info" style={{ gap: 6 }}>
+                      <span className="badge badge-info source-pill">
                         {result.sourceType || '-'}
                         {result.sourceUrl ? <FiExternalLink /> : null}
                       </span>
@@ -105,8 +85,31 @@ const LotteryResults = () => {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       ))}
+
+      <style>{`
+        .results-page{display:flex;flex-direction:column;gap:16px;position:relative;isolation:isolate}
+        .results-page::before{content:'';position:absolute;inset:-48px 0 auto;height:220px;background:radial-gradient(circle at top left,rgba(16,185,129,.14),transparent 62%);pointer-events:none;z-index:-1}
+        .results-hero{padding:28px;background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(17,24,39,.9)),radial-gradient(circle at top right,rgba(16,185,129,.12),transparent 38%);border-color:rgba(52,211,153,.18);box-shadow:0 24px 60px rgba(15,23,42,.34)}
+        .results-hero-copy{display:flex;flex-direction:column;gap:12px}
+        .section-eyebrow,.panel-eyebrow{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--primary-light);font-weight:700}
+        .results-hero .page-title{margin:0;font-size:clamp(2rem,4vw,3rem);line-height:.96;letter-spacing:-.04em}
+        .results-hero .page-subtitle{margin:0;max-width:56ch}
+        .featured-result,.results-panel{padding:20px}
+        .featured-result{border-color:var(--border-accent);box-shadow:var(--shadow-glow)}
+        .featured-result-topline{display:inline-flex;align-items:center;gap:8px;font-size:.88rem;color:var(--text-muted);margin-bottom:10px}
+        .featured-result-headline{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;letter-spacing:.14em;color:var(--primary-light);text-shadow:0 0 30px rgba(16,185,129,.25);margin-bottom:18px}
+        .featured-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+        .featured-result-card{padding:16px;background:var(--bg-surface);border-radius:16px;border:1px solid var(--border)}
+        .featured-result-card span{display:block;font-size:.8rem;color:var(--text-muted);margin-bottom:4px}
+        .featured-result-card strong{font-size:1.4rem}
+        .panel-head{margin-bottom:16px}
+        .panel-head .card-title{margin:6px 0 0;font-size:1.15rem}
+        .result-headline-cell{color:var(--primary-light);font-weight:700;letter-spacing:.08em}
+        .source-pill{gap:6px}
+        @media (max-width:900px){.featured-result-grid{grid-template-columns:1fr}}
+      `}</style>
     </div>
   );
 };

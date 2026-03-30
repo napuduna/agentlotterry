@@ -607,6 +607,237 @@ input, select, textarea {
 }
 
 /* ============================================
+   Shared UI Layer
+   ============================================ */
+.ui-eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--primary-light);
+  font-weight: 700;
+}
+
+.ui-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ui-panel-head .card-title {
+  margin: 6px 0 0;
+}
+
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.16);
+  color: var(--primary-light);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ============================================
+   Skeleton
+   ============================================ */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.page-skeleton,
+.skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-hero,
+.skeleton-panel,
+.skeleton-stat-card {
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: linear-gradient(180deg, rgba(20, 30, 49, 0.94), rgba(15, 23, 42, 0.9));
+}
+
+.skeleton-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 28px;
+}
+
+.skeleton-hero-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skeleton-button,
+.skeleton-pill,
+.skeleton-line,
+.skeleton-icon {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.16) 25%, rgba(148, 163, 184, 0.28) 50%, rgba(148, 163, 184, 0.16) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.skeleton-button {
+  width: 132px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.skeleton-button.primary {
+  width: 164px;
+}
+
+.skeleton-pill {
+  width: 88px;
+  height: 28px;
+  border-radius: 999px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 999px;
+}
+
+.line-xs {
+  width: 92px;
+}
+
+.line-sm {
+  width: 28%;
+  min-width: 96px;
+}
+
+.line-md {
+  width: 56%;
+  min-width: 160px;
+}
+
+.line-lg {
+  width: 72%;
+  min-width: 220px;
+}
+
+.line-xl {
+  width: 46%;
+  min-width: 240px;
+  height: 30px;
+}
+
+.skeleton-stat-grid,
+.skeleton-content-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.skeleton-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.skeleton-stat-card {
+  min-height: 164px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+
+.skeleton-content-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  align-items: start;
+}
+
+.skeleton-content-grid.single {
+  grid-template-columns: 1fr;
+}
+
+.skeleton-panel {
+  padding: 20px;
+}
+
+.skeleton-panel.compact {
+  padding: 18px;
+}
+
+.skeleton-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.skeleton-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  background: rgba(9, 16, 30, 0.72);
+}
+
+@media (max-width: 1100px) {
+  .skeleton-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .skeleton-content-grid,
+  .skeleton-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .skeleton-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 760px) {
+  .skeleton-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .skeleton-actions {
+    width: 100%;
+  }
+
+  .skeleton-button,
+  .skeleton-button.primary {
+    width: 100%;
+  }
+}
+
+/* ============================================
    Animations
    ============================================ */
 @keyframes fadeIn {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiRefreshCw, FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import PageSkeleton from '../../components/PageSkeleton';
 import { getAgentReports } from '../../services/api';
 
 const tabs = [
@@ -12,9 +13,16 @@ const tabs = [
   { id: 'winners', label: 'Winner Report' }
 ];
 
-const money = (value) => Number(value || 0).toLocaleString();
+const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const labelOrDash = (value) => value || '-';
-const betTypeLabels = { '3top': '3 Top', '3tod': '3 Tod', '2top': '2 Top', '2bottom': '2 Bottom', 'run_top': 'Run Top', 'run_bottom': 'Run Bottom' };
+const betTypeLabels = {
+  '3top': '3 Top',
+  '3tod': '3 Tod',
+  '2top': '2 Top',
+  '2bottom': '2 Bottom',
+  'run_top': 'Run Top',
+  'run_bottom': 'Run Bottom'
+};
 
 const renderTable = ({ columns, rows }) => {
   if (!rows?.length) {
@@ -22,8 +30,8 @@ const renderTable = ({ columns, rows }) => {
   }
 
   return (
-    <div className="table-container">
-      <table className="data-table">
+    <div className="table-container report-table-container">
+      <table className="data-table report-table">
         <thead>
           <tr>
             {columns.map((column) => <th key={column.key}>{column.label}</th>)}
@@ -80,6 +88,7 @@ const AgentReports = () => {
   }, [filters.roundDate, filters.marketId, filters.startDate, filters.endDate]);
 
   const overview = report?.overview || {};
+
   const salesColumns = useMemo(() => ([
     { key: 'roundDate', label: 'Round' },
     { key: 'marketName', label: 'Market' },
@@ -153,51 +162,88 @@ const AgentReports = () => {
     winners: renderTable({ columns: winnerColumns, rows: report?.winnerRows || [] })
   };
 
+  const overviewCards = [
+    { label: 'Sales', value: `${money(overview.totalSales)} ฿`, hint: 'Resolved and pending stake combined' },
+    { label: 'Payout', value: `${money(overview.totalPayout)} ฿`, hint: 'Resolved payout already calculated' },
+    { label: 'Pending stake', value: `${money(overview.pendingStake)} ฿`, hint: 'Still waiting for result settlement' },
+    { label: 'Potential payout', value: `${money(overview.pendingPotentialPayout)} ฿`, hint: 'Maximum projected payout from pending items' },
+    { label: 'Pending items', value: money(overview.pendingItems), hint: 'Open items across markets and rounds' },
+    { label: 'Members', value: money(overview.totalCustomers), hint: 'Members included in this report range' }
+  ];
+
+  if (loading && !report) return <PageSkeleton statCount={6} rows={6} sidebar={false} />;
+
   return (
     <div className="agent-report-page animate-fade-in">
-      <div className="page-header">
-        <div>
+      <section className="report-hero-card card">
+        <div className="report-hero-copy">
+          <span className="section-eyebrow">Analytics workspace</span>
           <h1 className="page-title">Agent Reports</h1>
-          <p className="page-subtitle">Sales, pending exposure, projected liability, and winner reports in one place.</p>
+          <p className="page-subtitle">Review sales, pending exposure, projected liability, and winner reports from one focused reporting surface.</p>
         </div>
-        <button className="btn btn-secondary" onClick={() => load(filters)} disabled={loading}>
-          <FiRefreshCw className={loading ? 'spin-animation' : ''} />
-          Refresh
-        </button>
-      </div>
 
-      <section className={`report-hero ${(overview.resolvedNetProfit || 0) >= 0 ? 'positive' : 'negative'}`}>
-        <span>Resolved net result</span>
-        <strong>{(overview.resolvedNetProfit || 0) >= 0 ? '+' : ''}{money(overview.resolvedNetProfit)} ฿</strong>
-        <small>
-          {overview.resolvedNetProfit >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-          Pending liability {money(overview.projectedLiability)} ฿
-        </small>
+        <div className="report-hero-actions">
+          <div className={`report-hero-summary ${(overview.resolvedNetProfit || 0) >= 0 ? 'positive' : 'negative'}`}>
+            <span>Resolved net result</span>
+            <strong>{(overview.resolvedNetProfit || 0) >= 0 ? '+' : ''}{money(overview.resolvedNetProfit)} ฿</strong>
+            <small>
+              {(overview.resolvedNetProfit || 0) >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+              Pending liability {money(overview.projectedLiability)} ฿
+            </small>
+          </div>
+
+          <button className="btn btn-secondary" onClick={() => load(filters)} disabled={loading}>
+            <FiRefreshCw className={loading ? 'spin-animation' : ''} />
+            Refresh
+          </button>
+        </div>
       </section>
 
       <section className="report-overview-grid">
-        <div className="report-overview-card"><span>Sales</span><strong>{money(overview.totalSales)} ฿</strong></div>
-        <div className="report-overview-card"><span>Payout</span><strong>{money(overview.totalPayout)} ฿</strong></div>
-        <div className="report-overview-card"><span>Pending stake</span><strong>{money(overview.pendingStake)} ฿</strong></div>
-        <div className="report-overview-card"><span>Potential payout</span><strong>{money(overview.pendingPotentialPayout)} ฿</strong></div>
-        <div className="report-overview-card"><span>Pending items</span><strong>{money(overview.pendingItems)}</strong></div>
-        <div className="report-overview-card"><span>Members</span><strong>{money(overview.totalCustomers)}</strong></div>
+        {overviewCards.map((card) => (
+          <article key={card.label} className="report-overview-card">
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </article>
+        ))}
       </section>
 
       <section className="card report-filter-card">
-        <div className="report-filter-grid">
-          <label><span>Round</span><input value={draftFilters.roundDate} onChange={(event) => setDraftFilters((current) => ({ ...current, roundDate: event.target.value }))} placeholder="2026-03-16" /></label>
-          <label><span>Market code</span><input value={draftFilters.marketId} onChange={(event) => setDraftFilters((current) => ({ ...current, marketId: event.target.value }))} placeholder="thai_government" /></label>
-          <label><span>Start date</span><input type="date" value={draftFilters.startDate} onChange={(event) => setDraftFilters((current) => ({ ...current, startDate: event.target.value }))} /></label>
-          <label><span>End date</span><input type="date" value={draftFilters.endDate} onChange={(event) => setDraftFilters((current) => ({ ...current, endDate: event.target.value }))} /></label>
+        <div className="report-filter-head">
+          <div>
+            <div className="filter-title">Filters</div>
+            <div className="filter-subtitle">Refine the report by round, market, or date range before switching between report tabs.</div>
+          </div>
+          <div className="filter-chip">{tabs.find((tab) => tab.id === activeTab)?.label}</div>
         </div>
+
+        <div className="report-filter-grid">
+          <label>
+            <span>Round</span>
+            <input value={draftFilters.roundDate} onChange={(event) => setDraftFilters((current) => ({ ...current, roundDate: event.target.value }))} placeholder="2026-03-16" />
+          </label>
+          <label>
+            <span>Market code</span>
+            <input value={draftFilters.marketId} onChange={(event) => setDraftFilters((current) => ({ ...current, marketId: event.target.value }))} placeholder="thai_government" />
+          </label>
+          <label>
+            <span>Start date</span>
+            <input type="date" value={draftFilters.startDate} onChange={(event) => setDraftFilters((current) => ({ ...current, startDate: event.target.value }))} />
+          </label>
+          <label>
+            <span>End date</span>
+            <input type="date" value={draftFilters.endDate} onChange={(event) => setDraftFilters((current) => ({ ...current, endDate: event.target.value }))} />
+          </label>
+        </div>
+
         <div className="report-filter-actions">
           <button className="btn btn-secondary" onClick={() => setDraftFilters({ roundDate: '', marketId: '', startDate: '', endDate: '' })}>Clear</button>
           <button className="btn btn-primary" onClick={() => setFilters({ ...draftFilters })}>Apply filters</button>
         </div>
       </section>
 
-      <section className="card">
+      <section className="card report-tabs-card">
         <div className="report-tab-row">
           {tabs.map((tab) => (
             <button key={tab.id} className={`report-tab ${activeTab === tab.id ? 'active' : ''}`} onClick={() => setActiveTab(tab.id)}>
@@ -207,31 +253,275 @@ const AgentReports = () => {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card report-table-card">
         {loading ? <div className="loading-container"><div className="spinner"></div></div> : tabContent[activeTab]}
       </section>
 
       <style>{`
-        .agent-report-page { display: flex; flex-direction: column; gap: 16px; }
-        .report-hero, .report-overview-card { border-radius: var(--radius-md); border: 1px solid var(--border); }
-        .report-hero { padding: 22px; display: flex; flex-direction: column; gap: 8px; }
-        .report-hero.positive { background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(16, 185, 129, 0.05)); }
-        .report-hero.negative { background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(239, 68, 68, 0.05)); }
-        .report-hero span, .report-hero small, .report-overview-card span, .report-filter-grid label span { color: var(--text-muted); }
-        .report-hero strong { font-size: 2rem; }
-        .report-hero small { display: inline-flex; align-items: center; gap: 8px; }
-        .report-overview-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
-        .report-overview-card { background: var(--bg-card); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
-        .report-overview-card strong { font-size: 1.2rem; }
-        .report-filter-card, .report-filter-actions, .report-tab-row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .report-filter-card { flex-direction: column; }
-        .report-filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-        .report-filter-grid label { display: flex; flex-direction: column; gap: 8px; }
-        .report-filter-grid input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); padding: 12px 14px; }
-        .report-tab { padding: 10px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); font-size: 0.82rem; font-weight: 700; }
-        .report-tab.active { border-color: var(--border-accent); background: var(--primary-subtle); color: var(--primary-light); }
-        @media (max-width: 920px) { .report-overview-grid, .report-filter-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 640px) { .report-overview-grid, .report-filter-grid { grid-template-columns: 1fr; } }
+        .agent-report-page {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          position: relative;
+          isolation: isolate;
+        }
+
+        .agent-report-page::before {
+          content: '';
+          position: absolute;
+          inset: -48px 0 auto;
+          height: 220px;
+          background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.14), transparent 62%);
+          pointer-events: none;
+          z-index: -1;
+        }
+
+        .report-hero-card {
+          display: grid;
+          grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+          gap: 20px;
+          padding: 28px;
+          background:
+            linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.9)),
+            radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 38%);
+          border-color: rgba(52, 211, 153, 0.18);
+          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.34);
+        }
+
+        .report-hero-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .section-eyebrow {
+          font-size: 0.78rem;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--primary-light);
+          font-weight: 700;
+        }
+
+        .report-hero-card .page-title {
+          margin: 0;
+          font-size: clamp(2rem, 4vw, 3rem);
+          line-height: 0.96;
+          letter-spacing: -0.04em;
+        }
+
+        .report-hero-card .page-subtitle {
+          margin: 0;
+          max-width: 58ch;
+        }
+
+        .report-hero-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          align-items: stretch;
+          justify-content: space-between;
+        }
+
+        .report-hero-summary {
+          padding: 18px;
+          border-radius: 20px;
+          border: 1px solid rgba(148, 163, 184, 0.14);
+          background: rgba(9, 16, 30, 0.84);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .report-hero-summary.positive {
+          border-color: rgba(16, 185, 129, 0.22);
+          box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.06);
+        }
+
+        .report-hero-summary.negative {
+          border-color: rgba(239, 68, 68, 0.22);
+          box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.06);
+        }
+
+        .report-hero-summary span, .report-hero-summary small, .report-overview-card span, .report-overview-card small, .report-filter-grid label span, .filter-subtitle {
+          color: var(--text-muted);
+        }
+
+        .report-hero-summary strong {
+          font-size: clamp(2rem, 4vw, 2.8rem);
+          line-height: 0.95;
+          letter-spacing: -0.05em;
+        }
+
+        .report-hero-summary small {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .report-overview-grid {
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .report-overview-card {
+          padding: 18px;
+          border-radius: 20px;
+          border: 1px solid rgba(148, 163, 184, 0.14);
+          background: linear-gradient(180deg, rgba(20, 30, 49, 0.94), rgba(15, 23, 42, 0.9));
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .report-overview-card strong {
+          font-size: 1.4rem;
+          line-height: 1;
+          letter-spacing: -0.04em;
+        }
+
+        .report-filter-card {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          padding: 22px;
+        }
+
+        .report-filter-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-end;
+          flex-wrap: wrap;
+        }
+
+        .filter-title {
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 6px;
+        }
+
+        .filter-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(16, 185, 129, 0.1);
+          border: 1px solid rgba(52, 211, 153, 0.16);
+          color: var(--primary-light);
+          font-size: 0.78rem;
+          font-weight: 700;
+        }
+
+        .report-filter-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .report-filter-grid label {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .report-filter-grid label span {
+          font-size: 0.78rem;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 700;
+        }
+
+        .report-filter-grid input {
+          width: 100%;
+          min-height: 52px;
+          padding: 14px 16px;
+          border-radius: 16px;
+          border: 1px solid rgba(148, 163, 184, 0.16);
+          background: rgba(9, 16, 30, 0.92);
+          color: var(--text-primary);
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .report-filter-grid input:focus {
+          outline: none;
+          border-color: rgba(52, 211, 153, 0.42);
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.08);
+        }
+
+        .report-filter-actions, .report-tab-row {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .report-tabs-card, .report-table-card {
+          padding: 18px;
+        }
+
+        .report-tab {
+          padding: 10px 14px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.16);
+          background: rgba(9, 16, 30, 0.76);
+          color: var(--text-secondary);
+          font-size: 0.82rem;
+          font-weight: 700;
+          transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .report-tab:hover {
+          transform: translateY(-1px);
+          border-color: rgba(52, 211, 153, 0.18);
+        }
+
+        .report-tab.active {
+          border-color: rgba(52, 211, 153, 0.2);
+          background: rgba(16, 185, 129, 0.12);
+          color: var(--primary-light);
+        }
+
+        .report-table-container {
+          border-radius: 20px;
+          border-color: rgba(148, 163, 184, 0.14);
+          background: rgba(9, 16, 30, 0.8);
+        }
+
+        .report-table thead {
+          background: rgba(15, 23, 42, 0.92);
+        }
+
+        .report-table tbody tr:hover {
+          background: rgba(15, 23, 42, 0.72);
+        }
+
+        @media (max-width: 1100px) {
+          .report-hero-card, .report-overview-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
+          .report-hero-card {
+            grid-template-columns: 1fr;
+          }
+
+          .report-filter-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 760px) {
+          .report-overview-grid, .report-filter-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .report-filter-actions .btn {
+            flex: 1;
+            justify-content: center;
+          }
+        }
       `}</style>
     </div>
   );

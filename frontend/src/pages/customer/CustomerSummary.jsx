@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
+import PageSkeleton from '../../components/PageSkeleton';
 import { getMemberSummary } from '../../services/api';
+
+const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerSummary = () => {
   const [data, setData] = useState(null);
@@ -21,248 +24,97 @@ const CustomerSummary = () => {
     load();
   }, []);
 
-  if (loading) {
-    return <div className="loading-container"><div className="spinner"></div></div>;
-  }
+  if (loading) return <PageSkeleton statCount={3} rows={4} sidebar={false} />;
 
-  const overall = data?.overall || {
-    totalAmount: 0,
-    totalWon: 0,
-    netResult: 0,
-    totalBets: 0
-  };
+  const overall = data?.overall || { totalAmount: 0, totalWon: 0, netResult: 0, totalBets: 0 };
 
   return (
     <div className="summary-page animate-fade-in">
-      <h1 className="summary-title">สรุปได้เสีย</h1>
-
-      <div className={`summary-hero ${overall.netResult >= 0 ? 'positive' : 'negative'}`}>
-        <span className="summary-hero-label">ผลได้เสียรวม</span>
-        <span className="summary-hero-value">
-          {overall.netResult >= 0 ? '+' : ''}{overall.netResult.toLocaleString()} ฿
-        </span>
-        <span className="summary-hero-icon">
-          {overall.netResult >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-        </span>
-      </div>
-
-      <div className="summary-stats">
-        <div className="summary-stat">
-          <span className="summary-stat-value">{overall.totalBets}</span>
-          <span className="summary-stat-label">แทง (ครั้ง)</span>
+      <section className={`summary-hero ${overall.netResult >= 0 ? 'positive' : 'negative'}`}>
+        <div className="summary-hero-copy">
+          <span className="section-eyebrow">Performance summary</span>
+          <h1 className="page-title">Summary</h1>
+          <p className="page-subtitle">See your overall net result, betting volume, and round-by-round performance at a glance.</p>
         </div>
-        <div className="summary-stat-divider"></div>
-        <div className="summary-stat">
-          <span className="summary-stat-value">{overall.totalAmount.toLocaleString()}</span>
-          <span className="summary-stat-label">ยอดแทง (฿)</span>
+        <div className="summary-hero-score">
+          <span className="summary-hero-label">Net result</span>
+          <span className="summary-hero-value">{overall.netResult >= 0 ? '+' : ''}{money(overall.netResult)} ฿</span>
+          <span className="summary-hero-icon">{overall.netResult >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}</span>
         </div>
-        <div className="summary-stat-divider"></div>
-        <div className="summary-stat">
-          <span className="summary-stat-value summary-stat-won">{overall.totalWon.toLocaleString()}</span>
-          <span className="summary-stat-label">ยอดถูก (฿)</span>
-        </div>
-      </div>
+      </section>
 
-      <div className="summary-section-title">สรุปรายงวด</div>
-      <div className="summary-rounds">
-        {(!data?.rounds || data.rounds.length === 0) ? (
-          <div className="empty-state">
-            <div className="empty-state-text">ไม่มีข้อมูล</div>
+      <section className="summary-stats-grid">
+        <article className="summary-stat-card"><span>Total bets</span><strong>{money(overall.totalBets)}</strong><small>Counted from the new slip engine</small></article>
+        <article className="summary-stat-card"><span>Total stake</span><strong>{money(overall.totalAmount)} ฿</strong><small>Gross amount you placed</small></article>
+        <article className="summary-stat-card"><span>Total won</span><strong>{money(overall.totalWon)} ฿</strong><small>Payout already resolved to your account</small></article>
+      </section>
+
+      <section className="summary-rounds-panel card">
+        <div className="panel-head">
+          <div>
+            <div className="panel-eyebrow">Round breakdown</div>
+            <h3 className="card-title">By round</h3>
           </div>
-        ) : data.rounds.map((round) => (
-          <div key={`${round.roundCode}-${round.marketId}`} className="summary-round-card">
-            <div className="summary-round-top">
-              <div>
-                <div className="summary-round-market">{round.marketName || 'รัฐบาลไทย'}</div>
-                <div className="summary-round-date">{round.roundCode || round.roundDate} • {round.betCount} ครั้ง</div>
+        </div>
+
+        <div className="summary-rounds">
+          {(!data?.rounds || data.rounds.length === 0) ? (
+            <div className="empty-state"><div className="empty-state-text">No summary data yet.</div></div>
+          ) : data.rounds.map((round) => (
+            <article key={`${round.roundCode}-${round.marketId}`} className="summary-round-card">
+              <div className="summary-round-top">
+                <div>
+                  <div className="summary-round-market">{round.marketName || 'Lottery market'}</div>
+                  <div className="summary-round-date">{round.roundCode || round.roundDate} • {round.betCount} bets</div>
+                </div>
+                <div className={`summary-round-net ${(round.netResult || 0) >= 0 ? 'positive' : 'negative'}`}>
+                  {(round.netResult || 0) >= 0 ? '+' : ''}{money(round.netResult)} ฿
+                </div>
               </div>
-              <div className={`summary-round-net ${(round.netResult || 0) >= 0 ? 'positive' : 'negative'}`}>
-                {(round.netResult || 0) >= 0 ? '+' : ''}{(round.netResult || 0).toLocaleString()} ฿
+              <div className="summary-round-bottom">
+                <span>Stake {money(round.totalAmount)} ฿</span>
+                <span className="summary-round-results">
+                  <span className="summary-dot dot-won"></span>{round.wonCount || 0}
+                  <span className="summary-dot dot-lost"></span>{round.lostCount || 0}
+                  <span className="summary-dot dot-pending"></span>{round.pendingCount || 0}
+                </span>
               </div>
-            </div>
-            <div className="summary-round-bottom">
-              <span>แทง {(round.totalAmount || 0).toLocaleString()} ฿</span>
-              <span className="summary-round-results">
-                <span className="summary-dot dot-won"></span>{round.wonCount || 0}
-                <span className="summary-dot dot-lost"></span>{round.lostCount || 0}
-                <span className="summary-dot dot-pending"></span>{round.pendingCount || 0}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <style>{`
-        .summary-page {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .summary-title {
-          font-size: 1.3rem;
-          font-weight: 800;
-          color: var(--text-primary);
-        }
-
-        .summary-hero {
-          position: relative;
-          padding: 24px;
-          border-radius: var(--radius-lg);
-          text-align: center;
-          overflow: hidden;
-        }
-
-        .summary-hero.positive {
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
-          border: 1px solid rgba(16, 185, 129, 0.25);
-        }
-
-        .summary-hero.negative {
-          background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04));
-          border: 1px solid rgba(239, 68, 68, 0.25);
-        }
-
-        .summary-hero-label {
-          display: block;
-          font-size: 0.8rem;
-          color: var(--text-muted);
-          margin-bottom: 6px;
-        }
-
-        .summary-hero-value {
-          display: block;
-          font-size: 2.2rem;
-          font-weight: 800;
-        }
-
-        .summary-hero.positive .summary-hero-value { color: var(--success); }
-        .summary-hero.negative .summary-hero-value { color: var(--danger); }
-
-        .summary-hero-icon {
-          position: absolute;
-          top: 16px;
-          right: 20px;
-          font-size: 1.5rem;
-          opacity: 0.3;
-        }
-
-        .summary-hero.positive .summary-hero-icon { color: var(--success); }
-        .summary-hero.negative .summary-hero-icon { color: var(--danger); }
-
-        .summary-stats {
-          display: flex;
-          align-items: center;
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-md);
-          padding: 16px 8px;
-        }
-
-        .summary-stat {
-          flex: 1;
-          text-align: center;
-        }
-
-        .summary-stat-value {
-          display: block;
-          font-size: 1.2rem;
-          font-weight: 800;
-          color: var(--text-primary);
-        }
-
-        .summary-stat-won {
-          color: var(--success);
-        }
-
-        .summary-stat-label {
-          display: block;
-          font-size: 0.68rem;
-          color: var(--text-muted);
-          margin-top: 2px;
-        }
-
-        .summary-stat-divider {
-          width: 1px;
-          height: 32px;
-          background: var(--border);
-        }
-
-        .summary-section-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: var(--text-secondary);
-          margin-top: 4px;
-        }
-
-        .summary-rounds {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .summary-round-card {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-md);
-          padding: 14px;
-        }
-
-        .summary-round-top {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          margin-bottom: 10px;
-        }
-
-        .summary-round-market {
-          font-size: 0.88rem;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .summary-round-date {
-          font-size: 0.72rem;
-          color: var(--text-muted);
-        }
-
-        .summary-round-net {
-          font-size: 0.98rem;
-          font-weight: 800;
-        }
-
-        .summary-round-net.positive { color: var(--success); }
-        .summary-round-net.negative { color: var(--danger); }
-
-        .summary-round-bottom {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 10px;
-          border-top: 1px solid var(--border-light);
-          font-size: 0.78rem;
-          color: var(--text-muted);
-        }
-
-        .summary-round-results {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-weight: 600;
-          font-size: 0.78rem;
-          color: var(--text-secondary);
-        }
-
-        .summary-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-left: 6px;
-        }
-
-        .dot-won { background: var(--success); }
-        .dot-lost { background: var(--danger); }
-        .dot-pending { background: var(--warning); }
+        .summary-page{display:flex;flex-direction:column;gap:16px;position:relative;isolation:isolate}
+        .summary-page::before{content:'';position:absolute;inset:-48px 0 auto;height:220px;background:radial-gradient(circle at top left,rgba(16,185,129,.14),transparent 62%);pointer-events:none;z-index:-1}
+        .summary-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:20px;padding:28px;border-radius:24px}
+        .summary-hero.positive{background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(16,185,129,.05));border:1px solid rgba(16,185,129,.25)}
+        .summary-hero.negative{background:linear-gradient(135deg,rgba(239,68,68,.14),rgba(239,68,68,.05));border:1px solid rgba(239,68,68,.25)}
+        .summary-hero-copy{display:flex;flex-direction:column;gap:12px}
+        .section-eyebrow,.panel-eyebrow{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--primary-light);font-weight:700}
+        .summary-hero .page-title{margin:0;font-size:clamp(2rem,4vw,3rem);line-height:.96;letter-spacing:-.04em}
+        .summary-hero .page-subtitle{margin:0;max-width:56ch}
+        .summary-hero-score{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:8px}
+        .summary-hero-label{font-size:.8rem;color:var(--text-muted)}
+        .summary-hero-value{font-size:clamp(2rem,4vw,2.8rem);font-weight:800;line-height:.95}
+        .summary-hero-icon{font-size:1.4rem;opacity:.7}
+        .summary-stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+        .summary-stat-card,.summary-round-card{padding:18px;border-radius:20px;border:1px solid rgba(148,163,184,.14);background:linear-gradient(180deg,rgba(20,30,49,.94),rgba(15,23,42,.9))}
+        .summary-stat-card span,.summary-stat-card small,.summary-round-date{color:var(--text-muted)}
+        .summary-stat-card strong{font-size:1.45rem;line-height:1;letter-spacing:-.04em}
+        .summary-rounds-panel{padding:20px}
+        .panel-head{margin-bottom:16px}
+        .panel-head .card-title{margin:6px 0 0;font-size:1.15rem}
+        .summary-rounds{display:flex;flex-direction:column;gap:10px}
+        .summary-round-top,.summary-round-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .summary-round-market{font-size:.92rem;font-weight:700;color:var(--text-primary)}
+        .summary-round-net{font-size:1rem;font-weight:800}
+        .summary-round-net.positive{color:var(--success)} .summary-round-net.negative{color:var(--danger)}
+        .summary-round-bottom{padding-top:10px;border-top:1px solid var(--border-light);font-size:.78rem;color:var(--text-muted)}
+        .summary-round-results{display:flex;align-items:center;gap:4px;font-weight:600;font-size:.78rem;color:var(--text-secondary)}
+        .summary-dot{width:8px;height:8px;border-radius:50%;margin-left:6px}
+        .dot-won{background:var(--success)} .dot-lost{background:var(--danger)} .dot-pending{background:var(--warning)}
+        @media (max-width:960px){.summary-hero,.summary-stats-grid{grid-template-columns:1fr}}
       `}</style>
     </div>
   );

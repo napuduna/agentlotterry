@@ -1,13 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { FiActivity, FiArrowRight, FiClock, FiLayers, FiTrendingUp } from 'react-icons/fi';
+import PageSkeleton from '../../components/PageSkeleton';
 import { useCatalog } from '../../context/CatalogContext';
 
 const statusLabels = {
-  open: 'เปิดรับ',
-  upcoming: 'กำลังจะเปิด',
-  closed: 'ปิดรับ รอผล',
-  resulted: 'ประกาศผลแล้ว',
-  missing: 'ยังไม่มีงวด'
+  open: 'Open',
+  upcoming: 'Upcoming',
+  closed: 'Closed',
+  resulted: 'Resulted',
+  missing: 'No round'
 };
 
 const formatCountdown = (seconds) => {
@@ -20,12 +21,12 @@ const formatCountdown = (seconds) => {
 };
 
 const betTypeLabels = {
-  '3top': '3 ตัวบน',
-  '3tod': '3 ตัวโต๊ด',
-  '2top': '2 ตัวบน',
-  '2bottom': '2 ตัวล่าง',
-  'run_top': 'วิ่งบน',
-  'run_bottom': 'วิ่งล่าง'
+  '3top': '3 Top',
+  '3tod': '3 Tod',
+  '2top': '2 Top',
+  '2bottom': '2 Bottom',
+  'run_top': 'Run Top',
+  'run_bottom': 'Run Bottom'
 };
 
 const CustomerOverview = () => {
@@ -42,113 +43,98 @@ const CustomerOverview = () => {
     loading
   } = useCatalog();
 
-  if (loading) {
-    return <div className="loading-container"><div className="spinner"></div><span>กำลังโหลดตลาดหวย...</span></div>;
-  }
+  if (loading) return <PageSkeleton statCount={4} rows={6} sidebar={false} />;
 
   const lotteryCount = leagues.reduce((sum, league) => sum + league.lotteries.length, 0);
-  const openCount = leagues.reduce(
-    (sum, league) => sum + league.lotteries.filter((lottery) => lottery.status === 'open').length,
-    0
-  );
+  const openCount = leagues.reduce((sum, league) => sum + league.lotteries.filter((lottery) => lottery.status === 'open').length, 0);
 
   return (
-    <div className="animate-fade-in market-section-stack">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">ตลาดหวยแบบใหม่</h1>
-          <p className="page-subtitle">เลือกตลาด เลือกงวด เลือกเรท และเข้าสู่ betting console แบบ slip-based ใหม่</p>
-        </div>
-        <Link to="/customer/bet" className="btn btn-secondary">
-          เปิด betting console <FiArrowRight />
-        </Link>
-      </div>
-
-      <section className="market-overview-hero">
-        <div className="market-overview-copy">
-          <div className="market-provider-pill"><FiLayers /> Phase 1 Catalog Foundation</div>
-          <h2>{selectedLottery?.name || 'ยังไม่มีตลาดหวยให้เลือก'}</h2>
-          <p>
-            {selectedLottery?.description || 'ตลาดหวยจะถูกจัดกลุ่มตามประเภท พร้อมงวดเปิดรับ เรท และการเชื่อมไปหา member slip flow แบบใหม่'}
-          </p>
-
+    <div className="animate-fade-in customer-market-page">
+      <section className="market-hero card">
+        <div className="market-hero-copy">
+          <span className="section-eyebrow">Markets board</span>
+          <h1 className="page-title">Choose your market</h1>
+          <p className="page-subtitle">Browse active lotteries, review round timing, compare rate profiles, and jump into the betting console from one clean board.</p>
           <div className="market-hero-meta">
-            <span><FiActivity /> ตลาดทั้งหมด {lotteryCount} รายการ</span>
-            <span><FiTrendingUp /> เปิดรับตอนนี้ {openCount} รายการ</span>
-            <span><FiClock /> นับถอยหลัง {formatCountdown(selectedLottery?.countdownSeconds)}</span>
+            <span><FiActivity /> {lotteryCount} markets</span>
+            <span><FiTrendingUp /> {openCount} open now</span>
+            <span><FiClock /> Countdown {formatCountdown(selectedLottery?.countdownSeconds)}</span>
           </div>
         </div>
-
-        <div className="overview-stat-grid">
-          <div className="overview-stat-card">
-            <div className="overview-stat-icon"><FiClock /></div>
-            <div className="overview-stat-value">{selectedRound?.displayDate || '-'}</div>
-            <div className="overview-stat-label">งวดที่กำลังใช้งาน</div>
-          </div>
-          <div className="overview-stat-card">
-            <div className="overview-stat-icon"><FiLayers /></div>
-            <div className="overview-stat-value">{statusLabels[selectedLottery?.status] || '-'}</div>
-            <div className="overview-stat-label">สถานะตลาด</div>
-          </div>
-          <div className="overview-stat-card">
-            <div className="overview-stat-icon"><FiTrendingUp /></div>
-            <div className="overview-stat-value">{selectedRateProfile?.name || '-'}</div>
-            <div className="overview-stat-label">ชุดอัตราจ่ายที่เลือก</div>
-          </div>
-          <div className="overview-stat-card">
-            <div className="overview-stat-icon"><FiActivity /></div>
-            <div className="overview-stat-value">{selectedLottery?.provider || '-'}</div>
-            <div className="overview-stat-label">ผู้ให้ข้อมูล</div>
-          </div>
-        </div>
+        <Link to="/customer/bet" className="btn btn-primary">
+          Open betting console <FiArrowRight />
+        </Link>
       </section>
 
-      {announcements.length > 0 && (
-        <section className="card">
-          <div className="card-header">
-            <h3 className="card-title">ประกาศล่าสุด</h3>
+      <section className="market-stat-grid">
+        <article className="market-stat-card">
+          <span>Selected market</span>
+          <strong>{selectedLottery?.name || '-'}</strong>
+          <small>{selectedLottery?.provider || 'No provider selected'}</small>
+        </article>
+        <article className="market-stat-card">
+          <span>Current round</span>
+          <strong>{selectedRound?.displayDate || selectedRound?.title || '-'}</strong>
+          <small>{selectedRound?.displayCloseAt || 'No round loaded'}</small>
+        </article>
+        <article className="market-stat-card">
+          <span>Rate profile</span>
+          <strong>{selectedRateProfile?.name || '-'}</strong>
+          <small>{selectedLottery?.supportedBetTypes?.length || 0} bet types supported</small>
+        </article>
+        <article className="market-stat-card">
+          <span>Status</span>
+          <strong>{statusLabels[selectedLottery?.status] || '-'}</strong>
+          <small>{selectedLottery?.description || 'Select a market to see more details'}</small>
+        </article>
+      </section>
+
+      {announcements.length > 0 ? (
+        <section className="card market-panel">
+          <div className="panel-head">
+            <div>
+              <div className="panel-eyebrow">Notice board</div>
+              <h3 className="card-title">Announcements</h3>
+            </div>
           </div>
-          <div className="warning-list">
+          <div className="announcement-list">
             {announcements.map((announcement) => (
-              <div key={announcement.id} className="warning-item">
-                <div className="warning-headline">
+              <article key={announcement.id} className="announcement-row">
+                <div>
                   <strong>{announcement.title}</strong>
-                  {!announcement.isRead && (
-                    <button
-                      type="button"
-                      className="warning-action"
-                      onClick={() => markAnnouncementRead(announcement.id)}
-                    >
-                      Mark read
-                    </button>
-                  )}
+                  <div className="announcement-body">{announcement.body}</div>
                 </div>
-                <div>{announcement.body}</div>
-              </div>
+                {!announcement.isRead ? (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => markAnnouncementRead(announcement.id)}>
+                    Mark read
+                  </button>
+                ) : (
+                  <span className="read-pill">Read</span>
+                )}
+              </article>
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      {selectedLottery && (
-        <section className="card">
-          <div className="card-header">
-            <h3 className="card-title">งวดและเรทของตลาดที่เลือก</h3>
+      {selectedLottery ? (
+        <section className="card market-panel">
+          <div className="panel-head">
+            <div>
+              <div className="panel-eyebrow">Selected market</div>
+              <h3 className="card-title">{selectedLottery.name}</h3>
+            </div>
           </div>
 
-          <div className="market-hero-meta mb-md">
-            <span>งวด: {selectedRound?.title || '-'}</span>
-            <span>ปิดรับ: {selectedRound?.displayCloseAt || '-'}</span>
-            <span>ออกรางวัล: {selectedRound?.displayDrawAt || '-'}</span>
+          <div className="selected-market-summary">
+            <span>Round {selectedRound?.title || '-'}</span>
+            <span>Close {selectedRound?.displayCloseAt || '-'}</span>
+            <span>Draw {selectedRound?.displayDrawAt || '-'}</span>
           </div>
 
-          <div className="catalog-rate-chips mb-md">
+          <div className="catalog-rate-chips">
             {selectedLottery.rateProfiles.map((profile) => (
-              <button
-                key={profile.id}
-                className={`catalog-chip ${selectedRateProfile?.id === profile.id ? 'catalog-chip-active' : ''}`}
-                onClick={() => setSelectedRateProfile(profile.id)}
-              >
+              <button key={profile.id} className={`catalog-chip ${selectedRateProfile?.id === profile.id ? 'catalog-chip-active' : ''}`} onClick={() => setSelectedRateProfile(profile.id)}>
                 {profile.name}
               </button>
             ))}
@@ -158,8 +144,8 @@ const CustomerOverview = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ชนิดเดิมพัน</th>
-                  <th>อัตราจ่าย</th>
+                  <th>Bet type</th>
+                  <th>Rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,10 +159,10 @@ const CustomerOverview = () => {
             </table>
           </div>
         </section>
-      )}
+      ) : null}
 
       {leagues.map((league) => (
-        <section key={league.id}>
+        <section key={league.id} className="league-section">
           <div className="market-section-heading">{league.name}</div>
           <div className="market-grid">
             {league.lotteries.map((lottery) => {
@@ -194,7 +180,7 @@ const CustomerOverview = () => {
                   <div className="market-card-header">
                     <div>
                       <div className="market-card-title">{lottery.name}</div>
-                      <div className="market-card-date">{lottery.activeRound?.title || 'ยังไม่มีงวด'}</div>
+                      <div className="market-card-date">{lottery.activeRound?.title || 'No round'}</div>
                     </div>
                     <span className={`badge badge-${lottery.status === 'open' ? 'success' : lottery.status === 'upcoming' ? 'warning' : lottery.status === 'closed' ? 'info' : 'danger'}`}>
                       {statusLabels[lottery.status] || lottery.status}
@@ -202,32 +188,18 @@ const CustomerOverview = () => {
                   </div>
 
                   <div className="market-card-headline">
-                    {latestResult?.headline || lottery.activeRound?.displayDate || 'รอข้อมูล'}
+                    {latestResult?.headline || lottery.activeRound?.displayDate || 'Waiting for data'}
                   </div>
 
                   <div className="market-chip-list">
-                    <div className="market-chip">
-                      <span className="market-chip-label">ปิดรับ</span>
-                      <strong>{lottery.activeRound?.displayCloseAt || '-'}</strong>
-                    </div>
-                    <div className="market-chip">
-                      <span className="market-chip-label">นับถอยหลัง</span>
-                      <strong>{formatCountdown(lottery.countdownSeconds)}</strong>
-                    </div>
-                    <div className="market-chip">
-                      <span className="market-chip-label">เรทเริ่มต้น</span>
-                      <strong>{lottery.rateProfiles?.[0]?.name || '-'}</strong>
-                    </div>
-                    <div className="market-chip">
-                      <span className="market-chip-label">ผลล่าสุด</span>
-                      <strong>{latestResult?.headline || latestResult?.twoBottom || latestResult?.threeTop || 'ยังไม่มีผล'}</strong>
-                    </div>
+                    <div className="market-chip"><span className="market-chip-label">Close</span><strong>{lottery.activeRound?.displayCloseAt || '-'}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">Countdown</span><strong>{formatCountdown(lottery.countdownSeconds)}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">Rate</span><strong>{lottery.rateProfiles?.[0]?.name || '-'}</strong></div>
+                    <div className="market-chip"><span className="market-chip-label">Latest result</span><strong>{latestResult?.headline || latestResult?.twoBottom || latestResult?.threeTop || 'No result yet'}</strong></div>
                   </div>
 
                   <div className="market-card-footer">
-                    <div className="market-card-note">
-                      รองรับ {lottery.supportedBetTypes.length} ประเภทเดิมพัน
-                    </div>
+                    <div className="market-card-note">{lottery.supportedBetTypes.length} bet types available</div>
                     <div className="market-card-provider">{lottery.provider}</div>
                   </div>
                 </button>
@@ -238,51 +210,31 @@ const CustomerOverview = () => {
       ))}
 
       <style>{`
-        .catalog-rate-chips {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .catalog-chip {
-          padding: 8px 14px;
-          border-radius: 999px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border);
-          color: var(--text-secondary);
-          font-size: 0.82rem;
-          font-weight: 700;
-          transition: var(--transition-fast);
-        }
-
-        .catalog-chip:hover {
-          border-color: var(--border-accent);
-          color: var(--text-primary);
-        }
-
-        .catalog-chip-active {
-          background: var(--primary-subtle);
-          border-color: var(--border-accent);
-          color: var(--primary-light);
-          box-shadow: var(--shadow-glow);
-        }
-
-        .warning-headline {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .warning-action {
-          padding: 6px 10px;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-          background: var(--bg-surface);
-          color: var(--text-secondary);
-          font-size: 0.75rem;
-          font-weight: 700;
-        }
+        .customer-market-page{display:flex;flex-direction:column;gap:18px;position:relative;isolation:isolate}
+        .customer-market-page::before{content:'';position:absolute;inset:-48px 0 auto;height:220px;background:radial-gradient(circle at top left,rgba(16,185,129,.14),transparent 62%);pointer-events:none;z-index:-1}
+        .market-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding:28px;background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(17,24,39,.9)),radial-gradient(circle at top right,rgba(16,185,129,.12),transparent 38%);border-color:rgba(52,211,153,.18);box-shadow:0 24px 60px rgba(15,23,42,.34)}
+        .market-hero-copy{display:flex;flex-direction:column;gap:12px;min-width:0}
+        .section-eyebrow,.panel-eyebrow{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--primary-light);font-weight:700}
+        .market-hero .page-title{margin:0;font-size:clamp(2rem,4vw,3rem);line-height:.96;letter-spacing:-.04em}
+        .market-hero .page-subtitle{margin:0;max-width:56ch}
+        .market-hero-meta,.selected-market-summary{display:flex;gap:12px;flex-wrap:wrap}
+        .market-hero-meta span,.selected-market-summary span{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:rgba(9,16,30,.78);border:1px solid rgba(148,163,184,.14);color:var(--text-secondary);font-size:.82rem}
+        .market-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+        .market-stat-card{padding:18px;border-radius:20px;border:1px solid rgba(148,163,184,.14);background:linear-gradient(180deg,rgba(20,30,49,.94),rgba(15,23,42,.9));display:flex;flex-direction:column;gap:8px}
+        .market-stat-card span,.market-stat-card small,.announcement-body{color:var(--text-muted)}
+        .market-stat-card strong{font-size:1.35rem;line-height:1;letter-spacing:-.04em}
+        .market-panel{padding:20px}
+        .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+        .panel-head .card-title{margin:6px 0 0;font-size:1.15rem}
+        .announcement-list{display:flex;flex-direction:column;gap:12px}
+        .announcement-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(20,30,49,.94)}
+        .read-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;background:rgba(16,185,129,.12);color:#34d399;font-size:.72rem;font-weight:700}
+        .catalog-rate-chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+        .catalog-chip{padding:8px 14px;border-radius:999px;background:rgba(9,16,30,.76);border:1px solid rgba(148,163,184,.16);color:var(--text-secondary);font-size:.82rem;font-weight:700}
+        .catalog-chip-active{background:rgba(16,185,129,.12);border-color:rgba(52,211,153,.2);color:var(--primary-light)}
+        .league-section{display:flex;flex-direction:column;gap:12px}
+        @media (max-width:1100px){.market-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.market-hero{flex-direction:column;align-items:stretch}}
+        @media (max-width:760px){.market-stat-grid{grid-template-columns:1fr}.announcement-row{flex-direction:column;align-items:stretch}}
       `}</style>
     </div>
   );

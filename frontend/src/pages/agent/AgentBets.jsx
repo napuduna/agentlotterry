@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAgentBets } from '../../services/api';
 import { FiCalendar } from 'react-icons/fi';
+import PageSkeleton from '../../components/PageSkeleton';
 
 const betTypeLabels = { '3top': '3 ตัวบน', '3tod': '3 ตัวโต๊ด', '2top': '2 ตัวบน', '2bottom': '2 ตัวล่าง', 'run_top': 'วิ่งบน', 'run_bottom': 'วิ่งล่าง' };
 
@@ -21,7 +22,7 @@ const AgentBets = () => {
     finally { setLoading(false); }
   };
 
-  if (loading) return <div className="loading-container"><div className="spinner"></div></div>;
+  if (loading) return <PageSkeleton statCount={3} rows={5} sidebar={false} />;
 
   return (
     <div className="ag-bets animate-fade-in">
