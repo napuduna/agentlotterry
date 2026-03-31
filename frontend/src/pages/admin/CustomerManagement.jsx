@@ -15,6 +15,7 @@ import {
 } from '../../services/api';
 
 const copy = adminCopy.customers;
+const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerManagement = () => {
   const navigate = useNavigate();
@@ -109,14 +110,19 @@ const CustomerManagement = () => {
     const activeCount = customers.filter((customer) => customer.isActive).length;
     const assignedAgentCount = new Set(customers.map((customer) => customer.agentId?._id || customer.agentId).filter(Boolean)).size;
     const unassignedCount = customers.filter((customer) => !customer.agentId).length;
+    const totalSales = customers.reduce((sum, customer) => sum + Number(customer.totals?.totalAmount || 0), 0);
+    const totalWon = customers.reduce((sum, customer) => sum + Number(customer.totals?.totalWon || 0), 0);
+    const netProfit = totalSales - totalWon;
 
     return [
       { label: copy.overviewCards.totalCustomers.label, value: customers.length, hint: copy.overviewCards.totalCustomers.hint(activeCount) },
       { label: copy.overviewCards.assignedAgents.label, value: assignedAgentCount, hint: copy.overviewCards.assignedAgents.hint },
-      { label: copy.overviewCards.filteredRows.label, value: filteredCustomers.length, hint: copy.overviewCards.filteredRows.hint },
+      { label: copy.overviewCards.totalSales.label, value: `${money(totalSales)} บาท`, hint: copy.overviewCards.totalSales.hint },
+      { label: copy.overviewCards.totalWon.label, value: `${money(totalWon)} บาท`, hint: copy.overviewCards.totalWon.hint },
+      { label: copy.overviewCards.netProfit.label, value: `${money(netProfit)} บาท`, hint: copy.overviewCards.netProfit.hint },
       { label: copy.overviewCards.unassigned.label, value: unassignedCount, hint: copy.overviewCards.unassigned.hint }
     ];
-  }, [customers, filteredCustomers.length]);
+  }, [customers]);
 
   if (loading) {
     return <PageSkeleton statCount={4} rows={6} sidebar={false} />;
@@ -195,6 +201,9 @@ const CustomerManagement = () => {
                 <th>{copy.columns.username}</th>
                 <th>{copy.columns.agent}</th>
                 <th>{copy.columns.phone}</th>
+                <th>{copy.columns.sales}</th>
+                <th>{copy.columns.won}</th>
+                <th>{copy.columns.netProfit}</th>
                 <th>{copy.columns.status}</th>
                 <th>{copy.columns.actions}</th>
               </tr>
@@ -202,7 +211,7 @@ const CustomerManagement = () => {
             <tbody>
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted" style={{ padding: 40 }}>{copy.empty}</td>
+                  <td colSpan="9" className="text-center text-muted" style={{ padding: 40 }}>{copy.empty}</td>
                 </tr>
               ) : (
                 filteredCustomers.map((customer) => (
@@ -211,6 +220,9 @@ const CustomerManagement = () => {
                     <td>{customer.username}</td>
                     <td>{customer.agentId?.name || '-'}</td>
                     <td>{customer.phone || '-'}</td>
+                    <td>{money(customer.totals?.totalAmount)} บาท</td>
+                    <td>{money(customer.totals?.totalWon)} บาท</td>
+                    <td style={{ fontWeight: 700 }}>{money(customer.totals?.netProfit)} บาท</td>
                     <td>
                       <span className={`badge ${customer.isActive ? 'badge-success' : 'badge-danger'}`}>
                         {getUserStatusLabel(customer.isActive ? 'active' : 'inactive')}

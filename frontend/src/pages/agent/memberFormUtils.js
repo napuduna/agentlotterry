@@ -37,8 +37,7 @@ export const createInitialMemberForm = (bootstrap) => {
       username: '',
       password: '',
       name: '',
-      phone: '',
-      memberCode: ''
+      phone: ''
     },
     profile: {
       stockPercent: defaults.stockPercent ?? 0,
@@ -61,8 +60,7 @@ export const createMemberFormFromDetail = (detail, bootstrap) => {
       username: detail?.member?.username || '',
       password: '',
       name: detail?.member?.name || '',
-      phone: detail?.member?.phone || '',
-      memberCode: detail?.member?.memberCode || ''
+      phone: detail?.member?.phone || ''
     },
     profile: {
       stockPercent: detail?.member?.stockPercent ?? 0,

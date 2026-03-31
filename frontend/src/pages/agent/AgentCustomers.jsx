@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiBarChart2, FiChevronRight, FiCreditCard, FiDollarSign, FiHash, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
+import { FiBarChart2, FiChevronRight, FiCreditCard, FiDollarSign, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
 import { agentCopy } from '../../i18n/th/agent';
@@ -218,7 +218,7 @@ const AgentCustomers = () => {
   if (loading) return <PageSkeleton statCount={4} rows={5} sidebar />;
 
   return (
-    <div className="agent-members-page animate-fade-in">
+    <div className="ops-page agent-members-page animate-fade-in">
       <section className="members-hero card">
         <div className="members-hero-copy">
           <span className="section-eyebrow">{copy.heroEyebrow}</span>
@@ -241,7 +241,7 @@ const AgentCustomers = () => {
         </div>
       </section>
 
-      <section className="summary-grid">
+      <section className="summary-grid members-summary-grid">
         <div className="summary-card summary-card-highlight">
           <div className="summary-card-top">
             <span className="summary-icon"><FiUsers /></span>
@@ -276,13 +276,13 @@ const AgentCustomers = () => {
         </div>
       </section>
 
-      <section className="card filter-card">
+      <section className="card ops-section filter-card">
         <div className="filter-card-head">
           <div>
           <div className="filter-title">{copy.filterTitle}</div>
             <div className="filter-subtitle">{copy.filterSubtitle}</div>
           </div>
-          <div className="filter-count">{copy.count(formatNumber(displayedMembers.length))}</div>
+          <div className="filter-count ui-pill">{copy.count(formatNumber(displayedMembers.length))}</div>
         </div>
         <div className="filter-toolbar">
           <label className="search-box">
@@ -326,7 +326,6 @@ const AgentCustomers = () => {
                   </div>
                   <div className="member-subtitle-row">
                     <span>@{member.username}</span>
-                    <span><FiHash /> {member.memberCode || copy.noMemberCode}</span>
                     <span><FiPhone /> {member.phone || copy.noPhone}</span>
                   </div>
                   <div className="member-last-active">{copy.lastActivePrefix}: {member.isOnline ? copy.currentlyOnline : formatDateTime(member.lastActiveAt)}</div>
@@ -402,7 +401,6 @@ const AgentCustomers = () => {
                 <label><span>{copy.wizard.account.password}</span><input type="password" value={form.account.password} onChange={(event) => updateAccount('password', event.target.value)} required /></label>
                 <label><span>{copy.wizard.account.name}</span><input value={form.account.name} onChange={(event) => updateAccount('name', event.target.value)} required /></label>
                 <label><span>{copy.wizard.account.phone}</span><input value={form.account.phone} onChange={(event) => updateAccount('phone', event.target.value)} /></label>
-                <label className="full"><span>{copy.wizard.account.memberCode}</span><input value={form.account.memberCode} onChange={(event) => updateAccount('memberCode', event.target.value.toUpperCase())} placeholder={copy.wizard.account.memberCodePlaceholder} /></label>
               </div>
             )}
 
@@ -498,7 +496,7 @@ const AgentCustomers = () => {
         .agent-members-page, .wizard-form, .member-list, .lottery-groups, .lottery-group {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 16px;
         }
 
         .agent-members-page {
@@ -522,13 +520,17 @@ const AgentCustomers = () => {
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          gap: 24px;
-          padding: 24px;
+          gap: 20px;
+          padding: 22px;
           background:
             linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(255, 244, 244, 0.98)),
             radial-gradient(circle at top right, rgba(248, 113, 113, 0.14), transparent 34%);
           border-color: rgba(220, 38, 38, 0.14);
-          box-shadow: 0 20px 48px rgba(127, 29, 29, 0.12);
+          box-shadow: 0 18px 36px rgba(127, 29, 29, 0.1);
+        }
+
+        .members-hero .page-actions {
+          justify-content: flex-end;
         }
 
         .members-hero-copy {
@@ -580,10 +582,10 @@ const AgentCustomers = () => {
           position: relative;
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 247, 247, 0.98));
           border: 1px solid rgba(220, 38, 38, 0.12);
-          border-radius: 22px;
-          padding: 18px;
+          border-radius: 18px;
+          padding: 16px;
           overflow: hidden;
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 12px 24px rgba(127, 29, 29, 0.06);
         }
 
         .summary-card::after, .member-card::after {
@@ -596,7 +598,7 @@ const AgentCustomers = () => {
 
         .summary-card-highlight {
           border-color: rgba(220, 38, 38, 0.18);
-          box-shadow: 0 16px 32px rgba(220, 38, 38, 0.08);
+          box-shadow: 0 14px 28px rgba(220, 38, 38, 0.08);
         }
 
         .summary-card-top {
@@ -638,8 +640,9 @@ const AgentCustomers = () => {
         }
 
         .filter-card {
-          gap: 18px;
-          padding: 22px;
+          gap: 16px;
+          padding: 18px;
+          box-shadow: 0 14px 28px rgba(127, 29, 29, 0.07);
         }
 
         .filter-card-head {
@@ -658,11 +661,6 @@ const AgentCustomers = () => {
         }
 
         .filter-count {
-          padding: 8px 14px;
-          border-radius: 999px;
-          border: 1px solid rgba(220, 38, 38, 0.14);
-          background: rgba(220, 38, 38, 0.08);
-          color: var(--primary);
           font-size: 0.82rem;
           font-weight: 700;
         }
@@ -728,18 +726,18 @@ const AgentCustomers = () => {
         }
 
         .member-list {
-          gap: 16px;
+          gap: 14px;
         }
 
         .member-card {
-          padding: 20px;
+          padding: 18px;
           transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .member-card:hover {
           transform: translateY(-2px);
           border-color: rgba(220, 38, 38, 0.22);
-          box-shadow: 0 20px 36px rgba(127, 29, 29, 0.12);
+          box-shadow: 0 18px 30px rgba(127, 29, 29, 0.1);
         }
 
         .member-card-header {
@@ -803,8 +801,8 @@ const AgentCustomers = () => {
 
         .member-credit {
           min-width: 172px;
-          padding: 14px 16px;
-          border-radius: 18px;
+          padding: 12px 14px;
+          border-radius: 16px;
           background: linear-gradient(180deg, rgba(255, 249, 249, 0.98), rgba(255, 240, 240, 0.98));
           border: 1px solid rgba(220, 38, 38, 0.14);
           text-align: right;
@@ -827,14 +825,15 @@ const AgentCustomers = () => {
 
         .member-metrics {
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          margin: 18px 0;
+          margin: 16px 0;
+          gap: 12px;
         }
 
         .member-metrics > div {
           background: rgba(255, 251, 251, 0.96);
           border: 1px solid rgba(220, 38, 38, 0.1);
-          border-radius: 16px;
-          padding: 14px;
+          border-radius: 14px;
+          padding: 12px;
         }
 
         .member-metrics strong {
@@ -850,8 +849,12 @@ const AgentCustomers = () => {
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
-          padding-top: 16px;
+          padding-top: 14px;
           border-top: 1px solid rgba(220, 38, 38, 0.08);
+        }
+
+        .member-actions-buttons {
+          justify-content: flex-end;
         }
 
         .member-actions-copy {
@@ -962,6 +965,10 @@ const AgentCustomers = () => {
           opacity: 0.72;
         }
 
+        .members-summary-grid .summary-card {
+          min-height: 100%;
+        }
+
         .inline-check {
           display: inline-flex;
           align-items: center;
@@ -1007,7 +1014,7 @@ const AgentCustomers = () => {
         }
 
         @media (max-width: 920px) {
-          .members-hero, .member-card-header, .member-actions, .summary-grid, .member-metrics, .wizard-grid, .wizard-steps, .filter-toolbar {
+          .summary-grid, .member-metrics, .wizard-grid, .wizard-steps, .filter-toolbar {
             grid-template-columns: 1fr;
           }
 
@@ -1019,11 +1026,17 @@ const AgentCustomers = () => {
 
           .page-actions {
             width: 100%;
+            justify-content: stretch;
           }
 
           .page-actions .btn, .member-actions-buttons .btn {
             flex: 1;
             justify-content: center;
+          }
+
+          .member-actions {
+            flex-direction: column;
+            align-items: stretch;
           }
 
           .member-credit {
@@ -1043,6 +1056,13 @@ const AgentCustomers = () => {
 
           .member-actions-buttons, .page-actions {
             width: 100%;
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .member-subtitle-row span {
+            width: 100%;
+            justify-content: flex-start;
           }
         }
       `}</style>

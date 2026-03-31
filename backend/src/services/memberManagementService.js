@@ -19,10 +19,6 @@ const DEFAULT_LIMITS = {
 };
 
 const toText = (value) => String(value || '').trim();
-const toOptionalCode = (value) => {
-  const normalized = toText(value).toUpperCase();
-  return normalized || null;
-};
 const toAmount = (value, fallback = 0) => {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return fallback;
@@ -73,33 +69,6 @@ const loadActiveLotteries = async () =>
     .populate('leagueId', 'code name')
     .populate('rateProfileIds', 'code name description isActive rates commissions')
     .populate('defaultRateProfileId', 'code name description isActive rates commissions');
-
-const ensureMemberCodeAvailability = async (memberCode, excludeUserId = null) => {
-  if (!memberCode) return;
-
-  const existing = await User.findOne({
-    memberCode,
-    ...(excludeUserId && { _id: { $ne: excludeUserId } })
-  }).select('_id');
-
-  if (existing) {
-    throw new Error('Member code already exists');
-  }
-};
-
-const generateMemberCode = async (agentId) => {
-  const suffix = String(agentId).slice(-4).toUpperCase();
-
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const candidate = `MBR-${suffix}-${String(Date.now() + attempt).slice(-6)}`;
-    const exists = await User.exists({ memberCode: candidate });
-    if (!exists) {
-      return candidate;
-    }
-  }
-
-  return `MBR-${suffix}-${Math.random().toString().slice(2, 8)}`;
-};
 
 const normalizeEnabledBetTypes = (value, supportedBetTypes) => {
   if (!Array.isArray(value) || !value.length) {
@@ -556,6 +525,11 @@ const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentI
     .limit(Math.max(1, Math.min(50, Number(limit) || 20)))
     .populate('agentId', 'name username');
 
+  const totalsByCustomer = await getTotalsGroupedByField('customerId', {
+    ...(actorRole === 'agent' ? { agentId: actorId } : {}),
+    ...(actorRole === 'admin' && agentId ? { agentId } : {})
+  });
+
   const normalizedSearch = searchText.toLowerCase();
   const finalRows = members.filter((member) => {
     if (!normalizedSearch) return true;
@@ -578,6 +552,13 @@ const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentI
     creditBalance: member.creditBalance || 0,
     status: member.status,
     isActive: member.isActive,
+    totals: {
+      totalAmount: totalsByCustomer[member._id.toString()]?.totalAmount || 0,
+      totalWon: totalsByCustomer[member._id.toString()]?.totalWon || 0,
+      netProfit:
+        (totalsByCustomer[member._id.toString()]?.totalAmount || 0) -
+        (totalsByCustomer[member._id.toString()]?.totalWon || 0)
+    },
     agent: member.agentId ? {
       id: member.agentId._id.toString(),
       name: member.agentId.name,
@@ -671,9 +652,6 @@ const createAgentMember = async ({ agentId, payload }) => {
     throw new Error('Username already exists');
   }
 
-  const memberCode = toOptionalCode(account.memberCode || profile.memberCode) || await generateMemberCode(agentId);
-  await ensureMemberCodeAvailability(memberCode);
-
   if (initialCreditBalance > 0) {
     throw new Error('Create the member first, then add credit from the wallet flow');
   }
@@ -684,7 +662,7 @@ const createAgentMember = async ({ agentId, payload }) => {
     role: 'customer',
     displayRole: 'member',
     name,
-    memberCode,
+    memberCode: null,
     phone: toText(account.phone || profile.phone),
     agentId,
     parentUserId: agentId,
@@ -734,12 +712,6 @@ const updateAgentMember = async ({ agentId, memberId, payload }) => {
       }
       member.username = username;
     }
-  }
-
-  if (account.memberCode !== undefined || profile.memberCode !== undefined) {
-    const memberCode = toOptionalCode(account.memberCode || profile.memberCode);
-    await ensureMemberCodeAvailability(memberCode, member._id);
-    member.memberCode = memberCode;
   }
 
   if (account.name !== undefined) member.name = toText(account.name);

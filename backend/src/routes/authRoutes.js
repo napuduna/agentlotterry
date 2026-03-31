@@ -32,7 +32,7 @@ router.post('/login', async (req, res) => {
     }
 
     if (user.role === 'customer') {
-      return res.status(403).json({ message: 'ปิดการเข้าสู่ระบบของสมาชิกแล้ว กรุณาติดต่อเอเย่นต์หรือแอดมิน' });
+      return res.status(403).json({ message: 'บัญชีนี้ไม่มีสิทธิ์เข้าสู่ระบบ' });
     }
 
     const token = jwt.sign(

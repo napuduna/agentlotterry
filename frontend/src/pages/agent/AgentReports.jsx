@@ -258,11 +258,11 @@ const AgentReports = () => {
         <div className="report-filter-grid">
           <label>
             <span>{copy.roundDate}</span>
-            <input value={draftFilters.roundDate} onChange={(event) => setDraftFilters((current) => ({ ...current, roundDate: event.target.value }))} placeholder="2026-03-16" />
+            <input value={draftFilters.roundDate} onChange={(event) => setDraftFilters((current) => ({ ...current, roundDate: event.target.value }))} placeholder="เช่น 2026-03-16" />
           </label>
           <label>
             <span>{copy.marketId}</span>
-            <input value={draftFilters.marketId} onChange={(event) => setDraftFilters((current) => ({ ...current, marketId: event.target.value }))} placeholder="thai_government" />
+            <input value={draftFilters.marketId} onChange={(event) => setDraftFilters((current) => ({ ...current, marketId: event.target.value }))} placeholder="เช่น thai_government" />
           </label>
           <label>
             <span>{copy.startDate}</span>
@@ -314,7 +314,9 @@ const AgentReports = () => {
           position: absolute;
           inset: -48px 0 auto;
           height: 220px;
-          background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.14), transparent 62%);
+          background:
+            radial-gradient(circle at top left, rgba(220, 38, 38, 0.14), transparent 62%),
+            radial-gradient(circle at top right, rgba(248, 113, 113, 0.08), transparent 30%);
           pointer-events: none;
           z-index: -1;
         }
@@ -325,10 +327,10 @@ const AgentReports = () => {
           gap: 20px;
           padding: 28px;
           background:
-            linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.9)),
-            radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 38%);
-          border-color: rgba(52, 211, 153, 0.18);
-          box-shadow: 0 24px 60px rgba(15, 23, 42, 0.34);
+            linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 244, 244, 0.98)),
+            radial-gradient(circle at top right, rgba(248, 113, 113, 0.14), transparent 38%);
+          border-color: rgba(220, 38, 38, 0.14);
+          box-shadow: 0 20px 48px rgba(127, 29, 29, 0.1);
         }
 
         .report-hero-copy {
@@ -341,7 +343,7 @@ const AgentReports = () => {
           font-size: 0.78rem;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: var(--primary-light);
+          color: var(--primary);
           font-weight: 700;
         }
 
@@ -368,21 +370,21 @@ const AgentReports = () => {
         .report-hero-summary {
           padding: 18px;
           border-radius: 20px;
-          border: 1px solid rgba(148, 163, 184, 0.14);
-          background: rgba(9, 16, 30, 0.84);
+          border: 1px solid rgba(220, 38, 38, 0.12);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 246, 246, 0.96));
           display: flex;
           flex-direction: column;
           gap: 8px;
         }
 
         .report-hero-summary.positive {
-          border-color: rgba(16, 185, 129, 0.22);
-          box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.06);
+          border-color: rgba(220, 38, 38, 0.18);
+          box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.05);
         }
 
         .report-hero-summary.negative {
           border-color: rgba(239, 68, 68, 0.22);
-          box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.06);
+          box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.05);
         }
 
         .report-hero-summary span, .report-hero-summary small, .report-overview-card span, .report-overview-card small, .report-filter-grid label span, .filter-subtitle {
@@ -410,11 +412,12 @@ const AgentReports = () => {
         .report-overview-card {
           padding: 18px;
           border-radius: 20px;
-          border: 1px solid rgba(148, 163, 184, 0.14);
-          background: linear-gradient(180deg, rgba(20, 30, 49, 0.94), rgba(15, 23, 42, 0.9));
+          border: 1px solid rgba(220, 38, 38, 0.1);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 247, 0.96));
           display: flex;
           flex-direction: column;
           gap: 10px;
+          box-shadow: 0 12px 28px rgba(127, 29, 29, 0.05);
         }
 
         .report-overview-card strong {
@@ -451,9 +454,9 @@ const AgentReports = () => {
           justify-content: center;
           padding: 8px 12px;
           border-radius: 999px;
-          background: rgba(16, 185, 129, 0.1);
-          border: 1px solid rgba(52, 211, 153, 0.16);
-          color: var(--primary-light);
+          background: rgba(220, 38, 38, 0.08);
+          border: 1px solid rgba(220, 38, 38, 0.12);
+          color: var(--primary);
           font-size: 0.78rem;
           font-weight: 700;
         }
@@ -483,16 +486,16 @@ const AgentReports = () => {
           min-height: 52px;
           padding: 14px 16px;
           border-radius: 16px;
-          border: 1px solid rgba(148, 163, 184, 0.16);
-          background: rgba(9, 16, 30, 0.92);
+          border: 1px solid rgba(220, 38, 38, 0.12);
+          background: rgba(255, 250, 250, 0.96);
           color: var(--text-primary);
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .report-filter-grid input:focus, .report-filter-grid select:focus {
           outline: none;
-          border-color: rgba(52, 211, 153, 0.42);
-          box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.08);
+          border-color: rgba(220, 38, 38, 0.28);
+          box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.08);
         }
 
         .report-filter-actions, .report-tab-row {
@@ -508,8 +511,8 @@ const AgentReports = () => {
         .report-tab {
           padding: 10px 14px;
           border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.16);
-          background: rgba(9, 16, 30, 0.76);
+          border: 1px solid rgba(220, 38, 38, 0.12);
+          background: rgba(255, 247, 247, 0.92);
           color: var(--text-secondary);
           font-size: 0.82rem;
           font-weight: 700;
@@ -518,27 +521,27 @@ const AgentReports = () => {
 
         .report-tab:hover {
           transform: translateY(-1px);
-          border-color: rgba(52, 211, 153, 0.18);
+          border-color: rgba(220, 38, 38, 0.2);
         }
 
         .report-tab.active {
-          border-color: rgba(52, 211, 153, 0.2);
-          background: rgba(16, 185, 129, 0.12);
-          color: var(--primary-light);
+          border-color: rgba(220, 38, 38, 0.18);
+          background: rgba(220, 38, 38, 0.1);
+          color: var(--primary);
         }
 
         .report-table-container {
           border-radius: 20px;
-          border-color: rgba(148, 163, 184, 0.14);
-          background: rgba(9, 16, 30, 0.8);
+          border-color: rgba(220, 38, 38, 0.1);
+          background: rgba(255, 251, 251, 0.96);
         }
 
         .report-table thead {
-          background: rgba(15, 23, 42, 0.92);
+          background: rgba(255, 241, 241, 0.94);
         }
 
         .report-table tbody tr:hover {
-          background: rgba(15, 23, 42, 0.72);
+          background: rgba(255, 245, 245, 0.94);
         }
 
         @media (max-width: 1100px) {

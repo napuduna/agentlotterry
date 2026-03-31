@@ -69,7 +69,7 @@ export const agentCopy = {
     count: (count) => `${count} สมาชิก`,
     filterTitle: 'ค้นหาและกรอง',
     filterSubtitle: 'กรองสมาชิกตามสถานะ การออนไลน์ คำค้น และเรียงลำดับการมองเห็นได้ทันที',
-    searchPlaceholder: 'ค้นหาชื่อ ชื่อผู้ใช้ เบอร์โทร หรือรหัสสมาชิก',
+    searchPlaceholder: 'ค้นหาชื่อ ชื่อผู้ใช้ เบอร์โทร หรือ UID',
     statusLabel: 'สถานะ',
     allStatuses: 'ทุกสถานะ',
     presenceLabel: 'การใช้งาน',
@@ -97,7 +97,6 @@ export const agentCopy = {
     manage: 'จัดการ',
     deactivate: 'ปิดใช้งาน',
     confirmDeactivate: (name) => `ต้องการปิดการใช้งานสมาชิก "${name}" ใช่หรือไม่`,
-    noMemberCode: 'ยังไม่มีรหัสสมาชิก',
     noPhone: 'ยังไม่มีเบอร์โทร',
     wizardTitle: 'เพิ่มสมาชิกใหม่',
     steps: ['บัญชี', 'โปรไฟล์', 'สิทธิ์หวย'],
@@ -107,8 +106,6 @@ export const agentCopy = {
         password: 'รหัสผ่าน',
         name: 'ชื่อแสดงผล',
         phone: 'เบอร์โทร',
-        memberCode: 'รหัสสมาชิก',
-        memberCodePlaceholder: 'เว้นว่างไว้หากต้องการให้ระบบสร้างให้อัตโนมัติ',
       },
       profile: {
         status: 'สถานะ',
@@ -153,7 +150,6 @@ export const agentCopy = {
   },
   memberDetail: {
     noRecentActivity: 'ยังไม่มีการใช้งานล่าสุด',
-    noMemberCode: 'ยังไม่มีรหัสสมาชิก',
     noPhone: 'ยังไม่มีเบอร์โทร',
     noWalletActivity: 'ยังไม่มีความเคลื่อนไหวกระเป๋าของสมาชิกคนนี้',
     walletNotePlaceholder: 'ระบุหมายเหตุเพิ่มเติมได้',

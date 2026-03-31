@@ -48,7 +48,7 @@ const roleConfig = {
   agent: {
     title: 'ซื้อแทนสมาชิก',
     subtitle: 'ค้นหาสมาชิกแล้วส่งโพยแทนจากฝั่งเอเย่นต์ โดยใช้สิทธิ์ เรท และลิมิตของสมาชิกจริง',
-    searchPlaceholder: 'ค้นหาด้วยชื่อ ชื่อผู้ใช้ เบอร์โทร รหัสสมาชิก หรือ UID',
+    searchPlaceholder: 'ค้นหาด้วยชื่อ ชื่อผู้ใช้ เบอร์โทร หรือ UID',
     pickerTitle: 'เลือกสมาชิกก่อนทำรายการ',
     pickerNote: 'ระบบจะแสดงเฉพาะสมาชิกที่อยู่ใต้เอเย่นต์คนนี้',
     actorLabel: 'เอเย่นต์',
@@ -61,7 +61,7 @@ const roleConfig = {
   admin: {
     title: 'ซื้อแทนสมาชิกในระบบ',
     subtitle: 'ผู้ดูแลสามารถค้นหาและส่งโพยแทนสมาชิกทุกสายงานได้จากหน้าจอเดียว',
-    searchPlaceholder: 'ค้นหาด้วยชื่อ ชื่อผู้ใช้ เบอร์โทร รหัสสมาชิก หรือ UID',
+    searchPlaceholder: 'ค้นหาด้วยชื่อ ชื่อผู้ใช้ เบอร์โทร หรือ UID',
     pickerTitle: 'เลือกสมาชิกที่ต้องการซื้อแทน',
     pickerNote: 'ระบบจะแสดงสมาชิกทุกเอเย่นต์ที่ยังใช้งานอยู่',
     actorLabel: 'ผู้ดูแล',
@@ -363,6 +363,7 @@ const OperatorBetting = () => {
 
       setSelectedMember(nextMember);
       setCatalog(nextCatalog);
+      setSearchText('');
       setSearchResults([]);
       setSelection({
         lotteryId: nextLottery?.id || '',
@@ -845,19 +846,22 @@ const OperatorBetting = () => {
 
           {selectedMember ? (
             <div className="card operator-selected-member">
-              <div className="operator-selected-member-head">
+                <div className="operator-selected-member-head">
                 <div className="operator-selected-avatar">{selectedMember.name?.charAt(0) || 'M'}</div>
                 <div className="operator-selected-body">
                   <strong>{selectedMember.name}</strong>
                   <div className="ops-table-note" style={{ margin: '4px 0 0' }}>@{selectedMember.username}</div>
+                  <div className="ops-table-note" style={{ margin: '6px 0 0' }}>
+                    {getUserStatusLabel(selectedMember.status)} • {selectedMember.phone || '-'}
+                  </div>
                 </div>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={clearSelectedMember}><FiX /> ล้าง</button>
               </div>
               <div className="operator-selected-grid">
-                <div className="card"><strong>UID</strong><div className="ops-table-note">{selectedMember.uid}</div></div>
                 <div className="card" style={{ padding: 12 }}><strong>เครดิตคงเหลือ</strong><div className="ops-table-note">{money(selectedMember.creditBalance)} บาท</div></div>
-                <div className="card" style={{ padding: 12 }}><strong>สถานะ</strong><div className="ops-table-note">{getUserStatusLabel(selectedMember.status)}</div></div>
-                <div className="card" style={{ padding: 12 }}><strong>เบอร์โทร</strong><div className="ops-table-note">{selectedMember.phone || '-'}</div></div>
+                <div className="card" style={{ padding: 12 }}><strong>ยอดขายสะสม</strong><div className="ops-table-note">{money(selectedMember.totals?.totalAmount)} บาท</div></div>
+                <div className="card" style={{ padding: 12 }}><strong>ยอดถูกสะสม</strong><div className="ops-table-note">{money(selectedMember.totals?.totalWon)} บาท</div></div>
+                <div className="card" style={{ padding: 12 }}><strong>ได้เสียสุทธิ</strong><div className="ops-table-note">{money(selectedMember.totals?.netProfit)} บาท</div></div>
               </div>
             </div>
           ) : null}
@@ -867,17 +871,16 @@ const OperatorBetting = () => {
 
             <div className="operator-search-results">
               {searching ? <div className="card" style={{ padding: 14 }}>กำลังค้นหา...</div> : null}
-              {!searching && !searchResults.length ? <div className="card" style={{ padding: 14 }}>ไม่พบสมาชิกตามคำค้นนี้</div> : null}
               {!searching && searchResults.map((member) => (
                 <button key={member.id} type="button" className="card operator-search-result" onClick={() => fetchMemberContext(member.id)}>
                   <div>
                     <strong>{member.name}</strong>
                     <div className="ops-table-note">@{member.username}</div>
-                    <div className="ops-table-note">UID {member.uid}</div>
+                    <div className="ops-table-note">{member.phone || getUserStatusLabel(member.status)}</div>
                   </div>
                   <div className="operator-search-meta">
-                    <strong>{money(member.creditBalance)} บาท</strong>
-                    <div className="ops-table-note">{getUserStatusLabel(member.status)}</div>
+                    <strong>{money(member.totals?.netProfit)} บาท</strong>
+                    <div className="ops-table-note">เครดิต {money(member.creditBalance)} บาท</div>
                   </div>
                 </button>
               ))}
@@ -899,7 +902,7 @@ const OperatorBetting = () => {
               </div>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 16 }}>
+                <div className="operator-select-grid">
                   <div>
                     <label className="form-label">ตลาด</label>
                     <select className="form-select" value={selectedLottery?.id || ''} onChange={(event) => { const nextLottery = flatLotteries.find((item) => item.id === event.target.value); setSelection({ lotteryId: nextLottery?.id || '', roundId: nextLottery?.activeRound?.id || '', rateProfileId: nextLottery?.defaultRateProfileId || nextLottery?.rateProfiles?.[0]?.id || '' }); }}>
@@ -914,7 +917,7 @@ const OperatorBetting = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                <div className="operator-pill-row">
                   <span className="ui-pill"><FiLayers /> {selectedLottery?.name || '-'}</span>
                   <span className="ui-pill"><FiClock /> {selectedRound?.title || '-'}</span>
                   <span className="ui-pill">{getRoundStatusLabel(selectedRound?.status)}</span>
@@ -922,22 +925,22 @@ const OperatorBetting = () => {
                   <span className="ui-pill">{selectedRateProfile?.name || 'เรทมาตรฐาน'}</span>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                <div className="operator-rate-row">
                   {(selectedLottery?.rateProfiles || []).map((profile) => <button key={profile.id} type="button" className={`btn ${selectedRateProfile?.id === profile.id ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setSelection((current) => ({ ...current, rateProfileId: profile.id }))}>{profile.name}</button>)}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginTop: 16 }}>
+                <div className="operator-rate-grid">
                   {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>x{selectedRateProfile?.rates?.[betType] || 0}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? 'ปิดรับในงวดนี้' : 'เปิดรับ'}</small></div>)}
                 </div>
 
                 {roundClosedBetTypes.length ? <div className="bet-note warning" style={{ marginTop: 16 }}><FiAlertCircle /><span>รายการปิดรับงวดนี้: {roundClosedBetTypes.map((betType) => getBetTypeLabel(betType)).join(', ')}</span></div> : null}
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+                <div className="operator-mode-row">
                   <button type="button" className={`btn ${mode === 'fast' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setMode('fast')}>แทงเร็ว</button>
                   <button type="button" className={`btn ${mode === 'grid' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setMode('grid')}>2 ตัว / 3 ตัว</button>
                 </div>
 
-                <div className="card" style={{ marginTop: 16, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                <div className="card operator-draft-summary">
                   <div>
                     <div className="ops-table-note" style={{ margin: 0 }}>โหมดปัจจุบัน</div>
                     <strong>{mode === 'fast' ? 'แทงเร็ว' : `กรอกตาราง ${digitMode} ตัว`}</strong>
@@ -958,22 +961,22 @@ const OperatorBetting = () => {
 
                 {mode === 'fast' ? (
                   <>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+                    <div className="operator-bettype-row">
                       {(selectedLottery?.supportedBetTypes || []).map((betType) => <button key={betType} type="button" className={`btn ${activeBetType === betType ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setActiveBetType(betType)} disabled={roundClosedBetTypes.includes(betType)}>{getBetTypeLabel(betType)} • x{selectedRateProfile?.rates?.[betType] || 0}</button>)}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 16 }}>
+                    <div className="operator-fast-grid">
                       <div><label className="form-label">จำนวนมาตรฐาน</label><input className="form-input" type="number" min="1" placeholder="เช่น 10" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} /></div>
                       <div><label className="form-label">บันทึกช่วยจำ</label><input className="form-input" type="text" placeholder="เช่น ลูกค้า VIP รอบเช้า" value={memo} onChange={(event) => setMemo(event.target.value)} /></div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                    <div className="operator-helper-row compact">
                       {quickAmountOptions.map((amount) => <button key={amount} type="button" className={`btn ${defaultAmount === amount ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setDefaultAmount(amount)}>{amount} บาท</button>)}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                    <div className="operator-helper-row compact">
                       <button type="button" className={`btn ${reverse ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setReverse((value) => !value)}><FiShuffle /> กลับเลข</button>
                       <button type="button" className={`btn ${includeDoubleSet ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setIncludeDoubleSet((value) => !value)}><FiStar /> {includeDoubleSet ? 'เลขเบิ้ล' : 'ชุดปกติ'}</button>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={clearComposer}><FiRotateCcw /> ล้างทั้งหมด</button>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                    <div className="operator-helper-row compact">
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}>วินบน</button>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_bottom')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_bottom') || roundClosedBetTypes.includes('run_bottom')}>วินล่าง</button>
                     </div>
@@ -981,19 +984,18 @@ const OperatorBetting = () => {
                   </>
                 ) : (
                   <>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+                    <div className="operator-helper-row">
                       {digitModeOptions.map((option) => <button key={option.value} type="button" className={`btn ${digitMode === option.value ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setDigitMode(option.value)}>{option.label}</button>)}
                     </div>
                     <div style={{ marginTop: 16 }}><label className="form-label">บันทึกช่วยจำ</label><input className="form-input" type="text" placeholder="เช่น โพยรวมหน้าร้าน" value={memo} onChange={(event) => setMemo(event.target.value)} /></div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 12, marginTop: 16 }}>
+                    <div className="operator-grid-bulk">
                       {[{ key: 'top', betType: gridColumns[0], enabled: supportedGridColumns.top }, { key: 'bottom', betType: gridColumns[1], enabled: supportedGridColumns.bottom }, { key: 'tod', betType: gridColumns[2], enabled: supportedGridColumns.tod }].map((column) => <div key={column.key} className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(column.betType)}</div><div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}><input className="form-input" style={{ minWidth: 0, flex: 1 }} type="number" min="0" placeholder="ยอด" disabled={!column.enabled} value={gridBulkAmounts[column.key]} onChange={(event) => setGridBulkAmounts((current) => ({ ...current, [column.key]: event.target.value }))} /><button type="button" className="btn btn-secondary btn-sm" disabled={!column.enabled} onClick={() => applyGridBulkAmount(column.key)}><FiCopy /> คัดลอกยอด</button></div></div>)}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
+                    <div className="operator-grid-rows">
                       {gridRows.map((row) => (
                         <div
                           key={row.id}
-                          className="card"
-                          style={{ padding: 12, display: 'grid', gridTemplateColumns: 'minmax(140px,1.1fr) repeat(3,minmax(90px,1fr)) 52px', gap: 10 }}
+                          className="card operator-grid-row"
                         >
                           <input
                             ref={setGridCellRef(row.id, 'number')}
@@ -1045,7 +1047,7 @@ const OperatorBetting = () => {
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                    <div className="operator-helper-row compact">
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}><FiStar /> วินบน</button>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_bottom')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_bottom') || roundClosedBetTypes.includes('run_bottom')}><FiStar /> วินล่าง</button>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => setGridRows((current) => [...current, buildEmptyGridRow()])}><FiPlus /> เพิ่มแถว</button>
@@ -1073,7 +1075,12 @@ const OperatorBetting = () => {
             ) : (
               <>
                 <div className="card operator-preview-meta">
-                  <div><strong>ซื้อแทน:</strong> {preview.member?.name || selectedMember?.name} <span className="ops-table-note">UID {preview.member?.uid || selectedMember?.uid}</span></div>
+                  <div>
+                    <strong>ซื้อแทน:</strong> {preview.member?.name || selectedMember?.name}
+                    <span className="ops-table-note">
+                      @{preview.member?.username || selectedMember?.username || '-'} • ได้เสีย {money(preview.member?.totals?.netProfit || selectedMember?.totals?.netProfit)} บาท
+                    </span>
+                  </div>
                   <div style={{ marginTop: 6 }}><strong>ผู้ทำรายการ:</strong> {preview.placedBy?.name || user?.name} <span className="ops-table-note">{copy.actorLabel}</span></div>
                 </div>
                 <div className="operator-preview-summary">

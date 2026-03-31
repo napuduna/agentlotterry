@@ -98,7 +98,7 @@ const AgentBets = () => {
         </div>
       </section>
 
-      <section className="ops-overview-grid">
+      <section className="ops-overview-grid ag-bets-overview">
         <article className="ops-overview-card">
           <span className="ops-icon-badge"><FiDollarSign /></span>
           <span>{ui.stakeLabel}</span>
@@ -128,7 +128,7 @@ const AgentBets = () => {
         </article>
       </section>
 
-      <section className="card ops-section">
+      <section className="card ops-section ag-bets-filter">
         <div className="ops-toolbar ag-bets-toolbar">
           <div>
             <div className="ui-eyebrow">{ui.filterTitle}</div>
@@ -239,6 +239,14 @@ const AgentBets = () => {
           font-size: clamp(1.5rem, 3vw, 2.1rem);
         }
 
+        .ag-bets-overview .ops-overview-card {
+          min-height: 100%;
+        }
+
+        .ag-bets-filter {
+          box-shadow: 0 16px 28px rgba(127, 29, 29, 0.08);
+        }
+
         .ag-bets-toolbar {
           justify-content: space-between;
         }
@@ -278,7 +286,7 @@ const AgentBets = () => {
           border-radius: 22px;
           border: 1px solid var(--border);
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 247, 0.98));
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 16px 28px rgba(127, 29, 29, 0.08);
           padding: 18px;
           display: flex;
           flex-direction: column;
@@ -424,6 +432,11 @@ const AgentBets = () => {
             align-items: stretch;
           }
 
+          .ag-bets-hero .ops-hero-side {
+            width: 100%;
+            min-width: 0;
+          }
+
           .ag-bets-toolbar-controls {
             width: 100%;
           }
@@ -448,6 +461,21 @@ const AgentBets = () => {
 
           .ag-bets-date-field {
             width: 100%;
+          }
+
+          .ag-bets-toolbar-controls .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .ag-bet-card {
+            padding: 16px;
+          }
+
+          .ag-bet-number-pill {
+            min-height: 76px;
+            border-radius: 18px;
+            font-size: clamp(1.6rem, 5vw, 2rem);
           }
         }
       `}</style>

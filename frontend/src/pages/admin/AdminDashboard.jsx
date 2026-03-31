@@ -148,12 +148,33 @@ const AdminDashboard = () => {
           gap: 16px;
         }
 
+        .admin-dash-hero {
+          align-items: end;
+        }
+
+        .admin-dash-hero .ops-hero-side {
+          min-width: 248px;
+        }
+
+        .admin-dash-overview {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .admin-dash-overview .ops-overview-card {
+          min-height: 100%;
+        }
+
         .admin-dash-grid {
           align-items: stretch;
         }
 
         .admin-dash-panel {
           min-height: 100%;
+          box-shadow: 0 18px 32px rgba(127, 29, 29, 0.08);
+        }
+
+        .admin-dash-panel .ops-stack {
+          gap: 12px;
         }
 
         .admin-hero-positive strong {
@@ -166,6 +187,9 @@ const AdminDashboard = () => {
 
         .admin-feed-row {
           align-items: flex-start;
+          padding: 14px 16px;
+          border-radius: 16px;
+          background: rgba(255, 252, 252, 0.94);
         }
 
         .admin-feed-pending {
@@ -178,6 +202,33 @@ const AdminDashboard = () => {
 
         .admin-feed-lost {
           border-left: 3px solid var(--danger);
+        }
+
+        @media (max-width: 920px) {
+          .admin-dash-overview,
+          .admin-dash-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 640px) {
+          .admin-dash-overview,
+          .admin-dash-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .admin-dash-page .ops-hero {
+            padding: 22px;
+          }
+
+          .admin-dash-page .ops-hero-side {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .admin-feed-row {
+            padding: 13px 14px;
+          }
         }
       `}</style>
     </div>

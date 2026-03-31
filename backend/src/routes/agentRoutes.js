@@ -138,7 +138,11 @@ router.get('/betting/members/:memberId/context', async (req, res) => {
       memberId: req.params.memberId
     });
 
-    const catalog = await getCatalogOverview(member);
+    const [catalog, totals] = await Promise.all([
+      getCatalogOverview(member),
+      getBetTotals({ agentId: req.user._id, customerId: member._id })
+    ]);
+
     res.json({
       member: {
         id: member._id.toString(),
@@ -146,10 +150,14 @@ router.get('/betting/members/:memberId/context', async (req, res) => {
         name: member.name,
         username: member.username,
         phone: member.phone || '',
-        memberCode: member.memberCode || '',
         creditBalance: member.creditBalance || 0,
         status: member.status,
-        isActive: member.isActive
+        isActive: member.isActive,
+        totals: {
+          totalAmount: totals.totalAmount || 0,
+          totalWon: totals.totalWon || 0,
+          netProfit: totals.netProfit || 0
+        }
       },
       catalog
     });

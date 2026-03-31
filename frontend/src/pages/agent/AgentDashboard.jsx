@@ -80,8 +80,8 @@ const AgentDashboard = () => {
   if (loading) return <PageSkeleton statCount={6} rows={6} sidebar compactSidebar />;
 
   return (
-    <div className="agent-dash-page animate-fade-in">
-      <section className="agent-dash-hero card">
+    <div className="ops-page agent-dash-page animate-fade-in">
+      <section className="ops-hero agent-dash-hero card">
         <div className="agent-dash-hero-copy">
           <span className="section-eyebrow">{agentCopy.dashboard.heroEyebrow}</span>
           <h1 className="page-title">{agentCopy.dashboard.heroTitle}</h1>
@@ -111,7 +111,7 @@ const AgentDashboard = () => {
         </div>
       </section>
 
-      <section className="dash-grid">
+      <section className="dash-grid agent-dash-overview">
         {statCards.map((card) => (
           <article key={card.label} className="dash-card">
             <div className="dash-card-icon"><card.icon /></div>
@@ -123,7 +123,7 @@ const AgentDashboard = () => {
       </section>
 
       <section className={`dashboard-columns ${hasSidePanels ? '' : 'single'}`}>
-        <section className="card panel-card">
+          <section className="card panel-card agent-dash-panel">
           <div className="panel-head">
             <div>
               <div className="panel-eyebrow">{agentCopy.dashboard.activityEyebrow}</div>
@@ -157,7 +157,7 @@ const AgentDashboard = () => {
         {hasSidePanels ? (
           <div className="dashboard-side-stack">
             {data?.onlineMembers?.length ? (
-              <section className="card panel-card compact-panel">
+                <section className="card panel-card compact-panel agent-dash-panel">
                 <div className="panel-head">
                   <div>
                     <div className="panel-eyebrow">{agentCopy.dashboard.presenceEyebrow}</div>
@@ -174,7 +174,7 @@ const AgentDashboard = () => {
                           <strong>{member.name}</strong>
                           <span className="result-pill result-pending">{agentCopy.dashboard.online}</span>
                         </div>
-                        <div className="recent-meta">@{member.username} • {member.memberCode || '-'}</div>
+                        <div className="recent-meta">@{member.username}</div>
                       </div>
                       <div className="recent-right">
                         <span>{formatDateTime(member.lastActiveAt)}</span>
@@ -186,7 +186,7 @@ const AgentDashboard = () => {
             ) : null}
 
             {announcements.length ? (
-              <section className="card panel-card compact-panel">
+                <section className="card panel-card compact-panel agent-dash-panel">
                 <div className="panel-head">
                   <div>
                     <div className="panel-eyebrow">{agentCopy.dashboard.broadcastEyebrow}</div>
@@ -233,6 +233,7 @@ const AgentDashboard = () => {
         .agent-dash-page {
           position: relative;
           isolation: isolate;
+          gap: 16px;
         }
 
         .agent-dash-page::before {
@@ -257,6 +258,7 @@ const AgentDashboard = () => {
             radial-gradient(circle at top right, rgba(248, 113, 113, 0.14), transparent 36%);
           border-color: rgba(220, 38, 38, 0.14);
           box-shadow: 0 20px 48px rgba(127, 29, 29, 0.12);
+          align-items: stretch;
         }
 
         .agent-dash-hero-copy {
@@ -290,6 +292,7 @@ const AgentDashboard = () => {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 14px;
+          align-content: stretch;
         }
 
         .net-result-panel, .hero-mini-card, .dash-card, .recent-row {
@@ -367,6 +370,11 @@ const AgentDashboard = () => {
           gap: 12px;
         }
 
+        .agent-dash-overview .dash-card,
+        .agent-dash-panel {
+          min-height: 100%;
+        }
+
         .dash-card {
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 247, 0.98));
           padding: 16px;
@@ -402,6 +410,7 @@ const AgentDashboard = () => {
         .panel-card {
           padding: 18px;
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 249, 249, 0.98));
+          box-shadow: 0 18px 32px rgba(127, 29, 29, 0.08);
         }
 
         .panel-head {
@@ -518,14 +527,29 @@ const AgentDashboard = () => {
             grid-template-columns: 1fr;
           }
 
+          .agent-dash-hero {
+            padding: 22px;
+          }
+
+          .panel-head {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
           .recent-row {
             flex-direction: column;
             align-items: flex-start;
+            padding: 13px 14px;
           }
 
           .recent-right {
             min-width: 0;
             text-align: left;
+            width: 100%;
+          }
+
+          .panel-count {
+            align-self: flex-start;
           }
         }
       `}</style>

@@ -61,7 +61,7 @@ const AdminReports = () => {
 
   return (
     <div className="ops-page admin-report-page animate-fade-in">
-      <section className="ops-hero">
+      <section className="ops-hero admin-report-hero">
         <div className="ops-hero-copy">
           <span className="ui-eyebrow">{copy.heroEyebrow}</span>
           <h1 className="page-title">{copy.heroTitle}</h1>
@@ -75,7 +75,7 @@ const AdminReports = () => {
         </div>
       </section>
 
-      <section className="ops-overview-grid compact">
+      <section className="ops-overview-grid compact admin-report-overview">
         {overviewCards.map((card) => (
           <article key={card.label} className="ops-overview-card">
             <div className="ops-icon-badge"><card.icon /></div>
@@ -86,7 +86,7 @@ const AdminReports = () => {
         ))}
       </section>
 
-      <section className="card ops-section">
+      <section className="card ops-section admin-report-filter">
         <div className="ops-toolbar admin-report-toolbar">
           <div>
             <div className="ui-eyebrow">{copy.filterEyebrow}</div>
@@ -114,7 +114,7 @@ const AdminReports = () => {
         </div>
       </section>
 
-      <section className="card ops-section">
+      <section className="card ops-section admin-report-table">
         <div className="ops-table-head">
           <div>
             <div className="ui-eyebrow">{copy.tableEyebrow}</div>
@@ -175,12 +175,24 @@ const AdminReports = () => {
           gap: 16px;
         }
 
+        .admin-report-overview {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .admin-report-overview .ops-overview-card {
+          min-height: 100%;
+        }
+
         .admin-report-positive strong {
           color: var(--success);
         }
 
         .admin-report-negative strong {
           color: var(--danger);
+        }
+
+        .admin-report-hero .ops-hero-side {
+          min-width: 240px;
         }
 
         .admin-report-toolbar {
@@ -220,6 +232,15 @@ const AdminReports = () => {
           gap: 8px;
         }
 
+        .admin-report-filter,
+        .admin-report-table {
+          box-shadow: 0 16px 30px rgba(127, 29, 29, 0.08);
+        }
+
+        .admin-report-table .table-container {
+          background: rgba(255, 255, 255, 0.92);
+        }
+
         .admin-report-net {
           font-weight: 700;
         }
@@ -238,7 +259,16 @@ const AdminReports = () => {
           gap: 6px;
         }
 
+        .admin-report-breakdown .badge {
+          min-width: 34px;
+          justify-content: center;
+        }
+
         @media (max-width: 760px) {
+          .admin-report-overview {
+            grid-template-columns: 1fr;
+          }
+
           .admin-report-toolbar,
           .admin-report-toolbar-controls {
             flex-direction: column;
@@ -247,6 +277,16 @@ const AdminReports = () => {
 
           .admin-report-date-field {
             width: 100%;
+          }
+
+          .admin-report-hero .ops-hero-side {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .admin-report-toolbar-controls .btn {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>

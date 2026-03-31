@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { FiAlertCircle, FiEye, FiEyeOff, FiLock, FiUser } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiLock, FiUser } from 'react-icons/fi';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -41,11 +41,6 @@ const Login = () => {
           <div className="login-logo-icon">L</div>
           <h1 className="login-title">หวยเอเย่นต์</h1>
           <p className="login-subtitle">เข้าสู่ระบบสำหรับแอดมินและเอเย่นต์</p>
-        </div>
-
-        <div className="login-note">
-          <FiAlertCircle />
-          <span>บัญชีสมาชิกถูกปิดการเข้าสู่ระบบแล้ว หากต้องการซื้อหรือแก้ไขรายการให้ติดต่อเอเย่นต์หรือแอดมิน</span>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -168,26 +163,6 @@ const Login = () => {
         .login-subtitle {
           color: var(--text-muted);
           font-size: 0.9rem;
-        }
-
-        .login-note {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          margin-bottom: 20px;
-          padding: 14px 16px;
-          border-radius: 16px;
-          background: rgba(56, 189, 248, 0.08);
-          border: 1px solid rgba(56, 189, 248, 0.18);
-          color: var(--text-secondary);
-          font-size: 0.88rem;
-          line-height: 1.6;
-        }
-
-        .login-note svg {
-          color: #38bdf8;
-          margin-top: 2px;
-          flex-shrink: 0;
         }
 
         .login-form {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiArrowLeft, FiDollarSign, FiHash, FiPhone, FiRefreshCw, FiRepeat, FiSave, FiWifi } from 'react-icons/fi';
+import { FiArrowLeft, FiDollarSign, FiPhone, FiRefreshCw, FiRepeat, FiSave, FiWifi } from 'react-icons/fi';
 import PageSkeleton, { SectionSkeleton } from '../../components/PageSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { agentCopy } from '../../i18n/th/agent';
@@ -190,9 +190,8 @@ const AgentMemberDetail = () => {
             {member.isOnline ? <span className="member-online"><FiWifi /> ออนไลน์</span> : null}
           </div>
           <h1 className="page-title">{member.name}</h1>
-          <p className="page-subtitle">@{member.username} • {member.memberCode || '-'} • ใช้งานล่าสุด {formatDateTime(member.lastActiveAt)}</p>
+          <p className="page-subtitle">@{member.username} • ใช้งานล่าสุด {formatDateTime(member.lastActiveAt)}</p>
           <div className="member-meta-row">
-            <span><FiHash /> {member.memberCode || agentCopy.memberDetail.noMemberCode}</span>
             <span><FiPhone /> {member.phone || agentCopy.memberDetail.noPhone}</span>
             <span>{getUserStatusLabel(member.status)}</span>
           </div>
@@ -240,7 +239,6 @@ const AgentMemberDetail = () => {
             <label><span>รหัสผ่านใหม่</span><input type="password" value={form.account.password} onChange={(event) => updateAccount('password', event.target.value)} placeholder="เว้นว่างไว้หากไม่ต้องการเปลี่ยนรหัสผ่าน" /></label>
             <label><span>ชื่อแสดงผล</span><input value={form.account.name} onChange={(event) => updateAccount('name', event.target.value)} /></label>
             <label><span>เบอร์โทร</span><input value={form.account.phone} onChange={(event) => updateAccount('phone', event.target.value)} /></label>
-            <label><span>รหัสสมาชิก</span><input value={form.account.memberCode} onChange={(event) => updateAccount('memberCode', event.target.value.toUpperCase())} /></label>
             <label><span>สถานะ</span><select value={form.profile.status} onChange={(event) => updateProfile('status', event.target.value)}>{statusOptions.map((status) => <option key={status} value={status}>{getUserStatusLabel(status)}</option>)}</select></label>
             <label><span>เรทเริ่มต้น</span><select value={form.profile.defaultRateProfileId} onChange={(event) => updateProfile('defaultRateProfileId', event.target.value)}>{(bootstrap?.rateProfiles || []).map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
             <label><span>หุ้น %</span><input type="number" min="0" max="100" value={form.profile.stockPercent} onChange={(event) => updateProfile('stockPercent', event.target.value)} /></label>

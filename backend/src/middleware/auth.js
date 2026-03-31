@@ -21,7 +21,7 @@ const auth = async (req, res, next) => {
     }
 
     if (user.role === 'customer') {
-      return res.status(403).json({ message: 'ปิดการใช้งานบัญชีสมาชิกแล้ว' });
+      return res.status(403).json({ message: 'บัญชีนี้ไม่มีสิทธิ์ใช้งาน' });
     }
 
     User.updateOne(

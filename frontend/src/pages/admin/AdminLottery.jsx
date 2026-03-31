@@ -154,21 +154,25 @@ const AdminLottery = () => {
 
     return [
       {
+        icon: FiActivity,
         label: copy.overviewCards.latestRound.label,
         value: latestRound,
         hint: latest?.isCalculated ? copy.overviewCards.latestRound.settled : copy.overviewCards.latestRound.pending
       },
       {
+        icon: FiAward,
         label: copy.overviewCards.firstPrize.label,
         value: latestFirstPrize,
         hint: copy.overviewCards.firstPrize.hint
       },
       {
+        icon: FiDownload,
         label: copy.overviewCards.top3.label,
         value: latestTop,
         hint: copy.overviewCards.top3.hint
       },
       {
+        icon: FiRefreshCw,
         label: copy.overviewCards.bottom2.label,
         value: latestBottom,
         hint: copy.overviewCards.bottom2.hint(results.length)
@@ -299,8 +303,8 @@ const AdminLottery = () => {
   }
 
   return (
-    <div className="ops-page animate-fade-in">
-      <section className="ops-hero">
+    <div className="ops-page admin-lottery-page animate-fade-in">
+      <section className="ops-hero admin-lottery-hero">
         <div className="ops-hero-copy">
           <span className="ui-eyebrow">{copy.heroEyebrow}</span>
           <h1 className="page-title">{copy.heroTitle}</h1>
@@ -314,9 +318,10 @@ const AdminLottery = () => {
         </div>
       </section>
 
-      <section className="ops-overview-grid">
+      <section className="ops-overview-grid admin-lottery-overview">
         {overviewCards.map((card) => (
           <article key={card.label} className="ops-overview-card">
+            <div className="ops-icon-badge"><card.icon /></div>
             <span>{card.label}</span>
             <strong>{card.value}</strong>
             <small>{card.hint}</small>
@@ -324,8 +329,8 @@ const AdminLottery = () => {
         ))}
       </section>
 
-      <section className="ops-grid">
-        <section className="card ops-section">
+      <section className="ops-grid admin-lottery-grid">
+        <section className="card ops-section admin-lottery-panel">
           <div className="ui-panel-head">
             <div>
               <div className="ui-eyebrow">{copy.externalEyebrow}</div>
@@ -334,7 +339,7 @@ const AdminLottery = () => {
             <span className="ui-pill">{copy.autoSyncEnabled}</span>
           </div>
 
-          <div className="ops-stack">
+          <div className="ops-stack admin-lottery-sync-stack">
             <label className="form-label" htmlFor="lottery-round-date">{copy.roundDate}</label>
             <input
               id="lottery-round-date"
@@ -359,7 +364,7 @@ const AdminLottery = () => {
           </div>
         </section>
 
-        <section className="card ops-section">
+        <section className="card ops-section admin-lottery-panel">
           <div className="ui-panel-head">
             <div>
               <div className="ui-eyebrow">{copy.fallbackEyebrow}</div>
@@ -368,7 +373,7 @@ const AdminLottery = () => {
             <span className={`badge ${resultStatusBadge(latest)}`}>{resultStatusLabel(latest)}</span>
           </div>
 
-          <div className="ops-stack">
+          <div className="ops-stack admin-lottery-fallback-stack">
             <div className="ops-feed-row">
               <div>
                 <strong>{copy.latestFirstPrize}</strong>
@@ -389,7 +394,7 @@ const AdminLottery = () => {
         </section>
       </section>
 
-      <section className="card ops-section">
+      <section className="card ops-section admin-lottery-control">
         <div className="ui-panel-head">
           <div>
             <div className="ui-eyebrow">{copy.roundControlEyebrow}</div>
@@ -439,7 +444,7 @@ const AdminLottery = () => {
         </div>
 
         {(selectedLottery || selectedRound) ? (
-          <div className="ops-selected-summary">
+          <div className="ops-selected-summary admin-lottery-selected">
             <div className="ops-stat-row">
               <div>
                 <strong>{copy.lotteryLabel}</strong>
@@ -474,7 +479,7 @@ const AdminLottery = () => {
             </div>
           ) : (
             <>
-              <div className="ops-chip-grid">
+              <div className="ops-chip-grid admin-lottery-chip-grid">
                 {supportedBetTypes.map((betType) => {
                   const isClosed = closedBetTypesDraft.includes(betType);
                   return (
@@ -491,7 +496,7 @@ const AdminLottery = () => {
                 })}
               </div>
 
-              <div className="ops-feed-row">
+              <div className="ops-feed-row admin-lottery-status-row">
                 <div>
                   <strong>{copy.closedTypesCurrent}</strong>
                   <div className="ops-feed-meta">
@@ -520,14 +525,14 @@ const AdminLottery = () => {
         </div>
       </section>
 
-      <section className="card ops-section">
+      <section className="card ops-section admin-lottery-history">
         <div className="ops-table-head">
           <div>
             <div className="ui-eyebrow">{copy.historyEyebrow}</div>
             <h3 className="card-title">{copy.historyTitle}</h3>
             <p className="ops-table-note">{copy.historyNote}</p>
           </div>
-          <div className="ops-actions">
+          <div className="ops-actions admin-lottery-history-actions">
             <span className="ui-pill"><FiActivity /> {copy.roundsCount(results.length)}</span>
             <span className={`badge ${resultStatusBadge(latest)}`}>{resultStatusLabel(latest)}</span>
           </div>
@@ -571,7 +576,7 @@ const AdminLottery = () => {
 
       <Modal isOpen={showManual} onClose={() => setShowManual(false)} title={copy.manualTitle} size="lg">
         <form onSubmit={handleManualSave}>
-          <div className="ops-form-grid">
+          <div className="ops-form-grid admin-lottery-manual-grid">
             <div className="form-group">
               <label className="form-label">{copy.roundDate} *</label>
               <input
@@ -654,6 +659,101 @@ const AdminLottery = () => {
           </div>
         </form>
       </Modal>
+
+      <style>{`
+        .admin-lottery-page {
+          gap: 16px;
+        }
+
+        .admin-lottery-grid {
+          align-items: stretch;
+        }
+
+        .admin-lottery-panel {
+          min-height: 100%;
+          box-shadow: 0 18px 32px rgba(127, 29, 29, 0.08);
+        }
+
+        .admin-lottery-control,
+        .admin-lottery-history {
+          box-shadow: 0 20px 36px rgba(127, 29, 29, 0.08);
+        }
+
+        .admin-lottery-overview .ops-overview-card {
+          min-height: 100%;
+        }
+
+        .admin-lottery-sync-stack,
+        .admin-lottery-fallback-stack {
+          gap: 14px;
+        }
+
+        .admin-lottery-selected {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .admin-lottery-selected .ops-stat-row {
+          min-height: 100%;
+          padding: 14px 16px;
+          border-radius: 16px;
+          background: rgba(255, 252, 252, 0.92);
+        }
+
+        .admin-lottery-chip-grid {
+          gap: 10px;
+        }
+
+        .admin-lottery-chip-grid .btn {
+          justify-content: flex-start;
+        }
+
+        .admin-lottery-control .ops-feed-row {
+          align-items: flex-start;
+        }
+
+        .admin-lottery-status-row {
+          padding: 14px 16px;
+          border-radius: 16px;
+          background: rgba(255, 252, 252, 0.92);
+        }
+
+        .admin-lottery-history-actions {
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .admin-lottery-history .data-table td {
+          vertical-align: middle;
+        }
+
+        .admin-lottery-manual-grid {
+          align-items: start;
+        }
+
+        @media (max-width: 760px) {
+          .admin-lottery-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .admin-lottery-selected {
+            grid-template-columns: 1fr;
+          }
+
+          .admin-lottery-status-row,
+          .admin-lottery-history-actions {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .admin-lottery-history-actions .badge,
+          .admin-lottery-history-actions .ui-pill,
+          .admin-lottery-history-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      `}</style>
     </div>
   );
 };

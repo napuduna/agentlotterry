@@ -88,7 +88,11 @@ router.get('/betting/members/:memberId/context', async (req, res) => {
       memberId: req.params.memberId
     });
 
-    const catalog = await getCatalogOverview(member);
+    const [catalog, totals] = await Promise.all([
+      getCatalogOverview(member),
+      getBetTotals({ customerId: member._id })
+    ]);
+
     res.json({
       member: {
         id: member._id.toString(),
@@ -96,11 +100,15 @@ router.get('/betting/members/:memberId/context', async (req, res) => {
         name: member.name,
         username: member.username,
         phone: member.phone || '',
-        memberCode: member.memberCode || '',
         creditBalance: member.creditBalance || 0,
         status: member.status,
         isActive: member.isActive,
-        agentId: member.agentId?.toString?.() || ''
+        agentId: member.agentId?.toString?.() || '',
+        totals: {
+          totalAmount: totals.totalAmount || 0,
+          totalWon: totals.totalWon || 0,
+          netProfit: totals.netProfit || 0
+        }
       },
       catalog
     });
@@ -311,12 +319,26 @@ router.get('/customers', async (req, res) => {
     const filter = { role: 'customer' };
     if (agentId) filter.agentId = agentId;
 
-    const customers = await User.find(filter)
-      .select('-password')
-      .populate('agentId', 'name username')
-      .sort({ createdAt: -1 });
+    const [customers, totalsByCustomer] = await Promise.all([
+      User.find(filter)
+        .select('-password')
+        .populate('agentId', 'name username')
+        .sort({ createdAt: -1 }),
+      getTotalsGroupedByField('customerId', agentId ? { agentId } : {})
+    ]);
 
-    res.json(customers);
+    res.json(customers.map((customer) => {
+      const totals = totalsByCustomer[customer._id.toString()] || {};
+      return {
+        ...customer.toJSON(),
+        totals: {
+          totalBets: totals.count || 0,
+          totalAmount: totals.totalAmount || 0,
+          totalWon: totals.totalWon || 0,
+          netProfit: (totals.totalAmount || 0) - (totals.totalWon || 0)
+        }
+      };
+    }));
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

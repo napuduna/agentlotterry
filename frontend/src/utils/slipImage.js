@@ -88,12 +88,25 @@ const downloadBlob = (blob, fileName) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const buildRows = ({ preview, selectedLottery, selectedRound, selectedRateProfile, actorLabel, operatorName, memberName, memberUid, createdAtLabel, resolveBetTypeLabel, resolveSourceLabel }) => {
+const buildRows = ({
+  preview,
+  selectedLottery,
+  selectedRound,
+  selectedRateProfile,
+  actorLabel,
+  operatorName,
+  memberName,
+  memberUsername,
+  createdAtLabel,
+  resolveBetTypeLabel,
+  resolveSourceLabel
+}) => {
   const summary = preview?.summary || {};
   const items = preview?.items || [];
+  const memberLabel = memberUsername ? `${memberName || '-'} • @${memberUsername}` : `${memberName || '-'}`;
 
   const headerMeta = [
-    ['สมาชิก', `${memberName || '-'} • UID ${memberUid || '-'}`],
+    ['สมาชิก', memberLabel],
     ['ผู้ทำรายการ', `${operatorName || '-'} • ${actorLabel || '-'}`],
     ['ตลาด', selectedLottery?.name || '-'],
     ['งวด', selectedRound?.title || selectedRound?.code || '-'],
@@ -147,7 +160,7 @@ const renderSlipPreviewImage = ({
     actorLabel,
     operatorName,
     memberName: preview?.member?.name || selectedMember?.name,
-    memberUid: preview?.member?.uid || selectedMember?.uid,
+    memberUsername: preview?.member?.username || selectedMember?.username,
     createdAtLabel,
     resolveBetTypeLabel,
     resolveSourceLabel
@@ -169,6 +182,7 @@ const renderSlipPreviewImage = ({
   const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 260);
   gradient.addColorStop(0, BRAND_RED);
   gradient.addColorStop(1, BRAND_DARK);
+
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, CANVAS_WIDTH, canvasHeight);
   ctx.fillStyle = gradient;
@@ -270,7 +284,8 @@ const renderSlipPreviewImage = ({
 
 export const copySlipPreviewImage = async (options) => {
   const blob = await renderSlipPreviewImage(options);
-  const fileName = `slip-${options?.selectedMember?.uid || 'member'}-${Date.now()}.png`;
+  const memberSlug = options?.selectedMember?.username || options?.selectedMember?.name || 'member';
+  const fileName = `slip-${String(memberSlug).replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`;
 
   if (navigator.clipboard?.write && window.ClipboardItem) {
     await navigator.clipboard.write([
