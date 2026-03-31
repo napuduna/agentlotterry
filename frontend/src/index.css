@@ -1083,20 +1083,46 @@ input, select, textarea {
   margin: 0;
 }
 
+.operator-rate-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.operator-rate-toggle {
+  margin-top: 12px;
+  align-self: flex-start;
+}
+
+.operator-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .operator-rate-grid > .card {
-  padding: 12px;
+  min-height: 0;
+  padding: 10px 12px;
   box-shadow: none;
   border-color: rgba(220, 38, 38, 0.14);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .operator-rate-grid > .card strong {
   display: block;
-  margin-top: 8px;
+  margin-top: 0;
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
 .operator-rate-grid > .card small {
   display: block;
-  margin-top: 6px;
+  margin-top: 0;
 }
 
 .operator-rate-grid > .card[style*="border-accent"] {

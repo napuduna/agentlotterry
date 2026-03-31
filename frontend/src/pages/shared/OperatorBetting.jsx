@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiAlertCircle,
+  FiChevronDown,
+  FiChevronUp,
   FiClock,
   FiCopy,
   FiLayers,
@@ -296,6 +298,7 @@ const OperatorBetting = () => {
   const [catalog, setCatalog] = useState(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [selection, setSelection] = useState({ lotteryId: '', roundId: '', rateProfileId: '' });
+  const [showRates, setShowRates] = useState(false);
   const [rounds, setRounds] = useState([]);
   const [loadingRounds, setLoadingRounds] = useState(false);
   const [mode, setMode] = useState('fast');
@@ -775,6 +778,10 @@ const OperatorBetting = () => {
   }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, activeBetType, digitMode, defaultAmount, rawInput, reverse, includeDoubleSet, memo, gridRows]);
 
   useEffect(() => {
+    setShowRates(false);
+  }, [selectedMember?.id, selection.lotteryId, selection.roundId]);
+
+  useEffect(() => {
     if (!selectedMember?.id || !recentMarketId) {
       setRecentItems([]);
       return;
@@ -925,13 +932,22 @@ const OperatorBetting = () => {
                   <span className="ui-pill">{selectedRateProfile?.name || 'เรทมาตรฐาน'}</span>
                 </div>
 
-                <div className="operator-rate-row">
-                  {(selectedLottery?.rateProfiles || []).map((profile) => <button key={profile.id} type="button" className={`btn ${selectedRateProfile?.id === profile.id ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setSelection((current) => ({ ...current, rateProfileId: profile.id }))}>{profile.name}</button>)}
-                </div>
+                <button type="button" className="btn btn-secondary btn-sm operator-rate-toggle" onClick={() => setShowRates((value) => !value)}>
+                  {showRates ? <FiChevronUp /> : <FiChevronDown />}
+                  {showRates ? 'ซ่อนเรท' : 'ดูเรท'}
+                </button>
 
-                <div className="operator-rate-grid">
-                  {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>x{selectedRateProfile?.rates?.[betType] || 0}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? 'ปิดรับในงวดนี้' : 'เปิดรับ'}</small></div>)}
-                </div>
+                {showRates ? (
+                  <>
+                    <div className="operator-rate-row">
+                      {(selectedLottery?.rateProfiles || []).map((profile) => <button key={profile.id} type="button" className={`btn ${selectedRateProfile?.id === profile.id ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setSelection((current) => ({ ...current, rateProfileId: profile.id }))}>{profile.name}</button>)}
+                    </div>
+
+                    <div className="operator-rate-grid">
+                      {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>x{selectedRateProfile?.rates?.[betType] || 0}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? 'ปิดรับในงวดนี้' : 'เปิดรับ'}</small></div>)}
+                    </div>
+                  </>
+                ) : null}
 
                 {roundClosedBetTypes.length ? <div className="bet-note warning" style={{ marginTop: 16 }}><FiAlertCircle /><span>รายการปิดรับงวดนี้: {roundClosedBetTypes.map((betType) => getBetTypeLabel(betType)).join(', ')}</span></div> : null}
 
