@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   FiAward,
   FiDollarSign,
   FiFileText,
   FiHome,
-  FiLayers,
   FiList,
   FiLogOut,
   FiMenu,
@@ -18,31 +17,24 @@ import {
 const menuItems = {
   admin: [
     { path: '/admin', label: 'แดชบอร์ด', icon: <FiHome /> },
-    { path: '/admin/agents', label: 'เจ้ามือ', icon: <FiUsers /> },
+    { path: '/admin/betting', label: 'ซื้อแทน', icon: <FiDollarSign /> },
+    { path: '/admin/agents', label: 'เอเย่นต์', icon: <FiUsers /> },
     { path: '/admin/customers', label: 'สมาชิก', icon: <FiUser /> },
     { path: '/admin/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
     { path: '/admin/reports', label: 'รายงาน', icon: <FiFileText /> }
   ],
   agent: [
     { path: '/agent', label: 'แดชบอร์ด', icon: <FiHome /> },
+    { path: '/agent/betting', label: 'ซื้อแทน', icon: <FiDollarSign /> },
     { path: '/agent/customers', label: 'สมาชิก', icon: <FiUsers /> },
     { path: '/agent/bets', label: 'โพย', icon: <FiList /> },
     { path: '/agent/reports', label: 'รายงาน', icon: <FiFileText /> }
-  ],
-  customer: [
-    { path: '/customer', label: 'ตลาดหวย', icon: <FiLayers /> },
-    { path: '/customer/bet', label: 'แทงหวย', icon: <FiDollarSign /> },
-    { path: '/customer/history', label: 'ประวัติ', icon: <FiList /> },
-    { path: '/customer/summary', label: 'สรุปผล', icon: <FiFileText /> },
-    { path: '/customer/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
-    { path: '/customer/wallet', label: 'กระเป๋า', icon: <FiDollarSign /> }
   ]
 };
 
 const roleLabels = {
   admin: 'ผู้ดูแลระบบ',
-  agent: 'เจ้ามือ',
-  customer: 'สมาชิก'
+  agent: 'เอเย่นต์'
 };
 
 const Navbar = () => {
@@ -51,22 +43,25 @@ const Navbar = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const items = menuItems[user?.role] || [];
+  const roleLabel = user?.displayRole || roleLabels[user?.role] || '-';
+
+  const isItemActive = (path) =>
+    location.pathname === path || (path !== `/${user?.role}` && location.pathname.startsWith(`${path}/`));
+
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const items = menuItems[user?.role] || [];
-  const roleLabel = user?.displayRole || roleLabels[user?.role] || '-';
-  const isItemActive = (path) => location.pathname === path || (path !== `/${user?.role}` && location.pathname.startsWith(`${path}/`));
-
   return (
     <>
       <nav className="navbar">
         <div className="navbar-left">
-          <button className="navbar-toggle" onClick={() => setMobileOpen(!mobileOpen)}>
+          <button className="navbar-toggle" onClick={() => setMobileOpen((value) => !value)}>
             {mobileOpen ? <FiX /> : <FiMenu />}
           </button>
+
           <Link to={`/${user?.role}`} className="navbar-brand">
             <div className="navbar-logo">L</div>
             <span className="navbar-brand-text">หวยเอเย่นต์</span>
@@ -94,13 +89,14 @@ const Navbar = () => {
               <div className="navbar-user-role">{roleLabel}</div>
             </div>
           </div>
+
           <button className="navbar-logout" onClick={handleLogout} title="ออกจากระบบ">
             <FiLogOut />
           </button>
         </div>
       </nav>
 
-      {mobileOpen && (
+      {mobileOpen ? (
         <div className="mobile-menu-overlay" onClick={() => setMobileOpen(false)}>
           <div className="mobile-menu" onClick={(event) => event.stopPropagation()}>
             <div className="mobile-menu-header">
@@ -131,34 +127,42 @@ const Navbar = () => {
             </button>
           </div>
         </div>
-      )}
+      ) : null}
 
       <style>{`
         .navbar {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 24px;
+          gap: 16px;
+          padding: 0 20px;
           height: 64px;
-          background: var(--bg-surface);
+          background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,248,248,0.94));
           border-bottom: 1px solid var(--border);
           position: sticky;
           top: 0;
           z-index: 100;
           backdrop-filter: blur(12px);
+          box-shadow: 0 10px 28px rgba(185, 28, 28, 0.06);
         }
 
-        .navbar-left {
+        .navbar-left,
+        .navbar-right,
+        .navbar-user {
           display: flex;
           align-items: center;
-          gap: 16px;
+        }
+
+        .navbar-left,
+        .navbar-right {
+          gap: 14px;
         }
 
         .navbar-toggle {
           display: none;
-          background: none;
+          background: transparent;
           color: var(--text-primary);
-          font-size: 1.4rem;
+          font-size: 1.35rem;
           padding: 4px;
         }
 
@@ -171,40 +175,43 @@ const Navbar = () => {
         .navbar-logo {
           width: 36px;
           height: 36px;
-          background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-          border-radius: 10px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
+          background: linear-gradient(135deg, var(--primary), var(--primary-dark));
           color: white;
           font-weight: 800;
-          font-size: 1.1rem;
+          font-size: 1.05rem;
+          box-shadow: 0 12px 20px rgba(220, 38, 38, 0.18);
         }
 
         .navbar-brand-text {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: var(--text-primary);
-          background: linear-gradient(135deg, var(--primary-light), var(--primary));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+          font-size: 1.05rem;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: var(--primary-dark);
         }
 
         .navbar-center {
           display: flex;
-          gap: 4px;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          justify-content: center;
         }
 
         .navbar-link {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 8px 16px;
+          gap: 7px;
+          padding: 8px 14px;
           border-radius: var(--radius-sm);
           color: var(--text-secondary);
-          font-size: 0.85rem;
-          font-weight: 500;
+          font-size: 0.84rem;
+          font-weight: 600;
           transition: var(--transition-fast);
+          border: 1px solid transparent;
         }
 
         .navbar-link:hover {
@@ -213,33 +220,27 @@ const Navbar = () => {
         }
 
         .navbar-link.active {
-          color: var(--primary-light);
+          color: var(--primary-dark);
           background: var(--primary-subtle);
-        }
-
-        .navbar-right {
-          display: flex;
-          align-items: center;
-          gap: 16px;
+          border-color: rgba(220, 38, 38, 0.12);
+          box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.02);
         }
 
         .navbar-user {
-          display: flex;
-          align-items: center;
           gap: 10px;
         }
 
         .navbar-user-avatar {
           width: 36px;
           height: 36px;
-          background: linear-gradient(135deg, var(--primary), var(--primary-dark));
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
+          background: linear-gradient(135deg, var(--primary), var(--primary-dark));
           color: white;
           font-weight: 700;
-          font-size: 0.9rem;
+          font-size: 0.88rem;
         }
 
         .navbar-user-info {
@@ -248,29 +249,28 @@ const Navbar = () => {
         }
 
         .navbar-user-name {
-          font-size: 0.85rem;
-          font-weight: 600;
+          font-size: 0.84rem;
+          font-weight: 700;
           color: var(--text-primary);
+          line-height: 1.1;
         }
 
         .navbar-user-role {
           font-size: 0.7rem;
           color: var(--text-muted);
-          text-transform: capitalize;
         }
 
         .navbar-logout {
-          background: var(--bg-surface-hover);
-          border: 1px solid var(--border);
-          color: var(--text-secondary);
           width: 36px;
           height: 36px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1rem;
-          transition: var(--transition);
+          border: 1px solid var(--border);
+          background: var(--bg-surface-hover);
+          color: var(--text-secondary);
+          transition: var(--transition-fast);
         }
 
         .navbar-logout:hover {
@@ -283,7 +283,7 @@ const Navbar = () => {
           display: none;
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.6);
+          background: rgba(47, 15, 15, 0.34);
           z-index: 200;
           animation: fadeIn 0.2s ease;
         }
@@ -294,14 +294,15 @@ const Navbar = () => {
           left: 0;
           width: 280px;
           height: 100%;
-          background: var(--bg-card);
           padding: 20px;
-          animation: slideRight 0.3s ease;
           overflow-y: auto;
+          background: linear-gradient(180deg, #fffdfd 0%, #fff4f4 100%);
+          box-shadow: 24px 0 48px rgba(127, 29, 29, 0.12);
+          animation: slideRight 0.3s ease;
         }
 
         .mobile-menu-header {
-          padding-bottom: 20px;
+          padding-bottom: 18px;
           margin-bottom: 16px;
           border-bottom: 1px solid var(--border);
         }
@@ -310,18 +311,18 @@ const Navbar = () => {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
+          padding: 12px 14px;
           border-radius: var(--radius-sm);
           color: var(--text-secondary);
-          font-size: 0.95rem;
-          font-weight: 500;
+          font-size: 0.92rem;
+          font-weight: 600;
           transition: var(--transition-fast);
           margin-bottom: 4px;
         }
 
         .mobile-menu-link:hover,
         .mobile-menu-link.active {
-          color: var(--primary-light);
+          color: var(--primary-dark);
           background: var(--primary-subtle);
         }
 
@@ -329,20 +330,18 @@ const Navbar = () => {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
-          border-radius: var(--radius-sm);
-          color: var(--danger);
-          font-size: 0.95rem;
-          font-weight: 500;
           width: 100%;
-          background: none;
           margin-top: 16px;
+          padding: 18px 14px 0;
           border-top: 1px solid var(--border);
-          padding-top: 20px;
+          background: transparent;
+          color: var(--danger);
+          font-size: 0.92rem;
+          font-weight: 700;
         }
 
         .mobile-menu-logout:hover {
-          background: rgba(239, 68, 68, 0.1);
+          background: var(--primary-subtle);
         }
 
         @keyframes slideRight {
@@ -350,11 +349,22 @@ const Navbar = () => {
           to { transform: translateX(0); }
         }
 
-        @media (max-width: 768px) {
-          .navbar-center { display: none; }
-          .navbar-user-info { display: none; }
-          .navbar-toggle { display: flex; }
-          .mobile-menu-overlay { display: block; }
+        @media (max-width: 920px) {
+          .navbar-center {
+            display: none;
+          }
+
+          .navbar-user-info {
+            display: none;
+          }
+
+          .navbar-toggle {
+            display: flex;
+          }
+
+          .mobile-menu-overlay {
+            display: block;
+          }
         }
       `}</style>
     </>

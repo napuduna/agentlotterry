@@ -14,6 +14,7 @@ const {
   LOTTERY_TYPES,
   DEFAULT_ANNOUNCEMENTS
 } = require('../constants/catalogDefinitions');
+const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('../constants/betting');
 const {
   createBangkokDate,
   formatBangkokDate,
@@ -24,6 +25,11 @@ const {
 const DAY_MS = 24 * 60 * 60 * 1000;
 let catalogSeedPromise = null;
 const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() || '';
+const normalizeRateMap = (value = {}, fallbackRates = {}) =>
+  BET_TYPES.reduce((acc, betType) => {
+    acc[betType] = Number(value?.[betType] ?? fallbackRates?.[betType] ?? DEFAULT_GLOBAL_RATES[betType] ?? 0);
+    return acc;
+  }, {});
 
 const upsertByCode = async (Model, code, payload) => {
   await Model.updateOne({ code }, { $set: payload }, { upsert: true });
@@ -164,6 +170,11 @@ const runCatalogSeed = async () => {
     const rateProfile = await upsertByCode(RateProfile, rateTier.code, rateTier);
     rateProfiles.push(rateProfile);
   }
+
+  await RateProfile.updateMany(
+    { code: { $nin: DEFAULT_RATE_TIERS.map((tier) => tier.code) } },
+    { $set: { isActive: false, isDefault: false } }
+  );
 
   const rateProfileIds = rateProfiles.map((profile) => profile._id);
   const defaultRateProfile = rateProfiles.find((profile) => profile.isDefault) || rateProfiles[0];
@@ -353,8 +364,8 @@ const getCatalogOverview = async (viewer = null) => {
       .filter((profile) => !memberConfig?.rateProfileId || profile._id.toString() === memberConfig.rateProfileId);
     const selectedRateProfile = visibleRateProfiles[0] || null;
     const effectiveRates = memberConfig?.useCustomRates
-      ? memberConfig.customRates
-      : selectedRateProfile?.rates || {};
+      ? normalizeRateMap(memberConfig.customRates)
+      : normalizeRateMap(selectedRateProfile?.rates);
     const supportedBetTypes = memberConfig?.enabledBetTypes?.length
       ? lottery.supportedBetTypes.filter((betType) => memberConfig.enabledBetTypes.includes(betType))
       : lottery.supportedBetTypes;
@@ -389,6 +400,7 @@ const getCatalogOverview = async (viewer = null) => {
         openAt: activeRound.openAt,
         closeAt: activeRound.closeAt,
         drawAt: activeRound.drawAt,
+        closedBetTypes: activeRound.closedBetTypes || [],
         displayDate: formatBangkokDate(activeRound.drawAt),
         displayDrawAt: formatBangkokDateTime(activeRound.drawAt),
         displayCloseAt: formatBangkokDateTime(activeRound.closeAt)
@@ -488,6 +500,7 @@ const getLotteryOptions = async (viewer = null) => {
       code: lottery.code,
       leagueId: league.id,
       leagueName: league.name,
+      supportedBetTypes: lottery.supportedBetTypes || [],
       roundId: lottery.activeRound?.id || null,
       roundTitle: lottery.activeRound?.title || null,
       defaultRateProfileId: lottery.defaultRateProfileId
@@ -522,6 +535,7 @@ const getRoundsByLottery = async (lotteryId, viewer = null) => {
     openAt: round.openAt,
     closeAt: round.closeAt,
     drawAt: round.drawAt,
+    closedBetTypes: round.closedBetTypes || [],
     displayDate: formatBangkokDate(round.drawAt),
     displayCloseAt: formatBangkokDateTime(round.closeAt),
     ...getRoundStatus(round)

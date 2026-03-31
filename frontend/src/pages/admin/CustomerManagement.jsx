@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiUserCheck, FiUsers } from 'react-icons/fi';
+import { FiDollarSign, FiEdit2, FiPlus, FiSearch, FiTrash2, FiUserCheck, FiUsers } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
 import { adminCopy } from '../../i18n/th/admin';
@@ -16,6 +17,7 @@ import {
 const copy = adminCopy.customers;
 
 const CustomerManagement = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -155,6 +157,10 @@ const CustomerManagement = () => {
           </div>
           <div className="ops-actions">
             <button className="btn btn-secondary" onClick={loadData}>{adminCopy.common.refresh}</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/admin/betting')}>
+              <FiDollarSign />
+              ซื้อแทน
+            </button>
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
               <FiPlus />
               {copy.add}
@@ -212,6 +218,10 @@ const CustomerManagement = () => {
                     </td>
                     <td>
                       <div className="ops-actions">
+                        <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/admin/betting?memberId=${customer._id}`)}>
+                          <FiDollarSign />
+                          ซื้อแทน
+                        </button>
                         <button className="btn btn-secondary btn-sm" onClick={() => openEdit(customer)}>
                           <FiEdit2 />
                           {copy.edit}

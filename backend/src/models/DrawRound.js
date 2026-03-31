@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { BET_TYPES } = require('../constants/betting');
 
 const drawRoundSchema = new mongoose.Schema({
   lotteryTypeId: {
@@ -37,6 +38,10 @@ const drawRoundSchema = new mongoose.Schema({
     enum: ['upcoming', 'open', 'closed', 'resulted'],
     default: 'upcoming'
   },
+  closedBetTypes: [{
+    type: String,
+    enum: BET_TYPES
+  }],
   notes: {
     type: String,
     default: '',

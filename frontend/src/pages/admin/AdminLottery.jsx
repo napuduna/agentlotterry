@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiActivity, FiAward, FiClock, FiDownload, FiEdit3, FiRefreshCw } from 'react-icons/fi';
+import { FiActivity, FiAward, FiDownload, FiEdit3, FiRefreshCw, FiSave } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
 import { adminCopy } from '../../i18n/th/admin';
-import { fetchLottery, getLatestLottery, getLotteryResults, manualLottery } from '../../services/api';
+import { getBetTypeLabel } from '../../i18n/th/labels';
+import {
+  fetchLottery,
+  getCatalogLotteries,
+  getCatalogRounds,
+  getLatestLottery,
+  getLotteryResults,
+  manualLottery,
+  updateRoundClosedBetTypes
+} from '../../services/api';
 
 const copy = adminCopy.lottery;
 
@@ -22,6 +31,13 @@ const resultStatusLabel = (result) => {
 const AdminLottery = () => {
   const [latest, setLatest] = useState(null);
   const [results, setResults] = useState([]);
+  const [lotteryOptions, setLotteryOptions] = useState([]);
+  const [selectedLotteryId, setSelectedLotteryId] = useState('');
+  const [roundOptions, setRoundOptions] = useState([]);
+  const [selectedRoundId, setSelectedRoundId] = useState('');
+  const [closedBetTypesDraft, setClosedBetTypesDraft] = useState([]);
+  const [savingClosedBetTypes, setSavingClosedBetTypes] = useState(false);
+  const [loadingRounds, setLoadingRounds] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fetchDate, setFetchDate] = useState('');
   const [showManual, setShowManual] = useState(false);
@@ -39,17 +55,89 @@ const AdminLottery = () => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!selectedLotteryId) {
+      setRoundOptions([]);
+      setSelectedRoundId('');
+      setClosedBetTypesDraft([]);
+      return undefined;
+    }
+
+    let isActive = true;
+
+    const loadRounds = async () => {
+      setLoadingRounds(true);
+      try {
+        const roundsRes = await getCatalogRounds(selectedLotteryId);
+        if (!isActive) return;
+
+        const nextRounds = roundsRes.data || [];
+        setRoundOptions(nextRounds);
+        setSelectedRoundId((current) => (
+          current && nextRounds.some((round) => round.id === current)
+            ? current
+            : (nextRounds[0]?.id || '')
+        ));
+      } catch (error) {
+        console.error(error);
+        if (isActive) {
+          toast.error(copy.saveClosedTypesError);
+          setRoundOptions([]);
+          setSelectedRoundId('');
+        }
+      } finally {
+        if (isActive) {
+          setLoadingRounds(false);
+        }
+      }
+    };
+
+    loadRounds();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedLotteryId]);
+
   const loadData = async () => {
     try {
-      const [latestRes, resultsRes] = await Promise.all([getLatestLottery(), getLotteryResults()]);
+      const [latestRes, resultsRes, lotteriesRes] = await Promise.all([
+        getLatestLottery(),
+        getLotteryResults(),
+        getCatalogLotteries()
+      ]);
       setLatest(latestRes.data);
       setResults(resultsRes.data || []);
+      const nextLotteries = lotteriesRes.data || [];
+      setLotteryOptions(nextLotteries);
+      setSelectedLotteryId((current) => (
+        current && nextLotteries.some((lottery) => lottery.id === current)
+          ? current
+          : (nextLotteries[0]?.id || '')
+      ));
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
+
+  const selectedLottery = useMemo(
+    () => lotteryOptions.find((lottery) => lottery.id === selectedLotteryId) || null,
+    [lotteryOptions, selectedLotteryId]
+  );
+
+  const selectedRound = useMemo(
+    () => roundOptions.find((round) => round.id === selectedRoundId) || null,
+    [roundOptions, selectedRoundId]
+  );
+
+  const supportedBetTypes = selectedLottery?.supportedBetTypes || [];
+  const selectedRoundClosedKey = selectedRound?.closedBetTypes?.join('|') || '';
+
+  useEffect(() => {
+    setClosedBetTypesDraft(selectedRound?.closedBetTypes || []);
+  }, [selectedRound?.id, selectedRoundClosedKey]);
 
   const overviewCards = useMemo(() => {
     const latestRound = latest?.roundDate || copy.noRound;
@@ -80,6 +168,40 @@ const AdminLottery = () => {
       }
     ];
   }, [latest, results.length]);
+
+  const toggleClosedBetType = (betType) => {
+    setClosedBetTypesDraft((current) => (
+      current.includes(betType)
+        ? current.filter((item) => item !== betType)
+        : [...current, betType]
+    ));
+  };
+
+  const handleSaveClosedBetTypes = async () => {
+    if (!selectedRound) {
+      toast.error(copy.noRoundSelected);
+      return;
+    }
+
+    const toastId = toast.loading(copy.saveClosedTypesLoading);
+    setSavingClosedBetTypes(true);
+
+    try {
+      const response = await updateRoundClosedBetTypes(selectedRound.id, {
+        closedBetTypes: closedBetTypesDraft
+      });
+      const roundsRes = await getCatalogRounds(selectedLotteryId);
+      const nextRounds = roundsRes.data || [];
+      setRoundOptions(nextRounds);
+      setSelectedRoundId(response.data.id);
+      setClosedBetTypesDraft(response.data.closedBetTypes || []);
+      toast.success(copy.saveClosedTypesSuccess, { id: toastId });
+    } catch (error) {
+      toast.error(error.response?.data?.message || copy.saveClosedTypesError, { id: toastId });
+    } finally {
+      setSavingClosedBetTypes(false);
+    }
+  };
 
   const handleFetch = async () => {
     if (!fetchDate) {
@@ -261,6 +383,108 @@ const AdminLottery = () => {
       </section>
 
       <section className="card ops-section">
+        <div className="ui-panel-head">
+          <div>
+            <div className="ui-eyebrow">{copy.roundControlEyebrow}</div>
+            <h3 className="card-title">{copy.roundControlTitle}</h3>
+            <p className="ops-table-note">{copy.roundControlNote}</p>
+          </div>
+          <span className="ui-pill">{copy.closedTypesCount(closedBetTypesDraft.length)}</span>
+        </div>
+
+        <div className="ops-form-grid">
+          <div className="form-group">
+            <label className="form-label" htmlFor="closed-bet-lottery">{copy.lotteryLabel}</label>
+            <select
+              id="closed-bet-lottery"
+              className="form-select"
+              value={selectedLotteryId}
+              onChange={(event) => setSelectedLotteryId(event.target.value)}
+              disabled={!lotteryOptions.length}
+            >
+              {!lotteryOptions.length ? <option value="">{copy.noLotteryOptions}</option> : null}
+              {lotteryOptions.map((lottery) => (
+                <option key={lottery.id} value={lottery.id}>
+                  {lottery.leagueName} • {lottery.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="closed-bet-round">{copy.roundLabel}</label>
+            <select
+              id="closed-bet-round"
+              className="form-select"
+              value={selectedRoundId}
+              onChange={(event) => setSelectedRoundId(event.target.value)}
+              disabled={loadingRounds || !roundOptions.length}
+            >
+              {loadingRounds ? <option value="">{copy.roundLoading}</option> : null}
+              {!loadingRounds && !roundOptions.length ? <option value="">{copy.noRoundOptions}</option> : null}
+              {!loadingRounds && roundOptions.map((round) => (
+                <option key={round.id} value={round.id}>
+                  {round.title} • {round.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="ops-stack">
+          {!supportedBetTypes.length ? (
+            <div className="empty-state">
+              <div className="empty-state-text">{copy.unsupportedBetTypes}</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {supportedBetTypes.map((betType) => {
+                  const isClosed = closedBetTypesDraft.includes(betType);
+                  return (
+                    <button
+                      key={betType}
+                      type="button"
+                      className={`btn ${isClosed ? 'btn-danger' : 'btn-secondary'} btn-sm`}
+                      onClick={() => toggleClosedBetType(betType)}
+                      disabled={!selectedRound}
+                    >
+                      {getBetTypeLabel(betType)} • {isClosed ? copy.closedForBetting : copy.openForBetting}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="ops-feed-row">
+                <div>
+                  <strong>{copy.closedTypesCurrent}</strong>
+                  <div className="ops-feed-meta">
+                    {closedBetTypesDraft.length
+                      ? closedBetTypesDraft.map((betType) => getBetTypeLabel(betType)).join(', ')
+                      : copy.closedTypesEmpty}
+                  </div>
+                </div>
+                <div className="ops-actions">
+                  <span className={`badge ${selectedRound?.status === 'open' ? 'badge-success' : 'badge-warning'}`}>
+                    {selectedRound?.label || copy.noRound}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSaveClosedBetTypes}
+                    disabled={!selectedRound || savingClosedBetTypes}
+                  >
+                    <FiSave />
+                    {savingClosedBetTypes ? copy.saveClosedTypesLoading : copy.saveClosedTypes}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="card ops-section">
         <div className="ops-table-head">
           <div>
             <div className="ui-eyebrow">{copy.historyEyebrow}</div>
@@ -281,7 +505,7 @@ const AdminLottery = () => {
                 <th>{copy.firstPrize}</th>
                 <th>{copy.overviewCards.top3.label}</th>
                 <th>{copy.bottom2Short}</th>
-                <th>สถานะ</th>
+                <th>{copy.statusColumn}</th>
               </tr>
             </thead>
             <tbody>

@@ -1,14 +1,15 @@
+const mongoose = require('mongoose');
 const LotteryType = require('../models/LotteryType');
 const RateProfile = require('../models/RateProfile');
 const User = require('../models/User');
 const UserLotteryConfig = require('../models/UserLotteryConfig');
+const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('../constants/betting');
 const {
   getBetTotals,
   getTotalsGroupedByField
 } = require('./analyticsService');
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
-const BET_TYPES = ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
 const DEFAULT_LIMITS = {
   minimumBet: 1,
   maximumBet: 10000,
@@ -37,8 +38,21 @@ const normalizeBlockedNumbers = (value) => {
 };
 const normalizeCustomRates = (value = {}, fallbackRates = {}) =>
   BET_TYPES.reduce((acc, betType) => {
-    const nextValue = toPositiveAmount(value?.[betType], fallbackRates?.[betType] || 0);
+    const nextValue = toPositiveAmount(value?.[betType], fallbackRates?.[betType] || DEFAULT_GLOBAL_RATES[betType] || 0);
     acc[betType] = nextValue;
+    return acc;
+  }, {});
+
+const normalizeRateMap = (value = {}, fallbackRates = {}) =>
+  BET_TYPES.reduce((acc, betType) => {
+    const nextValue = toPositiveAmount(value?.[betType], fallbackRates?.[betType] || DEFAULT_GLOBAL_RATES[betType] || 0);
+    acc[betType] = nextValue;
+    return acc;
+  }, {});
+
+const normalizeCommissionMap = (value = {}) =>
+  BET_TYPES.reduce((acc, betType) => {
+    acc[betType] = toPositiveAmount(value?.[betType], 0);
     return acc;
   }, {});
 
@@ -57,8 +71,8 @@ const loadActiveLotteries = async () =>
   LotteryType.find({ isActive: true })
     .sort({ sortOrder: 1, name: 1 })
     .populate('leagueId', 'code name')
-    .populate('rateProfileIds', 'code name description isActive rates')
-    .populate('defaultRateProfileId', 'code name description isActive rates');
+    .populate('rateProfileIds', 'code name description isActive rates commissions')
+    .populate('defaultRateProfileId', 'code name description isActive rates commissions');
 
 const ensureMemberCodeAvailability = async (memberCode, excludeUserId = null) => {
   if (!memberCode) return;
@@ -110,11 +124,11 @@ const pickRateProfileId = ({ lottery, member, existingConfig, inputConfig }) => 
     allowedRateIds[0] ||
     null;
 
-  if (requestedRateProfileId && !allowedRateIds.includes(requestedRateProfileId)) {
-    throw new Error(`Rate profile is not allowed for ${lottery.name}`);
+  if (requestedRateProfileId && allowedRateIds.includes(requestedRateProfileId)) {
+    return requestedRateProfileId;
   }
 
-  return requestedRateProfileId;
+  return allowedRateIds[0] || null;
 };
 
 const buildLotteryConfigDocument = ({ member, lottery, existingConfig, inputConfig }) => {
@@ -233,15 +247,19 @@ const mapRateProfile = (profile) => ({
   code: profile.code,
   name: profile.name,
   description: profile.description,
-  rates: profile.rates,
+  rates: normalizeRateMap(profile.rates),
+  commissions: normalizeCommissionMap(profile.commissions || {}),
   isDefault: Boolean(profile.isDefault)
 });
 
 const mapLotteryConfigRow = ({ lottery, config }) => {
   const allowedProfiles = (lottery.rateProfileIds || []).filter((profile) => profile.isActive);
   const activeRateProfiles = allowedProfiles;
+  const configuredRateProfileId = config?.rateProfileId?.toString() || '';
   const selectedRateProfileId =
-    config?.rateProfileId?.toString() ||
+    (configuredRateProfileId && activeRateProfiles.some((profile) => profile._id.toString() === configuredRateProfileId)
+      ? configuredRateProfileId
+      : '') ||
     lottery.defaultRateProfileId?._id?.toString() ||
     lottery.defaultRateProfileId?.toString() ||
     activeRateProfiles[0]?._id?.toString() ||
@@ -330,7 +348,19 @@ const getMemberLotteryAccess = async ({ customerId, lotteryId, betType = '', rat
     throw new Error('This bet type is not enabled for your account');
   }
 
-  const enforcedRateProfileId = config.rateProfileId?.toString() || '';
+  const allowedRateIds = (lottery.rateProfileIds || [])
+    .filter((profile) => profile.isActive)
+    .map((profile) => profile._id.toString());
+  const configuredRateProfileId = config.rateProfileId?.toString() || '';
+  const enforcedRateProfileId = allowedRateIds.includes(configuredRateProfileId)
+    ? configuredRateProfileId
+    : (
+      lottery.defaultRateProfileId?._id?.toString() ||
+      lottery.defaultRateProfileId?.toString() ||
+      allowedRateIds[0] ||
+      ''
+    );
+
   if (rateProfileId && enforcedRateProfileId && rateProfileId !== enforcedRateProfileId) {
     throw new Error('This rate profile is not available for your account');
   }
@@ -346,6 +376,7 @@ const getMemberLotteryAccess = async ({ customerId, lotteryId, betType = '', rat
 
 const mapMemberSummary = (member, stats = {}, configSummary = {}) => ({
   id: member._id.toString(),
+  uid: member._id.toString(),
   username: member.username,
   name: member.name,
   memberCode: member.memberCode || '',
@@ -433,6 +464,9 @@ const getAgentMembers = async ({ agentId, search = '', status = '', online = '' 
       { phone: regex },
       { memberCode: regex }
     ];
+    if (mongoose.Types.ObjectId.isValid(searchText)) {
+      filter.$or.push({ _id: new mongoose.Types.ObjectId(searchText) });
+    }
   }
 
   const normalizedStatus = toText(status);
@@ -489,6 +523,93 @@ const getAgentMembers = async ({ agentId, search = '', status = '', online = '' 
       configSummaryByMember[member._id.toString()] || {}
     )
   );
+};
+
+const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentId = '', limit = 20 }) => {
+  const filter = { role: 'customer' };
+  if (actorRole === 'agent') {
+    filter.agentId = actorId;
+  } else if (actorRole === 'admin' && agentId) {
+    filter.agentId = agentId;
+  }
+
+  const searchText = toText(search);
+  if (searchText) {
+    const regex = new RegExp(searchText, 'i');
+    const orConditions = [
+      { name: regex },
+      { username: regex },
+      { phone: regex },
+      { memberCode: regex }
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(searchText)) {
+      orConditions.push({ _id: new mongoose.Types.ObjectId(searchText) });
+    }
+
+    filter.$or = orConditions;
+  }
+
+  const members = await User.find(filter)
+    .select('name username memberCode phone creditBalance status isActive agentId')
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .limit(Math.max(1, Math.min(50, Number(limit) || 20)))
+    .populate('agentId', 'name username');
+
+  const normalizedSearch = searchText.toLowerCase();
+  const finalRows = members.filter((member) => {
+    if (!normalizedSearch) return true;
+    return (
+      member._id.toString().toLowerCase() === normalizedSearch ||
+      (member.memberCode || '').toLowerCase() === normalizedSearch ||
+      member.name.toLowerCase().includes(normalizedSearch) ||
+      member.username.toLowerCase().includes(normalizedSearch) ||
+      (member.phone || '').toLowerCase().includes(normalizedSearch)
+    );
+  });
+
+  return finalRows.map((member) => ({
+    id: member._id.toString(),
+    uid: member._id.toString(),
+    name: member.name,
+    username: member.username,
+    memberCode: member.memberCode || '',
+    phone: member.phone || '',
+    creditBalance: member.creditBalance || 0,
+    status: member.status,
+    isActive: member.isActive,
+    agent: member.agentId ? {
+      id: member.agentId._id.toString(),
+      name: member.agentId.name,
+      username: member.agentId.username
+    } : null
+  }));
+};
+
+const getMemberForBettingActor = async ({ actorId, actorRole, memberId }) => {
+  const member = await User.findById(memberId).select('-password');
+
+  if (!member || member.role !== 'customer') {
+    throw new Error('Member not found');
+  }
+
+  if (!member.isActive || member.status !== 'active') {
+    throw new Error('This member account is not active');
+  }
+
+  if (actorRole === 'agent' && member.agentId?.toString() !== actorId.toString()) {
+    throw new Error('This member does not belong to the current agent');
+  }
+
+  if (!['admin', 'agent', 'customer'].includes(actorRole)) {
+    throw new Error('This role cannot access member betting');
+  }
+
+  if (actorRole === 'customer' && member._id.toString() !== actorId.toString()) {
+    throw new Error('Customers can only access their own account');
+  }
+
+  return member;
 };
 
 const getAgentMemberDetail = async ({ agentId, memberId }) => {
@@ -673,5 +794,7 @@ module.exports = {
   updateAgentMember,
   deactivateAgentMember,
   getMemberLotteryAccess,
+  searchMembersForBetting,
+  getMemberForBettingActor,
   getMemberConfigRows
 };

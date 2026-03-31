@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { FiActivity, FiArrowRight, FiClock, FiLayers, FiTrendingUp } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
+import { FiActivity, FiArrowRight, FiClock, FiTrendingUp } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
 import { memberCopy } from '../../i18n/th/member';
 import { getBetTypeLabel, getProviderLabel, getRoundStatusLabel } from '../../i18n/th/labels';
@@ -16,7 +16,6 @@ const formatCountdown = (seconds) => {
 
 const CustomerOverview = () => {
   const copy = memberCopy.overview;
-  const navigate = useNavigate();
   const {
     leagues,
     announcements,
@@ -47,9 +46,16 @@ const CustomerOverview = () => {
             <span><FiClock /> {copy.countdown(formatCountdown(selectedLottery?.countdownSeconds))}</span>
           </div>
         </div>
-        <Link to="/customer/bet" className="btn btn-primary">
-          {copy.cta} <FiArrowRight />
+        <Link to="/customer/history" className="btn btn-primary">
+          ดูรายการโพย <FiArrowRight />
         </Link>
+      </section>
+
+      <section className="card market-panel">
+        <div className="bet-note">
+          <FiActivity />
+          <span>สมาชิกดูตลาด ผลรางวัล และประวัติโพยได้จากหน้านี้ ส่วนการซื้อรายการใหม่ให้เอเย่นต์หรือแอดมินทำรายการแทน</span>
+        </div>
       </section>
 
       <section className="market-stat-grid">
@@ -160,7 +166,6 @@ const CustomerOverview = () => {
                   className={`market-card market-card-button market-card-${lottery.status === 'open' ? 'live' : lottery.status === 'upcoming' ? 'pending' : lottery.status === 'closed' ? 'waiting' : 'unsupported'} ${selectedLottery?.id === lottery.id ? 'market-card-active' : ''}`}
                   onClick={() => {
                     setSelectedLottery(lottery.id);
-                    navigate('/customer/bet');
                   }}
                 >
                   <div className="market-card-header">
@@ -210,6 +215,8 @@ const CustomerOverview = () => {
         .market-stat-card span,.market-stat-card small,.announcement-body{color:var(--text-muted)}
         .market-stat-card strong{font-size:1.35rem;line-height:1;letter-spacing:-.04em}
         .market-panel{padding:20px}
+        .bet-note{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:18px;border:1px solid rgba(52,211,153,.18);background:rgba(16,185,129,.08);color:var(--text-secondary);font-size:.9rem;line-height:1.6}
+        .bet-note svg{margin-top:2px;color:var(--primary-light);flex-shrink:0}
         .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
         .panel-head .card-title{margin:6px 0 0;font-size:1.15rem}
         .announcement-list{display:flex;flex-direction:column;gap:12px}

@@ -11,6 +11,21 @@ const betSlipSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  placedByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  placedByRole: {
+    type: String,
+    enum: ['admin', 'agent', 'customer'],
+    default: 'customer'
+  },
+  placedByName: {
+    type: String,
+    default: '',
+    trim: true
+  },
   lotteryTypeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'LotteryType',

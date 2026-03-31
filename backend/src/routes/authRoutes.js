@@ -31,6 +31,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    if (user.role === 'customer') {
+      return res.status(403).json({ message: 'ปิดการเข้าสู่ระบบของสมาชิกแล้ว กรุณาติดต่อเอเย่นต์หรือแอดมิน' });
+    }
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,

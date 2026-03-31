@@ -20,6 +20,10 @@ const auth = async (req, res, next) => {
       return res.status(403).json({ message: 'Account is deactivated.' });
     }
 
+    if (user.role === 'customer') {
+      return res.status(403).json({ message: 'ปิดการใช้งานบัญชีสมาชิกแล้ว' });
+    }
+
     User.updateOne(
       { _id: user._id },
       { $set: { lastActiveAt: new Date(), status: 'active' } }

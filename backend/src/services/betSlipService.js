@@ -7,6 +7,7 @@ const RateProfile = require('../models/RateProfile');
 const User = require('../models/User');
 const { getRoundStatus } = require('./catalogService');
 const { getMemberLotteryAccess } = require('./memberManagementService');
+const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('../constants/betting');
 const { normalizeLotteryCode } = require('../utils/lotteryCode');
 const { getPermutations } = require('../utils/numberHelpers');
 
@@ -15,9 +16,11 @@ const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() ||
 
 const DIGIT_LENGTHS = {
   '3top': 3,
+  '3bottom': 3,
   '3tod': 3,
   '2top': 2,
   '2bottom': 2,
+  '2tod': 2,
   'run_top': 1,
   'run_bottom': 1
 };
@@ -55,15 +58,54 @@ const buildDoubleSet = (digits) => {
 const expandNumbers = (number, betType, reverse) => {
   if (!reverse) return [number];
 
-  if (betType === '2top' || betType === '2bottom') {
+  if (betType === '2top' || betType === '2bottom' || betType === '2tod') {
     return [...new Set([number, number.split('').reverse().join('')])];
   }
 
-  if (betType === '3top' || betType === '3tod') {
+  if (betType === '3top' || betType === '3bottom' || betType === '3tod') {
     return getPermutations(number);
   }
 
   return [number];
+};
+
+const resolveBettingActor = async ({ actorUser, customerId }) => {
+  const actor =
+    actorUser ||
+    (customerId ? await User.findById(customerId).select('_id role name username agentId isActive status') : null);
+
+  if (!actor) {
+    throw new Error('Betting actor not found');
+  }
+
+  if (!customerId) {
+    throw new Error('customerId is required');
+  }
+
+  const customer = await User.findById(customerId).select(
+    '_id role name username memberCode agentId isActive status creditBalance'
+  );
+
+  if (!customer || customer.role !== 'customer') {
+    throw new Error('Member not found');
+  }
+
+  if (!customer.isActive || customer.status !== 'active') {
+    throw new Error('This member account is not active');
+  }
+
+  if (actor.role === 'agent' && customer.agentId?.toString() !== actor._id.toString()) {
+    throw new Error('This member does not belong to the current agent');
+  }
+
+  if (!['admin', 'agent'].includes(actor.role)) {
+    throw new Error('This role cannot create slips');
+  }
+
+  return {
+    actor,
+    customer
+  };
 };
 
 const parseRawLines = (rawInput) => {
@@ -85,15 +127,26 @@ const parseLine = (line) => {
   };
 };
 
-const combineEntries = (entries, payRate) => {
+const normalizePreviewItem = (entry = {}) => ({
+  betType: entry.betType,
+  number: normalizeDigits(entry.number),
+  amount: Number(entry.amount || 0),
+  payRate: Number(entry.payRate || 0),
+  sourceFlags: {
+    fromReverse: Boolean(entry.sourceFlags?.fromReverse),
+    fromDoubleSet: Boolean(entry.sourceFlags?.fromDoubleSet)
+  }
+});
+
+const combineEntries = (entries) => {
   const grouped = new Map();
 
-  entries.forEach((entry) => {
+  entries.map(normalizePreviewItem).forEach((entry) => {
     const key = `${entry.betType}:${entry.number}`;
     const current = grouped.get(key);
     if (current) {
       current.amount += entry.amount;
-      current.potentialPayout = current.amount * payRate;
+      current.potentialPayout = current.amount * current.payRate;
       current.sourceFlags.fromReverse = current.sourceFlags.fromReverse || entry.sourceFlags.fromReverse;
       current.sourceFlags.fromDoubleSet = current.sourceFlags.fromDoubleSet || entry.sourceFlags.fromDoubleSet;
       return;
@@ -101,12 +154,157 @@ const combineEntries = (entries, payRate) => {
 
     grouped.set(key, {
       ...entry,
-      payRate,
-      potentialPayout: entry.amount * payRate
+      potentialPayout: entry.amount * entry.payRate
     });
   });
 
   return [...grouped.values()];
+};
+
+const resolveBetTypeConfiguration = ({ context, betType }) => {
+  if (!BET_TYPES.includes(betType)) {
+    throw new Error('Unsupported bet type');
+  }
+
+  if (!context.lottery.supportedBetTypes.includes(betType)) {
+    throw new Error(`Selected lottery does not support ${betType}`);
+  }
+
+  const enabledBetTypes = context.enabledBetTypes?.length ? context.enabledBetTypes : context.lottery.supportedBetTypes;
+  if (!enabledBetTypes.includes(betType)) {
+    throw new Error(`This bet type is not enabled for this member`);
+  }
+
+  const closedBetTypes = context.round?.closedBetTypes || [];
+  if (closedBetTypes.includes(betType)) {
+    throw new Error(`${betType} is closed for this round`);
+  }
+
+  const customPayRate = context.memberConfig?.useCustomRates
+    ? Number(context.memberConfig.customRates?.[betType] || 0)
+    : 0;
+  const payRate = customPayRate || Number(context.rateProfile?.rates?.[betType] || DEFAULT_GLOBAL_RATES[betType] || 0);
+  if (!payRate) {
+    throw new Error(`No pay rate configured for ${betType}`);
+  }
+
+  return {
+    digits: DIGIT_LENGTHS[betType],
+    payRate
+  };
+};
+
+const buildFastPreviewEntries = ({
+  context,
+  betType,
+  defaultAmount,
+  rawInput,
+  reverse = false,
+  includeDoubleSet = false
+}) => {
+  const { digits, payRate } = resolveBetTypeConfiguration({ context, betType });
+  const defaultStake = Number(defaultAmount || 0);
+  const lines = parseRawLines(rawInput);
+  const rawEntries = lines.map(parseLine);
+
+  if (!rawEntries.length && !includeDoubleSet) {
+    throw new Error('Please enter at least one betting line');
+  }
+
+  const baseEntries = [];
+
+  rawEntries.forEach((entry) => {
+    const amount = entry.amount ?? defaultStake;
+    const number = normalizeDigits(entry.number);
+
+    if (!amount || amount < 1) {
+      throw new Error(`Invalid stake for line ${entry.number}`);
+    }
+
+    if (number.length !== digits) {
+      throw new Error(`Bet type ${betType} requires exactly ${digits} digits`);
+    }
+
+    expandNumbers(number, betType, reverse).forEach((expandedNumber) => {
+      baseEntries.push({
+        betType,
+        number: expandedNumber,
+        amount,
+        payRate,
+        sourceFlags: {
+          fromReverse: reverse && expandedNumber !== number,
+          fromDoubleSet: false
+        }
+      });
+    });
+  });
+
+  if (includeDoubleSet) {
+    if (!defaultStake || defaultStake < 1) {
+      throw new Error('Default amount is required when using the double-number helper');
+    }
+
+    buildDoubleSet(digits).forEach((number) => {
+      baseEntries.push({
+        betType,
+        number,
+        amount: defaultStake,
+        payRate,
+        sourceFlags: {
+          fromReverse: false,
+          fromDoubleSet: true
+        }
+      });
+    });
+  }
+
+  const combined = combineEntries(baseEntries);
+  if (combined.length > MAX_SLIP_ITEMS) {
+    throw new Error(`A single slip supports up to ${MAX_SLIP_ITEMS} items`);
+  }
+
+  return combined;
+};
+
+const buildManualPreviewEntries = ({ context, items = [] }) => {
+  const normalizedItems = (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      betType: String(item?.betType || '').trim(),
+      number: normalizeDigits(item?.number),
+      amount: Number(item?.amount || 0),
+      sourceFlags: {
+        fromReverse: Boolean(item?.sourceFlags?.fromReverse),
+        fromDoubleSet: Boolean(item?.sourceFlags?.fromDoubleSet)
+      }
+    }))
+    .filter((item) => item.betType && item.number && item.amount > 0);
+
+  if (!normalizedItems.length) {
+    throw new Error('Please enter at least one betting item');
+  }
+
+  const previewItems = normalizedItems.map((item) => {
+    const { digits, payRate } = resolveBetTypeConfiguration({
+      context,
+      betType: item.betType
+    });
+
+    if (item.number.length !== digits) {
+      throw new Error(`Bet type ${item.betType} requires exactly ${digits} digits`);
+    }
+
+    return {
+      ...item,
+      payRate
+    };
+  });
+
+  const combined = combineEntries(previewItems);
+  if (combined.length > MAX_SLIP_ITEMS) {
+    throw new Error(`A single slip supports up to ${MAX_SLIP_ITEMS} items`);
+  }
+
+  return combined;
 };
 
 const buildExposureMap = (rows) =>
@@ -146,80 +344,6 @@ const fetchExposureMap = async ({ customerId = '', agentId = '', lotteryTypeId, 
   ]);
 
   return buildExposureMap(rows);
-};
-
-const buildPreviewEntries = ({
-  betType,
-  defaultAmount,
-  rawInput,
-  reverse = false,
-  includeDoubleSet = false,
-  payRate
-}) => {
-  const digits = DIGIT_LENGTHS[betType];
-  if (!digits) {
-    throw new Error('Unsupported bet type');
-  }
-
-  const defaultStake = Number(defaultAmount || 0);
-  const lines = parseRawLines(rawInput);
-  const rawEntries = lines.map(parseLine);
-
-  if (!rawEntries.length && !includeDoubleSet) {
-    throw new Error('Please enter at least one betting line');
-  }
-
-  const baseEntries = [];
-
-  rawEntries.forEach((entry) => {
-    const amount = entry.amount ?? defaultStake;
-    const number = normalizeDigits(entry.number);
-
-    if (!amount || amount < 1) {
-      throw new Error(`Invalid stake for line ${entry.number}`);
-    }
-
-    if (number.length !== digits) {
-      throw new Error(`Bet type ${betType} requires exactly ${digits} digits`);
-    }
-
-    expandNumbers(number, betType, reverse).forEach((expandedNumber) => {
-      baseEntries.push({
-        betType,
-        number: expandedNumber,
-        amount,
-        sourceFlags: {
-          fromReverse: reverse && expandedNumber !== number,
-          fromDoubleSet: false
-        }
-      });
-    });
-  });
-
-  if (includeDoubleSet) {
-    if (!defaultStake || defaultStake < 1) {
-      throw new Error('Default amount is required when using the double-number helper');
-    }
-
-    buildDoubleSet(digits).forEach((number) => {
-      baseEntries.push({
-        betType,
-        number,
-        amount: defaultStake,
-        sourceFlags: {
-          fromReverse: false,
-          fromDoubleSet: true
-        }
-      });
-    });
-  }
-
-  const combined = combineEntries(baseEntries, payRate);
-  if (combined.length > MAX_SLIP_ITEMS) {
-    throw new Error(`A single slip supports up to ${MAX_SLIP_ITEMS} items`);
-  }
-
-  return combined;
 };
 
 const validateEntriesAgainstMemberConfig = (entries, memberConfig) => {
@@ -310,29 +434,31 @@ const validateEntriesAgainstRiskRules = async ({ entries, context, customerId })
   }
 };
 
-const loadSlipContext = async ({ customerId = '', lotteryId, roundId, rateProfileId, betType }) => {
+const loadSlipContext = async ({ actorUser = null, customerId = '', lotteryId, roundId, rateProfileId, betType }) => {
   if (!lotteryId || !roundId) {
     throw new Error('lotteryId and roundId are required');
   }
 
+  if (betType && !BET_TYPES.includes(betType)) {
+    throw new Error('Unsupported bet type');
+  }
+
+  const { actor, customer } = await resolveBettingActor({ actorUser, customerId });
+
   let lottery = await LotteryType.findById(lotteryId).populate('leagueId', 'code name');
   let memberConfig = null;
-  let member = null;
+  let member = customer;
   let enforcedRateProfileId = rateProfileId || '';
 
-  if (customerId) {
-    const access = await getMemberLotteryAccess({ customerId, lotteryId, betType, rateProfileId });
-    member = access.member;
-    lottery = access.lottery;
-    memberConfig = access.config;
-    enforcedRateProfileId = access.rateProfileId || enforcedRateProfileId;
-  } else if (!lottery || !lottery.isActive) {
-    throw new Error('Selected lottery is not available');
-  }
-
-  if (!lottery.supportedBetTypes.includes(betType)) {
-    throw new Error('Selected bet type is not supported by this lottery');
-  }
+  const access = await getMemberLotteryAccess({
+    customerId: customer._id.toString(),
+    lotteryId,
+    rateProfileId
+  });
+  member = access.member;
+  lottery = access.lottery;
+  memberConfig = access.config;
+  enforcedRateProfileId = access.rateProfileId || enforcedRateProfileId;
 
   const round = await DrawRound.findById(roundId);
   if (!round || round.lotteryTypeId.toString() !== lottery._id.toString()) {
@@ -344,31 +470,27 @@ const loadSlipContext = async ({ customerId = '', lotteryId, roundId, rateProfil
   const resolvedRateProfileId =
     enforcedRateProfileId ||
     toIdString(lottery.defaultRateProfileId) ||
+    allowedRateIds[0] ||
     null;
 
   if (resolvedRateProfileId) {
-    if (!allowedRateIds.includes(resolvedRateProfileId)) {
-      throw new Error('Selected rate profile is not allowed for this lottery');
-    }
-
-    rateProfile = await RateProfile.findById(resolvedRateProfileId);
+    const safeRateProfileId = allowedRateIds.includes(resolvedRateProfileId)
+      ? resolvedRateProfileId
+      : allowedRateIds[0];
+    rateProfile = await RateProfile.findById(safeRateProfileId);
     if (!rateProfile || !rateProfile.isActive) {
       throw new Error('Selected rate profile is not available');
     }
   }
 
-  const customPayRate = memberConfig?.useCustomRates ? Number(memberConfig.customRates?.[betType] || 0) : 0;
-  const payRate = customPayRate || rateProfile?.rates?.[betType] || 0;
-  if (!payRate) {
-    throw new Error('No pay rate configured for this bet type');
-  }
-
   return {
+    actor,
+    customer,
     lottery,
     member,
     round,
     rateProfile,
-    payRate,
+    enabledBetTypes: access.enabledBetTypes,
     roundStatus: getRoundStatus(round),
     memberConfig
   };
@@ -431,9 +553,15 @@ const buildSlipResponse = async (slips) => {
 
     return {
       id: slipId,
+      customerId: slip.customerId?.toString?.() || '',
       slipNumber: slip.slipNumber,
       status: slip.status,
       sourceType: slip.sourceType,
+      placedBy: {
+        id: slip.placedByUserId?.toString?.() || '',
+        role: slip.placedByRole || 'customer',
+        name: slip.placedByName || ''
+      },
       memo: slip.memo,
       lotteryCode: slip.lotteryCode,
       lotteryName: slip.lotteryName,
@@ -461,11 +589,16 @@ const buildSlipResponse = async (slips) => {
         id: item._id.toString(),
         sequence: item.sequence,
         betType: item.betType,
-        number: item.number,
-        amount: item.amount,
-        payRate: item.payRate,
-        potentialPayout: item.potentialPayout,
-        status: item.status,
+          number: item.number,
+          amount: item.amount,
+          payRate: item.payRate,
+          potentialPayout: item.potentialPayout,
+          placedBy: {
+            id: item.placedByUserId?.toString?.() || '',
+            role: item.placedByRole || 'customer',
+            name: item.placedByName || ''
+          },
+          status: item.status,
         result: item.result,
         wonAmount: item.wonAmount,
         isLocked: item.isLocked,
@@ -481,6 +614,7 @@ const buildSlipResponse = async (slips) => {
 };
 
 const previewSlip = async ({
+  actorUser = null,
   customerId = '',
   lotteryId,
   roundId,
@@ -488,22 +622,42 @@ const previewSlip = async ({
   betType,
   defaultAmount,
   rawInput,
+  items = [],
   reverse = false,
   includeDoubleSet = false
 }) => {
-  const context = await loadSlipContext({ customerId, lotteryId, roundId, rateProfileId, betType });
-  const entries = buildPreviewEntries({
-    betType,
-    defaultAmount,
-    rawInput,
-    reverse,
-    includeDoubleSet,
-    payRate: context.payRate
-  });
+  const context = await loadSlipContext({ actorUser, customerId, lotteryId, roundId, rateProfileId, betType });
+  const entries = Array.isArray(items) && items.length
+    ? buildManualPreviewEntries({
+      context,
+      items
+    })
+    : buildFastPreviewEntries({
+      context,
+      betType,
+      defaultAmount,
+      rawInput,
+      reverse,
+      includeDoubleSet
+    });
   validateEntriesAgainstMemberConfig(entries, context.memberConfig);
   await validateEntriesAgainstRiskRules({ entries, context, customerId });
 
   return {
+    member: {
+      id: context.customer._id.toString(),
+      uid: context.customer._id.toString(),
+      name: context.customer.name,
+      username: context.customer.username,
+      memberCode: context.customer.memberCode || '',
+      creditBalance: context.customer.creditBalance || 0
+    },
+    placedBy: {
+      id: context.actor._id.toString(),
+      role: context.actor.role,
+      name: context.actor.name || '',
+      username: context.actor.username || ''
+    },
     lottery: {
       id: context.lottery._id.toString(),
       code: context.lottery.code,
@@ -516,7 +670,8 @@ const previewSlip = async ({
       title: context.round.title,
       openAt: context.round.openAt,
       closeAt: context.round.closeAt,
-      drawAt: context.round.drawAt
+      drawAt: context.round.drawAt,
+      closedBetTypes: context.round.closedBetTypes || []
     },
     rateProfile: context.rateProfile ? {
       id: context.rateProfile._id.toString(),
@@ -541,6 +696,7 @@ const previewSlip = async ({
 };
 
 const createSlip = async ({
+  actorUser = null,
   customerId,
   lotteryId,
   roundId,
@@ -548,17 +704,19 @@ const createSlip = async ({
   betType,
   defaultAmount,
   rawInput,
+  items = [],
   reverse = false,
   includeDoubleSet = false,
   memo = '',
   action = 'submit'
 }) => {
-  const customer = await User.findById(customerId);
-  if (!customer || !customer.agentId) {
+  const { customer, actor } = await resolveBettingActor({ actorUser, customerId });
+  if (!customer.agentId) {
     throw new Error('Customer has no assigned agent');
   }
 
   const preview = await previewSlip({
+    actorUser: actor,
     customerId,
     lotteryId,
     roundId,
@@ -566,6 +724,7 @@ const createSlip = async ({
     betType,
     defaultAmount,
     rawInput,
+    items,
     reverse,
     includeDoubleSet
   });
@@ -577,6 +736,9 @@ const createSlip = async ({
   const slip = await BetSlip.create({
     customerId,
     agentId: customer.agentId,
+    placedByUserId: actor._id,
+    placedByRole: actor.role,
+    placedByName: actor.name || actor.username || '',
     lotteryTypeId: lotteryId,
     drawRoundId: roundId,
     rateProfileId: preview.rateProfile?.id || null,
@@ -589,6 +751,7 @@ const createSlip = async ({
     openAt: preview.round.openAt,
     closeAt: preview.round.closeAt,
     drawAt: preview.round.drawAt,
+    sourceType: actor.role === 'customer' ? 'console' : 'manual',
     status: action === 'draft' ? 'draft' : 'submitted',
     memo,
     itemCount: preview.summary.itemCount,
@@ -601,6 +764,9 @@ const createSlip = async ({
     slipId: slip._id,
     customerId,
     agentId: customer.agentId,
+    placedByUserId: actor._id,
+    placedByRole: actor.role,
+    placedByName: actor.name || actor.username || '',
     lotteryTypeId: lotteryId,
     drawRoundId: roundId,
     rateProfileId: preview.rateProfile?.id || null,
@@ -661,6 +827,11 @@ const listBetItems = async ({ customerId, slipId, status }) => {
       amount: item.amount,
       payRate: item.payRate,
       potentialPayout: item.potentialPayout,
+      placedBy: {
+        id: item.placedByUserId?.toString?.() || '',
+        role: item.placedByRole || 'customer',
+        name: item.placedByName || ''
+      },
       status: item.status,
       result: item.result || 'pending',
       wonAmount: item.wonAmount || 0,
@@ -669,33 +840,63 @@ const listBetItems = async ({ customerId, slipId, status }) => {
   });
 };
 
-const cancelSlip = async ({ customerId, slipId }) => {
-  const slip = await BetSlip.findOne({ _id: slipId, customerId });
+const cancelLoadedSlip = async ({ slip, cancelledReason }) => {
   if (!slip) {
     throw new Error('Slip not found');
   }
 
-  if (slip.status !== 'submitted') {
+  const targetSlip = slip;
+
+  if (targetSlip.status !== 'submitted') {
     throw new Error('Only submitted slips can be cancelled');
   }
 
-  if (new Date() > new Date(slip.closeAt)) {
+  if (new Date() > new Date(targetSlip.closeAt)) {
     throw new Error('This slip can no longer be cancelled');
   }
 
-  const items = await BetItem.find({ slipId: slip._id }).select('result isLocked');
+  const items = await BetItem.find({ slipId: targetSlip._id }).select('result isLocked');
   if (items.some((item) => item.isLocked || item.result !== 'pending')) {
     throw new Error('This slip already has resolved items and cannot be cancelled');
   }
 
-  await BetItem.updateMany({ slipId: slip._id }, { $set: { status: 'cancelled' } });
+  await BetItem.updateMany({ slipId: targetSlip._id }, { $set: { status: 'cancelled' } });
 
-  slip.status = 'cancelled';
-  slip.cancelledAt = new Date();
-  slip.cancelledReason = 'member-request';
-  await slip.save();
+  targetSlip.status = 'cancelled';
+  targetSlip.cancelledAt = new Date();
+  targetSlip.cancelledReason = cancelledReason;
+  await targetSlip.save();
 
-  return buildSlipResponse(slip);
+  return buildSlipResponse(targetSlip);
+};
+
+const cancelSlip = async ({ customerId, slipId }) => {
+  const slip = await BetSlip.findOne({ _id: slipId, customerId });
+  return cancelLoadedSlip({
+    slip,
+    cancelledReason: 'member-request'
+  });
+};
+
+const cancelSlipByActor = async ({ actorUser, slipId }) => {
+  if (!actorUser?._id) {
+    throw new Error('Actor is required');
+  }
+
+  const slip = await BetSlip.findById(slipId);
+  if (!slip) {
+    throw new Error('Slip not found');
+  }
+
+  await resolveBettingActor({
+    actorUser,
+    customerId: slip.customerId?.toString?.() || ''
+  });
+
+  return cancelLoadedSlip({
+    slip,
+    cancelledReason: `${actorUser.role}-request`
+  });
 };
 
 const getMemberSummary = async ({
@@ -824,5 +1025,6 @@ module.exports = {
   getSlipDetail,
   listBetItems,
   cancelSlip,
+  cancelSlipByActor,
   getMemberSummary
 };

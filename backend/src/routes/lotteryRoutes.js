@@ -1,11 +1,14 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
+const DrawRound = require('../models/DrawRound');
+const LotteryType = require('../models/LotteryType');
 const LotteryResult = require('../models/LotteryResult');
 const { getExternalSyncState, syncLatestExternalResults } = require('../services/externalResultFeedService');
 const { fetchLotteryResult, saveLotteryResult, getLatestResult } = require('../services/lotteryService');
 const { getMarketOverview } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
+const { BET_TYPES } = require('../constants/betting');
 
 const router = express.Router();
 
@@ -117,6 +120,50 @@ router.post('/manual', auth, authorize('admin'), async (req, res) => {
   } catch (error) {
     console.error('Manual lottery error:', error);
     res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
+router.put('/rounds/:roundId/closed-bet-types', auth, authorize('admin'), async (req, res) => {
+  try {
+    const { closedBetTypes = [] } = req.body;
+    const round = await DrawRound.findById(req.params.roundId);
+
+    if (!round) {
+      return res.status(404).json({ message: 'Round not found' });
+    }
+
+    const lottery = await LotteryType.findById(round.lotteryTypeId).select('supportedBetTypes name code');
+    if (!lottery) {
+      return res.status(404).json({ message: 'Lottery type not found' });
+    }
+
+    const normalizedClosedBetTypes = [...new Set((Array.isArray(closedBetTypes) ? closedBetTypes : [])
+      .filter((betType) => BET_TYPES.includes(betType)))];
+    const invalidBetType = normalizedClosedBetTypes.find((betType) => !lottery.supportedBetTypes.includes(betType));
+
+    if (invalidBetType) {
+      return res.status(400).json({ message: `${invalidBetType} is not supported by this lottery` });
+    }
+
+    round.closedBetTypes = normalizedClosedBetTypes;
+    await round.save();
+
+    await createAuditLog(req.user._id, 'UPDATE_ROUND_CLOSED_BET_TYPES', round._id.toString(), {
+      lotteryCode: lottery.code,
+      roundCode: round.code,
+      closedBetTypes: normalizedClosedBetTypes
+    });
+
+    res.json({
+      id: round._id.toString(),
+      roundCode: round.code,
+      lotteryCode: lottery.code,
+      lotteryName: lottery.name,
+      closedBetTypes: round.closedBetTypes || []
+    });
+  } catch (error) {
+    console.error('Update round closed bet types error:', error);
+    res.status(500).json({ message: error.message || 'Failed to update round closed bet types' });
   }
 });
 

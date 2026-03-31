@@ -59,7 +59,14 @@ const BetHistory = () => {
           <h1 className="page-title">{copy.heroTitle}</h1>
           <p className="page-subtitle">{copy.heroSubtitle}</p>
         </div>
-        <Link to="/customer/bet" className="btn btn-primary">{copy.cta}</Link>
+        <Link to="/customer" className="btn btn-primary">ดูตลาดและผลล่าสุด</Link>
+      </section>
+
+      <section className="card history-note-card">
+        <div className="history-note">
+          <FiClock />
+          <span>รายการใหม่จะถูกทำโดยเอเย่นต์หรือแอดมินแทนสมาชิก คุณยังดูโพย ยกเลิกรายการที่ยังเปิดอยู่ และติดตามผลได้จากหน้านี้</span>
+        </div>
       </section>
 
       <div className="history-filter-chips">
@@ -77,7 +84,7 @@ const BetHistory = () => {
           <div className="empty-state">
             <div className="empty-state-icon"><FiFileText /></div>
             <div className="empty-state-text">{copy.empty}</div>
-            <Link to="/customer/bet" className="btn btn-secondary btn-sm">{copy.emptyCta}</Link>
+            <Link to="/customer" className="btn btn-secondary btn-sm">กลับไปดูตลาดหวย</Link>
           </div>
         </section>
       ) : (
@@ -88,6 +95,7 @@ const BetHistory = () => {
                 <div>
                   <div className="slip-history-number">{slip.slipNumber}</div>
                   <div className="slip-history-market">{slip.lotteryName} • {slip.roundCode}</div>
+                  <div className="slip-history-placed-by">ทำรายการโดย {slip.placedBy?.name || slip.placedBy?.role || '-'}</div>
                 </div>
                 <span className={`badge badge-${slip.status === 'submitted' ? 'success' : slip.status === 'cancelled' ? 'danger' : 'info'}`}>{getSlipStatusLabel(slip.status)}</span>
               </div>
@@ -127,6 +135,9 @@ const BetHistory = () => {
         .section-eyebrow{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--primary-light);font-weight:700}
         .history-hero .page-title{margin:0;font-size:clamp(2rem,4vw,3rem);line-height:.96;letter-spacing:-.04em}
         .history-hero .page-subtitle{margin:0;max-width:56ch}
+        .history-note-card{padding:0}
+        .history-note{display:flex;align-items:flex-start;gap:10px;padding:16px 18px;border-radius:inherit;background:rgba(16,185,129,.08);color:var(--text-secondary);line-height:1.6}
+        .history-note svg{margin-top:2px;flex-shrink:0;color:var(--primary-light)}
         .history-filter-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
         .history-filter-chips::-webkit-scrollbar{display:none}
         .history-chip{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(9,16,30,.76);border:1px solid rgba(148,163,184,.16);color:var(--text-secondary);font-size:.84rem;font-weight:700;white-space:nowrap}
@@ -138,6 +149,7 @@ const BetHistory = () => {
         .slip-history-top,.slip-history-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px}
         .slip-history-number{font-size:1rem;font-weight:800;color:var(--text-primary)}
         .slip-history-market,.slip-history-date{font-size:.8rem;color:var(--text-muted)}
+        .slip-history-placed-by{margin-top:4px;font-size:.78rem;color:var(--primary-light)}
         .slip-history-memo{padding:10px 12px;background:var(--bg-surface);border-radius:var(--radius-md);color:var(--text-secondary);font-size:.85rem}
         .slip-history-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
         .slip-history-stat{padding:14px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md)}

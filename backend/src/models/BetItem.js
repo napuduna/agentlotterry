@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { BET_TYPES } = require('../constants/betting');
 
 const betItemSchema = new mongoose.Schema({
   slipId: {
@@ -15,6 +16,21 @@ const betItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  placedByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  placedByRole: {
+    type: String,
+    enum: ['admin', 'agent', 'customer'],
+    default: 'customer'
+  },
+  placedByName: {
+    type: String,
+    default: '',
+    trim: true
   },
   lotteryTypeId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -46,7 +62,7 @@ const betItemSchema = new mongoose.Schema({
   },
   betType: {
     type: String,
-    enum: ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'],
+    enum: BET_TYPES,
     required: true
   },
   number: {

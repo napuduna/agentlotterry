@@ -46,6 +46,12 @@ export const createAdminCustomer = (data) => api.post('/admin/customers', data);
 export const updateAdminCustomer = (id, data) => api.put(`/admin/customers/${id}`, data);
 export const deleteAdminCustomer = (id) => api.delete(`/admin/customers/${id}`);
 export const getAdminReports = (params) => api.get('/admin/reports', { params });
+export const searchAdminBettingMembers = (params) => api.get('/admin/betting/members/search', { params });
+export const getAdminBettingMemberContext = (memberId) => api.get(`/admin/betting/members/${memberId}/context`);
+export const parseAdminBettingSlip = (data) => api.post('/admin/betting/slips/parse', data);
+export const createAdminBettingSlip = (data) => api.post('/admin/betting/slips', data);
+export const cancelAdminBettingSlip = (slipId) => api.post(`/admin/betting/slips/${slipId}/cancel`);
+export const getAdminRecentBettingItems = (params) => api.get('/admin/betting/items/recent', { params });
 
 // Agent
 export const getAgentDashboard = () => api.get('/agent/dashboard');
@@ -60,6 +66,12 @@ export const updateCustomer = (id, data) => api.put(`/agent/customers/${id}`, da
 export const deleteCustomer = (id) => api.delete(`/agent/customers/${id}`);
 export const getAgentBets = (params) => api.get('/agent/bets', { params });
 export const getAgentReports = (params) => api.get('/agent/reports', { params });
+export const searchAgentBettingMembers = (params) => api.get('/agent/betting/members/search', { params });
+export const getAgentBettingMemberContext = (memberId) => api.get(`/agent/betting/members/${memberId}/context`);
+export const parseAgentBettingSlip = (data) => api.post('/agent/betting/slips/parse', data);
+export const createAgentBettingSlip = (data) => api.post('/agent/betting/slips', data);
+export const cancelAgentBettingSlip = (slipId) => api.post(`/agent/betting/slips/${slipId}/cancel`);
+export const getAgentRecentBettingItems = (params) => api.get('/agent/betting/items/recent', { params });
 
 // Wallet
 export const getWalletSummary = (params) => api.get('/wallet/summary', { params });
@@ -94,5 +106,6 @@ export const getLatestLottery = () => api.get('/lottery/latest');
 export const getLotteryResults = () => api.get('/lottery/results');
 export const fetchLottery = (data) => api.post('/lottery/fetch', data);
 export const manualLottery = (data) => api.post('/lottery/manual', data);
+export const updateRoundClosedBetTypes = (roundId, data) => api.put(`/lottery/rounds/${roundId}/closed-bet-types`, data);
 
 export default api;

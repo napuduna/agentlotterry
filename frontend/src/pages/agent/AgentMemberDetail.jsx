@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiArrowLeft, FiHash, FiPhone, FiRefreshCw, FiRepeat, FiSave, FiWifi } from 'react-icons/fi';
+import { FiArrowLeft, FiDollarSign, FiHash, FiPhone, FiRefreshCw, FiRepeat, FiSave, FiWifi } from 'react-icons/fi';
 import PageSkeleton, { SectionSkeleton } from '../../components/PageSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { agentCopy } from '../../i18n/th/agent';
@@ -201,6 +201,10 @@ const AgentMemberDetail = () => {
           <button className="btn btn-secondary" onClick={refresh} disabled={refreshing}>
             <FiRefreshCw className={refreshing ? 'spin-animation' : ''} />
             รีเฟรช
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate(`/agent/betting?memberId=${memberId}`)}>
+            <FiDollarSign />
+            ซื้อแทน
           </button>
           <button className="btn btn-primary" onClick={save} disabled={saving}>
             <FiSave />

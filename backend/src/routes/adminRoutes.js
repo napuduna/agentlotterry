@@ -7,8 +7,16 @@ const {
   getBetTotals,
   getRecentBetItems,
   getTotalsGroupedByField,
-  getAgentReportRows
+  getAgentReportRows,
+  listBettingRecentItems
 } = require('../services/analyticsService');
+const {
+  previewSlip,
+  createSlip,
+  cancelSlipByActor
+} = require('../services/betSlipService');
+const { getCatalogOverview } = require('../services/catalogService');
+const { searchMembersForBetting, getMemberForBettingActor } = require('../services/memberManagementService');
 
 const router = express.Router();
 
@@ -51,6 +59,131 @@ router.get('/dashboard', async (req, res) => {
   } catch (error) {
     console.error('Dashboard error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/admin/betting/members/search
+router.get('/betting/members/search', async (req, res) => {
+  try {
+    const members = await searchMembersForBetting({
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      search: req.query.q || req.query.search || '',
+      agentId: req.query.agentId || '',
+      limit: req.query.limit || 20
+    });
+
+    res.json(members);
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to search members' });
+  }
+});
+
+// GET /api/admin/betting/members/:memberId/context
+router.get('/betting/members/:memberId/context', async (req, res) => {
+  try {
+    const member = await getMemberForBettingActor({
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      memberId: req.params.memberId
+    });
+
+    const catalog = await getCatalogOverview(member);
+    res.json({
+      member: {
+        id: member._id.toString(),
+        uid: member._id.toString(),
+        name: member.name,
+        username: member.username,
+        phone: member.phone || '',
+        memberCode: member.memberCode || '',
+        creditBalance: member.creditBalance || 0,
+        status: member.status,
+        isActive: member.isActive,
+        agentId: member.agentId?.toString?.() || ''
+      },
+      catalog
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Failed to load member betting context' });
+  }
+});
+
+// POST /api/admin/betting/slips/parse
+router.post('/betting/slips/parse', async (req, res) => {
+  try {
+    const preview = await previewSlip({
+      actorUser: req.user,
+      customerId: req.body.customerId,
+      ...req.body
+    });
+
+    res.json(preview);
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Failed to parse slip' });
+  }
+});
+
+// POST /api/admin/betting/slips
+router.post('/betting/slips', async (req, res) => {
+  try {
+    const { action = 'submit' } = req.body;
+    const slip = await createSlip({
+      actorUser: req.user,
+      customerId: req.body.customerId,
+      ...req.body,
+      action
+    });
+
+    await createAuditLog(req.user._id, action === 'draft' ? 'ADMIN_CREATE_DRAFT_SLIP_FOR_MEMBER' : 'ADMIN_CREATE_MEMBER_SLIP', slip.id, {
+      customerId: req.body.customerId,
+      slipNumber: slip.slipNumber,
+      lotteryName: slip.lotteryName,
+      roundCode: slip.roundCode,
+      itemCount: slip.itemCount,
+      totalAmount: slip.totalAmount
+    });
+
+    res.status(201).json(slip);
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Failed to create slip' });
+  }
+});
+
+// POST /api/admin/betting/slips/:slipId/cancel
+router.post('/betting/slips/:slipId/cancel', async (req, res) => {
+  try {
+    const slip = await cancelSlipByActor({
+      actorUser: req.user,
+      slipId: req.params.slipId
+    });
+
+    await createAuditLog(req.user._id, 'ADMIN_CANCEL_MEMBER_SLIP', slip.id, {
+      slipNumber: slip.slipNumber,
+      customerId: slip.customerId
+    });
+
+    res.json(slip);
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Failed to cancel slip' });
+  }
+});
+
+// GET /api/admin/betting/items/recent
+router.get('/betting/items/recent', async (req, res) => {
+  try {
+    const items = await listBettingRecentItems({
+      actorRole: req.user.role,
+      actorId: req.user._id,
+      customerId: req.query.customerId || '',
+      marketId: req.query.marketId || '',
+      roundDate: req.query.roundDate || '',
+      limit: Number(req.query.limit || 12)
+    });
+
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Failed to load recent betting items' });
   }
 });
 

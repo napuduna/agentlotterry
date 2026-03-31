@@ -1,46 +1,46 @@
 /* ============================================
-   Agent Lottery - Green Theme Design System
+   Agent Lottery - Red and White Design System
    ============================================ */
 
 :root {
-  /* Primary Colors - Emerald Green */
-  --primary: #10b981;
-  --primary-light: #34d399;
-  --primary-dark: #059669;
-  --primary-darker: #047857;
-  --primary-glow: rgba(16, 185, 129, 0.3);
-  --primary-subtle: rgba(16, 185, 129, 0.1);
+  /* Primary Colors - Red */
+  --primary: #dc2626;
+  --primary-light: #ef4444;
+  --primary-dark: #b91c1c;
+  --primary-darker: #991b1b;
+  --primary-glow: rgba(220, 38, 38, 0.18);
+  --primary-subtle: rgba(220, 38, 38, 0.08);
 
-  /* Background Colors - Dark Theme */
-  --bg-primary: #0a0f1a;
-  --bg-secondary: #0f1923;
-  --bg-surface: #1a2332;
-  --bg-surface-hover: #1f2b3d;
-  --bg-card: #162031;
-  --bg-input: #0d1520;
+  /* Background Colors - Light Theme */
+  --bg-primary: #fff5f5;
+  --bg-secondary: #ffe7e7;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #fff1f1;
+  --bg-card: #fffdfd;
+  --bg-input: #fff8f8;
 
   /* Text Colors */
-  --text-primary: #f0f4f8;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-accent: #10b981;
+  --text-primary: #241313;
+  --text-secondary: #7f5050;
+  --text-muted: #ad7a7a;
+  --text-accent: #dc2626;
 
   /* Status Colors */
   --success: #10b981;
   --warning: #f59e0b;
-  --danger: #ef4444;
+  --danger: #dc2626;
   --info: #3b82f6;
 
   /* Borders */
-  --border: rgba(148, 163, 184, 0.1);
-  --border-light: rgba(148, 163, 184, 0.05);
-  --border-accent: rgba(16, 185, 129, 0.3);
+  --border: rgba(185, 28, 28, 0.12);
+  --border-light: rgba(185, 28, 28, 0.06);
+  --border-accent: rgba(220, 38, 38, 0.26);
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.15);
+  --shadow-sm: 0 10px 24px rgba(127, 29, 29, 0.06);
+  --shadow-md: 0 16px 32px rgba(127, 29, 29, 0.1);
+  --shadow-lg: 0 24px 48px rgba(127, 29, 29, 0.14);
+  --shadow-glow: 0 14px 32px rgba(220, 38, 38, 0.1);
 
   /* Spacing */
   --radius-sm: 8px;
@@ -73,7 +73,10 @@ html {
 
 body {
   font-family: var(--font-primary);
-  background: var(--bg-primary);
+  background:
+    radial-gradient(circle at top left, rgba(220, 38, 38, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(248, 113, 113, 0.12), transparent 20%),
+    linear-gradient(180deg, #fff7f7 0%, var(--bg-primary) 48%, #fff2f2 100%);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -144,7 +147,7 @@ input, select, textarea {
 
 .page-content {
   flex: 1;
-  padding: 24px;
+  padding: 20px;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
@@ -158,8 +161,8 @@ input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 20px;
-  font-size: 0.9rem;
+  padding: 9px 16px;
+  font-size: 0.88rem;
   font-weight: 600;
   border-radius: var(--radius-sm);
   transition: var(--transition);
@@ -184,6 +187,7 @@ input, select, textarea {
   background: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover {
@@ -202,8 +206,8 @@ input, select, textarea {
 }
 
 .btn-sm {
-  padding: 6px 14px;
-  font-size: 0.8rem;
+  padding: 5px 11px;
+  font-size: 0.78rem;
 }
 
 .btn-lg {
@@ -224,8 +228,9 @@ input, select, textarea {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 18px;
   transition: var(--transition);
+  box-shadow: var(--shadow-sm);
 }
 
 .card:hover {
@@ -237,8 +242,8 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -253,7 +258,7 @@ input, select, textarea {
   background: linear-gradient(135deg, var(--bg-card), var(--bg-surface));
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 18px;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
@@ -276,20 +281,20 @@ input, select, textarea {
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
   border-color: var(--border-accent);
 }
 
 .stat-card .stat-icon {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
-  margin-bottom: 16px;
+  font-size: 1.2rem;
+  margin-bottom: 12px;
   background: var(--primary-subtle);
   color: var(--primary-light);
 }
@@ -325,7 +330,7 @@ input, select, textarea {
 
 .form-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -345,7 +350,7 @@ input, select, textarea {
 
 .form-select {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -532,7 +537,7 @@ input, select, textarea {
 }
 
 .page-title {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -591,7 +596,7 @@ input, select, textarea {
    ============================================ */
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 40px 18px;
   color: var(--text-muted);
 }
 
@@ -633,11 +638,11 @@ input, select, textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(52, 211, 153, 0.16);
-  color: var(--primary-light);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.14);
+  color: var(--primary-dark);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -757,7 +762,7 @@ input, select, textarea {
 }
 
 .ops-section {
-  padding: 20px;
+  padding: 16px;
 }
 
 .ops-toolbar {
@@ -1395,11 +1400,12 @@ input, select, textarea {
   left: 0;
   right: 0;
   height: 64px;
-  background: var(--bg-surface);
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,247,247,0.96));
   border-top: 1px solid var(--border);
   z-index: 100;
   padding: 0 8px;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: 0 -10px 24px rgba(127, 29, 29, 0.08);
 }
 
 .bottom-nav-item {
@@ -1423,12 +1429,13 @@ input, select, textarea {
 }
 
 .bottom-nav-active {
-  color: var(--primary-light);
+  color: var(--primary-dark);
 }
 
 .bottom-nav-active .bottom-nav-icon {
   background: var(--primary-subtle);
-  box-shadow: 0 0 12px var(--primary-glow);
+  box-shadow: 0 10px 20px var(--primary-glow);
+  border: 1px solid rgba(220, 38, 38, 0.12);
 }
 
 .bottom-nav-icon {

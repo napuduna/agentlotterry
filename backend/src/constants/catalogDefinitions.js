@@ -1,44 +1,23 @@
+const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('./betting');
+
 const DEFAULT_RATE_TIERS = [
   {
-    code: 'standard',
-    name: 'มาตรฐาน',
-    description: 'อัตราจ่ายเริ่มต้นสำหรับผู้เล่นทั่วไป',
+    code: 'default-global',
+    name: 'เรทกลาง',
+    description: 'เรทตั้งต้นกลางของระบบสำหรับทุกหวย โดยให้ admin และ agent ปรับต่อรายสมาชิกได้',
     isDefault: true,
     rates: {
-      '3top': 500,
-      '3tod': 100,
-      '2top': 70,
-      '2bottom': 70,
-      'run_top': 3,
-      'run_bottom': 2
-    }
-  },
-  {
-    code: 'pro',
-    name: 'โปร',
-    description: 'อัตราจ่ายระดับโปรสำหรับโต๊ะที่เปิดเรทสูงขึ้น',
-    isDefault: false,
-    rates: {
-      '3top': 650,
-      '3tod': 120,
-      '2top': 90,
-      '2bottom': 90,
-      'run_top': 4,
-      'run_bottom': 3
-    }
-  },
-  {
-    code: 'vip',
-    name: 'VIP',
-    description: 'อัตราจ่ายระดับสูงสำหรับการกำหนดสิทธิ์รายสายงานในอนาคต',
-    isDefault: false,
-    rates: {
-      '3top': 700,
-      '3tod': 150,
-      '2top': 92,
-      '2bottom': 92,
-      'run_top': 5,
-      'run_bottom': 4
+      ...DEFAULT_GLOBAL_RATES
+    },
+    commissions: {
+      '3top': 0,
+      '3bottom': 0,
+      '3tod': 0,
+      '2top': 0,
+      '2bottom': 0,
+      '2tod': 0,
+      'run_top': 0,
+      'run_bottom': 0
     }
   }
 ];
@@ -93,7 +72,7 @@ const LOTTERY_TYPES = [
       drawHour: 16,
       drawMinute: 0
     },
-    supportedBetTypes: ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'],
+    supportedBetTypes: BET_TYPES,
     resultSource: 'legacy'
   },
   {
@@ -112,7 +91,7 @@ const LOTTERY_TYPES = [
       drawHour: 12,
       drawMinute: 15
     },
-    supportedBetTypes: ['3top', '3tod', '2top', '2bottom'],
+    supportedBetTypes: ['3top', '3bottom', '3tod', '2top', '2bottom', '2tod'],
     resultSource: 'manual'
   },
   {
@@ -131,7 +110,7 @@ const LOTTERY_TYPES = [
       drawHour: 16,
       drawMinute: 20
     },
-    supportedBetTypes: ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'],
+    supportedBetTypes: BET_TYPES,
     resultSource: 'manual'
   },
   {
@@ -150,7 +129,7 @@ const LOTTERY_TYPES = [
       drawHour: 20,
       drawMinute: 30
     },
-    supportedBetTypes: ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'],
+    supportedBetTypes: BET_TYPES,
     resultSource: 'manual'
   },
   {
@@ -169,7 +148,7 @@ const LOTTERY_TYPES = [
       drawHour: 23,
       drawMinute: 5
     },
-    supportedBetTypes: ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'],
+    supportedBetTypes: BET_TYPES,
     resultSource: 'manual'
   },
   {
@@ -188,7 +167,7 @@ const LOTTERY_TYPES = [
       drawHour: 9,
       drawMinute: 35
     },
-    supportedBetTypes: ['3top', '2top', '2bottom', 'run_top', 'run_bottom'],
+    supportedBetTypes: ['3top', '3bottom', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'],
     resultSource: 'manual'
   },
   {
@@ -207,7 +186,7 @@ const LOTTERY_TYPES = [
       drawHour: 13,
       drawMinute: 40
     },
-    supportedBetTypes: ['3top', '2top', '2bottom', 'run_top', 'run_bottom'],
+    supportedBetTypes: ['3top', '3bottom', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'],
     resultSource: 'manual'
   }
 ];

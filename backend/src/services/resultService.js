@@ -60,12 +60,16 @@ const checkItemResult = (item, normalizedResult) => {
   switch (item.betType) {
     case '3top':
       return normalizedResult.threeTopHits.includes(number);
+    case '3bottom':
+      return normalizedResult.threeBottomHits.includes(number);
     case '3tod':
       return normalizedResult.threeTopHits.some((value) => getPermutations(value).includes(number));
     case '2top':
       return normalizedResult.twoTopHits.includes(number);
     case '2bottom':
       return normalizedResult.twoBottomHits.includes(number);
+    case '2tod':
+      return normalizedResult.twoTopHits.some((value) => getPermutations(value).includes(number));
     case 'run_top':
       return normalizedResult.runTop.includes(number);
     case 'run_bottom':

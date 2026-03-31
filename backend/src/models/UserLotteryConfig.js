@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-
-const BET_TYPES = ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
+const { BET_TYPES } = require('../constants/betting');
 
 const userLotteryConfigSchema = new mongoose.Schema({
   userId: {
@@ -76,9 +75,11 @@ const userLotteryConfigSchema = new mongoose.Schema({
   },
   customRates: {
     '3top': { type: Number, default: 0, min: 0 },
+    '3bottom': { type: Number, default: 0, min: 0 },
     '3tod': { type: Number, default: 0, min: 0 },
     '2top': { type: Number, default: 0, min: 0 },
     '2bottom': { type: Number, default: 0, min: 0 },
+    '2tod': { type: Number, default: 0, min: 0 },
     'run_top': { type: Number, default: 0, min: 0 },
     'run_bottom': { type: Number, default: 0, min: 0 }
   },

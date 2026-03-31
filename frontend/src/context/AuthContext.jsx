@@ -46,7 +46,13 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const res = await getMe();
-      setUser(res.data);
+      if (res.data?.role === 'customer') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      } else {
+        setUser(res.data);
+      }
     } catch {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -56,6 +62,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginUser = (token, userData) => {
+    if (userData?.role === 'customer') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      return;
+    }
+
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);

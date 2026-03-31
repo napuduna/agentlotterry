@@ -600,11 +600,30 @@ const listAgentBetItems = async ({ agentId, roundDate, customerId, marketId, lim
   return items.map(mapBetItemToLegacyShape);
 };
 
+const listBettingRecentItems = async ({
+  actorRole,
+  actorId,
+  customerId,
+  roundDate,
+  marketId,
+  limit = 12
+} = {}) => {
+  const agentId = actorRole === 'agent' ? actorId : undefined;
+  return listAgentBetItems({
+    agentId,
+    customerId,
+    roundDate,
+    marketId,
+    limit
+  });
+};
+
 module.exports = {
   getBetTotals,
   getRecentBetItems,
   getTotalsGroupedByField,
   getAgentReportRows,
   listAgentBetItems,
+  listBettingRecentItems,
   getAgentReportsBundle
 };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiBarChart2, FiChevronRight, FiCreditCard, FiHash, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
+import { FiBarChart2, FiChevronRight, FiCreditCard, FiDollarSign, FiHash, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
 import { agentCopy } from '../../i18n/th/agent';
@@ -230,6 +230,10 @@ const AgentCustomers = () => {
             <FiRefreshCw className={refreshing ? 'spin-animation' : ''} />
             {copy.refresh}
           </button>
+          <button className="btn btn-secondary" onClick={() => navigate('/agent/betting')}>
+            <FiDollarSign />
+            ซื้อแทน
+          </button>
           <button className="btn btn-primary" onClick={openWizard}>
             <FiPlus />
             {copy.addMember}
@@ -362,6 +366,10 @@ const AgentCustomers = () => {
                 </div>
               </div>
               <div className="member-actions-buttons">
+                <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent/betting?memberId=${member.id}`)}>
+                  <FiDollarSign />
+                  ซื้อแทน
+                </button>
                 <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent/customers/${member.id}`)}>
                   {copy.manage}
                   <FiChevronRight />

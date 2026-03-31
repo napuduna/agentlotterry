@@ -18,16 +18,11 @@ import AgentCustomers from './pages/agent/AgentCustomers';
 import AgentMemberDetail from './pages/agent/AgentMemberDetail';
 import AgentBets from './pages/agent/AgentBets';
 import AgentReports from './pages/agent/AgentReports';
-import CustomerOverview from './pages/customer/CustomerOverview';
-import CustomerBet from './pages/customer/CustomerBet';
-import BetHistory from './pages/customer/BetHistory';
-import CustomerSummary from './pages/customer/CustomerSummary';
-import LotteryResults from './pages/customer/LotteryResults';
-import CustomerWallet from './pages/customer/CustomerWallet';
+import OperatorBetting from './pages/shared/OperatorBetting';
 
 const AppLayout = ({ children }) => {
   const { user } = useAuth();
-  const showBottomNav = user?.role === 'customer' || user?.role === 'agent';
+  const showBottomNav = user?.role === 'agent';
 
   return (
     <div className="app-layout">
@@ -98,6 +93,11 @@ function App() {
                 <AppLayout><AdminReports /></AppLayout>
               </ProtectedRoute>
             } />
+            <Route path="/admin/betting" element={
+              <ProtectedRoute roles={['admin']}>
+                <AppLayout><OperatorBetting /></AppLayout>
+              </ProtectedRoute>
+            } />
 
             {/* Agent Routes */}
             <Route path="/agent" element={
@@ -120,43 +120,18 @@ function App() {
                 <AppLayout><AgentBets /></AppLayout>
               </ProtectedRoute>
             } />
+            <Route path="/agent/betting" element={
+              <ProtectedRoute roles={['agent']}>
+                <AppLayout><OperatorBetting /></AppLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/agent/reports" element={
               <ProtectedRoute roles={['agent']}>
                 <AppLayout><AgentReports /></AppLayout>
               </ProtectedRoute>
             } />
 
-            {/* Customer Routes */}
-            <Route path="/customer" element={
-              <ProtectedRoute roles={['customer']}>
-                <AppLayout><CustomerOverview /></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/customer/bet" element={
-              <ProtectedRoute roles={['customer']}>
-                <AppLayout><CustomerBet /></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/customer/history" element={
-              <ProtectedRoute roles={['customer']}>
-                <AppLayout><BetHistory /></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/customer/summary" element={
-              <ProtectedRoute roles={['customer']}>
-                <AppLayout><CustomerSummary /></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/customer/lottery" element={
-              <ProtectedRoute roles={['customer']}>
-                <AppLayout><LotteryResults /></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/customer/wallet" element={
-              <ProtectedRoute roles={['customer']}>
-                <AppLayout><CustomerWallet /></AppLayout>
-              </ProtectedRoute>
-            } />
+            <Route path="/customer/*" element={<Navigate to="/login" replace />} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" />} />

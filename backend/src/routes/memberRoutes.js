@@ -2,8 +2,6 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
 const {
-  previewSlip,
-  createSlip,
   listSlips,
   getSlipDetail,
   listBetItems,
@@ -17,38 +15,15 @@ const router = express.Router();
 router.use(auth, authorize('customer'));
 
 router.post('/slips/parse', async (req, res) => {
-  try {
-    const preview = await previewSlip({
-      customerId: req.user._id,
-      ...req.body
-    });
-    res.json(preview);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to parse slip' });
-  }
+  return res.status(403).json({
+    message: 'สมาชิกไม่สามารถซื้อเองได้ กรุณาให้เอเย่นต์หรือแอดมินทำรายการแทน'
+  });
 });
 
 router.post('/slips', async (req, res) => {
-  try {
-    const { action = 'submit' } = req.body;
-    const slip = await createSlip({
-      customerId: req.user._id,
-      ...req.body,
-      action
-    });
-
-    await createAuditLog(req.user._id, action === 'draft' ? 'CREATE_DRAFT_SLIP' : 'CREATE_MEMBER_SLIP', slip.id, {
-      slipNumber: slip.slipNumber,
-      lotteryName: slip.lotteryName,
-      roundCode: slip.roundCode,
-      itemCount: slip.itemCount,
-      totalAmount: slip.totalAmount
-    });
-
-    res.status(201).json(slip);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to create slip' });
-  }
+  return res.status(403).json({
+    message: 'สมาชิกไม่สามารถซื้อเองได้ กรุณาให้เอเย่นต์หรือแอดมินทำรายการแทน'
+  });
 });
 
 router.get('/slips', async (req, res) => {

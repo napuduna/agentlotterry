@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { BET_TYPES } = require('../constants/betting');
 
 const lotteryTypeSchema = new mongoose.Schema({
   code: {
@@ -35,7 +36,7 @@ const lotteryTypeSchema = new mongoose.Schema({
   },
   supportedBetTypes: [{
     type: String,
-    enum: ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom']
+    enum: BET_TYPES
   }],
   rateProfileIds: [{
     type: mongoose.Schema.Types.ObjectId,

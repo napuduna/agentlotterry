@@ -2,6 +2,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.e
 
 const assert = require('assert');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -9,6 +10,7 @@ const AuditLog = require('../models/AuditLog');
 const BetItem = require('../models/BetItem');
 const BetSlip = require('../models/BetSlip');
 const CreditLedgerEntry = require('../models/CreditLedgerEntry');
+const DrawRound = require('../models/DrawRound');
 const User = require('../models/User');
 const UserLotteryConfig = require('../models/UserLotteryConfig');
 const { buildDirectMongoUri } = require('../utils/mongoUri');
@@ -74,7 +76,7 @@ const buildMemberLotterySettings = ({ bootstrap, selectedLotteryId }) =>
     lotteryTypeId: lottery.lotteryTypeId,
     isEnabled: lottery.lotteryTypeId === selectedLotteryId,
     rateProfileId: lottery.availableRateProfiles?.[0]?.id || lottery.rateProfileId || '',
-    enabledBetTypes: lottery.supportedBetTypes.includes('3top') ? ['3top'] : lottery.supportedBetTypes.slice(0, 1),
+    enabledBetTypes: lottery.supportedBetTypes,
     minimumBet: 1,
     maximumBet: 20,
     maximumPerNumber: 20,
@@ -85,9 +87,11 @@ const buildMemberLotterySettings = ({ bootstrap, selectedLotteryId }) =>
     useCustomRates: true,
     customRates: {
       '3top': 987,
+      '3bottom': 444,
       '3tod': 654,
       '2top': 87,
       '2bottom': 92,
+      '2tod': 91,
       'run_top': 4,
       'run_bottom': 3
     },
@@ -99,10 +103,11 @@ const buildMemberLotterySettings = ({ bootstrap, selectedLotteryId }) =>
 
 const cleanupSmokeArtifacts = async (created = {}) => {
   const groupIds = (created.walletGroupIds || []).filter(Boolean);
+  const slipIds = (created.slipIds || []).filter(Boolean);
   const targets = [
     created.agentId,
     created.memberId,
-    created.slipId,
+    ...slipIds,
     ...groupIds
   ].filter(Boolean);
 
@@ -148,12 +153,16 @@ const main = async () => {
   let server;
   let adminToken = '';
   let agentToken = '';
-  let memberToken = '';
   let agentId = '';
   let memberId = '';
   let slipId = '';
+  let lockedRoundId = '';
+  let originalClosedBetTypes = null;
+  let adminClient = null;
+  let agentClient = null;
   const created = {
-    walletGroupIds: []
+    walletGroupIds: [],
+    slipIds: []
   };
 
   try {
@@ -193,7 +202,7 @@ const main = async () => {
     adminToken = adminLogin.token;
     summary.checks.push('admin-login');
 
-    const adminClient = makeClient(adminToken);
+    adminClient = makeClient(adminToken);
     const agentUsername = `e2e_agent_${uniqueSuffix}`;
     const agentPassword = `Bb${uniqueSuffix}!`;
     const memberUsername = `e2e_member_${uniqueSuffix}`;
@@ -215,7 +224,7 @@ const main = async () => {
     agentToken = agentLogin.token;
     summary.checks.push('agent-login');
 
-    const agentClient = makeClient(agentToken);
+    agentClient = makeClient(agentToken);
     const agentHeartbeatResponse = await agentClient.post('/presence/heartbeat');
     expectStatus(agentHeartbeatResponse, 200, 'Agent heartbeat');
     summary.checks.push('agent-heartbeat');
@@ -245,8 +254,8 @@ const main = async () => {
     summary.checks.push('agent-catalog-overview');
 
     const allLotteries = flattenLotteries(agentCatalogResponse.data);
-    const selectedLottery = allLotteries.find((lottery) => lottery.status === 'open' && lottery.supportedBetTypes.includes('3top'))
-      || allLotteries.find((lottery) => lottery.supportedBetTypes.includes('3top'))
+    const selectedLottery = allLotteries.find((lottery) => lottery.status === 'open' && lottery.supportedBetTypes.includes('3top') && lottery.supportedBetTypes.includes('2tod'))
+      || allLotteries.find((lottery) => lottery.supportedBetTypes.includes('3top') && lottery.supportedBetTypes.includes('2tod'))
       || allLotteries[0];
 
     assert(selectedLottery, 'No lottery found in catalog overview');
@@ -290,14 +299,23 @@ const main = async () => {
     assert((memberDetailResponse.data.lotteryConfigs || []).some((lottery) => lottery.lotteryCode === selectedLottery.code && lottery.isEnabled), 'Enabled lottery not found in member detail');
     summary.checks.push('agent-member-detail');
 
-    const memberLogin = await loginWithRetry(memberUsername, memberPassword, 'Member');
-    memberToken = memberLogin.token;
-    summary.checks.push('member-login');
+    const memberLoginResponse = await makeClient().post('/auth/login', {
+      username: memberUsername,
+      password: memberPassword
+    });
+    assert(memberLoginResponse.status === 403, 'Member login should be forbidden');
+    summary.checks.push('member-login-forbidden');
 
-    const memberClient = makeClient(memberToken);
-    const memberHeartbeatResponse = await memberClient.post('/presence/heartbeat');
-    expectStatus(memberHeartbeatResponse, 200, 'Member heartbeat');
-    summary.checks.push('member-heartbeat');
+    const disabledMemberToken = jwt.sign(
+      { id: memberId, role: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    const disabledMemberClient = makeClient(disabledMemberToken);
+
+    const blockedMemberMeResponse = await disabledMemberClient.get('/auth/me');
+    assert(blockedMemberMeResponse.status === 403, 'Existing member token should be blocked');
+    summary.checks.push('member-token-blocked');
 
     const transferCreditResponse = await agentClient.post('/wallet/transfer', {
       memberId,
@@ -309,57 +327,234 @@ const main = async () => {
     created.walletGroupIds.push(transferCreditResponse.data.groupId);
     summary.checks.push('agent-transfer-credit');
 
-    const [agentWalletAfterTransfer, memberWalletSummaryResponse, memberWalletHistoryResponse] = await Promise.all([
+    const [agentWalletAfterTransfer, memberDetailAfterTransfer, transferLedgerEntry] = await Promise.all([
       agentClient.get('/wallet/summary'),
-      memberClient.get('/wallet/summary'),
-      memberClient.get('/wallet/history', { params: { limit: 10 } })
+      agentClient.get(`/agent/members/${memberId}`),
+      CreditLedgerEntry.findOne({ groupId: transferCreditResponse.data.groupId, userId: memberId }).lean()
     ]);
     expectStatus(agentWalletAfterTransfer, 200, 'Agent wallet after transfer');
-    expectStatus(memberWalletSummaryResponse, 200, 'Member wallet summary');
-    expectStatus(memberWalletHistoryResponse, 200, 'Member wallet history');
+    expectStatus(memberDetailAfterTransfer, 200, 'Agent member detail after transfer');
     assert(Number(agentWalletAfterTransfer.data.account?.creditBalance || 0) === 200, 'Agent wallet balance did not decrease after transfer');
-    assert(Number(memberWalletSummaryResponse.data.account?.creditBalance || 0) === 50, 'Member wallet balance did not increase after transfer');
-    assert((memberWalletHistoryResponse.data || []).some((entry) => entry.groupId === transferCreditResponse.data.groupId && entry.direction === 'credit'), 'Member wallet history does not contain transfer entry');
-    summary.checks.push('member-wallet-summary');
-    summary.checks.push('member-wallet-history');
+    assert(Number(memberDetailAfterTransfer.data.member?.creditBalance || 0) === 50, 'Member credit did not increase after transfer');
+    assert(transferLedgerEntry && transferLedgerEntry.direction === 'credit', 'Transfer ledger entry for member was not created');
+    summary.checks.push('member-credit-visible-to-operator');
 
-    const memberCatalogResponse = await memberClient.get('/catalog/overview');
-    expectStatus(memberCatalogResponse, 200, 'Member catalog overview');
+    const agentSearchMemberResponse = await agentClient.get('/agent/betting/members/search', {
+      params: {
+        q: memberUsername,
+        limit: 10
+      }
+    });
+    expectStatus(agentSearchMemberResponse, 200, 'Agent member betting search');
+    assert((agentSearchMemberResponse.data || []).some((member) => member.id === memberId), 'Agent betting search did not return the member');
+    summary.checks.push('agent-search-member-for-betting');
 
-    if (memberCatalogResponse.data.announcements?.length) {
-      const firstAnnouncement = memberCatalogResponse.data.announcements[0];
-      const markAnnouncementReadResponse = await memberClient.post(`/catalog/announcements/${firstAnnouncement.id}/read`);
-      expectStatus(markAnnouncementReadResponse, 200, 'Mark announcement read');
-      const refreshedMemberCatalogResponse = await memberClient.get('/catalog/overview');
-      expectStatus(refreshedMemberCatalogResponse, 200, 'Refresh member catalog overview');
-      assert((refreshedMemberCatalogResponse.data.announcements || []).some((item) => item.id === firstAnnouncement.id && item.isRead), 'Announcement read state was not persisted');
-      summary.checks.push('member-announcement-read');
-    }
+    const adminSearchMemberResponse = await adminClient.get('/admin/betting/members/search', {
+      params: {
+        q: memberId,
+        limit: 10
+      }
+    });
+    expectStatus(adminSearchMemberResponse, 200, 'Admin member betting search');
+    assert((adminSearchMemberResponse.data || []).some((member) => member.id === memberId && member.uid === memberId), 'Admin betting search did not return the member by UID');
+    summary.checks.push('admin-search-member-for-betting');
 
-    const agentDashboardResponse = await agentClient.get('/agent/dashboard');
-    expectStatus(agentDashboardResponse, 200, 'Agent dashboard online members');
-    assert((agentDashboardResponse.data.onlineMembers || []).some((item) => item.id === memberId), 'Member was not visible in agent online members');
-    summary.checks.push('agent-dashboard-online-members');
+    const agentMemberContextResponse = await agentClient.get(`/agent/betting/members/${memberId}/context`);
+    expectStatus(agentMemberContextResponse, 200, 'Agent member betting context');
+    assert(agentMemberContextResponse.data.member?.id === memberId, 'Agent betting context returned the wrong member');
+    assert(Number(agentMemberContextResponse.data.member?.creditBalance || 0) === 50, 'Agent betting context did not reflect member credit balance');
+    assert(
+      flattenLotteries(agentMemberContextResponse.data.catalog).some((lottery) => lottery.code === selectedLottery.code),
+      'Agent betting context did not expose the selected lottery'
+    );
+    summary.checks.push('agent-member-betting-context');
 
-    const visibleLotteries = flattenLotteries(memberCatalogResponse.data);
-    assert(visibleLotteries.length === 1, `Expected exactly 1 enabled lottery, found ${visibleLotteries.length}`);
-    assert(visibleLotteries[0].code === selectedLottery.code, 'Member can see an unexpected lottery');
-    assert(visibleLotteries[0].rateProfiles?.[0]?.rates?.['3top'] === 987, 'Custom rate was not applied to member catalog');
-    summary.checks.push('member-catalog-filtering');
+    const adminMemberContextResponse = await adminClient.get(`/admin/betting/members/${memberId}/context`);
+    expectStatus(adminMemberContextResponse, 200, 'Admin member betting context');
+    assert(adminMemberContextResponse.data.member?.uid === memberId, 'Admin betting context did not include member UID');
+    assert(
+      flattenLotteries(adminMemberContextResponse.data.catalog).some((lottery) => lottery.code === selectedLottery.code),
+      'Admin betting context did not expose the selected lottery'
+    );
+    summary.checks.push('admin-member-betting-context');
 
-    const roundsResponse = await memberClient.get('/catalog/rounds', {
+    const visibleLotteries = flattenLotteries(agentMemberContextResponse.data.catalog);
+    assert(visibleLotteries.length === 1, `Expected exactly 1 enabled lottery in operator context, found ${visibleLotteries.length}`);
+    assert(visibleLotteries[0].code === selectedLottery.code, 'Operator context exposed an unexpected lottery');
+    assert(visibleLotteries[0].rateProfiles?.[0]?.rates?.['3top'] === 987, 'Custom rate was not applied to operator context');
+    summary.checks.push('operator-context-catalog-filtering');
+
+    const roundsResponse = await agentClient.get('/catalog/rounds', {
       params: { lotteryId: visibleLotteries[0].id }
     });
-    expectStatus(roundsResponse, 200, 'Member rounds');
+    expectStatus(roundsResponse, 200, 'Operator rounds');
     const selectedRound = (roundsResponse.data || []).find((round) => round.id === visibleLotteries[0].activeRound?.id)
       || (roundsResponse.data || [])[0];
     assert(selectedRound, 'No round available for selected lottery');
-    summary.checks.push('member-rounds');
+    summary.checks.push('operator-rounds');
 
-    const blockedParseResponse = await memberClient.post('/member/slips/parse', {
+    const selectedRateProfileId = visibleLotteries[0].defaultRateProfileId;
+
+    lockedRoundId = selectedRound.id;
+    originalClosedBetTypes = selectedRound.closedBetTypes || [];
+    const lockRoundResponse = await adminClient.put(`/lottery/rounds/${selectedRound.id}/closed-bet-types`, {
+      closedBetTypes: ['2tod']
+    });
+    expectStatus(lockRoundResponse, 200, 'Admin update round closed bet types');
+    assert(lockRoundResponse.data.closedBetTypes?.includes('2tod'), 'Admin route did not persist closed bet types');
+    summary.checks.push('admin-update-round-closed-bet-types');
+
+    const lockedRoundsResponse = await agentClient.get('/catalog/rounds', {
+      params: { lotteryId: visibleLotteries[0].id }
+    });
+    expectStatus(lockedRoundsResponse, 200, 'Locked rounds');
+    const lockedRound = (lockedRoundsResponse.data || []).find((round) => round.id === selectedRound.id);
+    assert(lockedRound?.closedBetTypes?.includes('2tod'), 'Round-level closed bet types were not exposed');
+    summary.checks.push('round-closed-bet-types-visible');
+
+    const lockedGridPreviewResponse = await agentClient.post('/agent/betting/slips/parse', {
+      customerId: memberId,
       lotteryId: visibleLotteries[0].id,
       roundId: selectedRound.id,
-      rateProfileId: visibleLotteries[0].defaultRateProfileId,
+      rateProfileId: selectedRateProfileId,
+      items: [
+        { betType: '2tod', number: '21', amount: 5 }
+      ],
+      memo: 'locked round test'
+    });
+    assert(lockedGridPreviewResponse.status === 400, 'Closed bet type should be rejected in preview');
+    summary.checks.push('round-closed-bet-type-enforced');
+
+    const restoreRoundResponse = await adminClient.put(`/lottery/rounds/${selectedRound.id}/closed-bet-types`, {
+      closedBetTypes: originalClosedBetTypes
+    });
+    expectStatus(restoreRoundResponse, 200, 'Restore round closed bet types');
+    lockedRoundId = '';
+
+    const agentPreviewMemberSlipResponse = await agentClient.post('/agent/betting/slips/parse', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      betType: '3top',
+      defaultAmount: 5,
+      rawInput: '654 5',
+      reverse: false,
+      includeDoubleSet: false,
+      memo: 'agent preview test'
+    });
+    expectStatus(agentPreviewMemberSlipResponse, 200, 'Agent preview member slip');
+    assert(agentPreviewMemberSlipResponse.data.member?.id === memberId, 'Agent preview returned the wrong member');
+    assert(agentPreviewMemberSlipResponse.data.placedBy?.role === 'agent', 'Agent preview did not capture placedBy role');
+    assert(agentPreviewMemberSlipResponse.data.items?.[0]?.payRate === 987, 'Agent preview did not use the member custom rate');
+    summary.checks.push('agent-preview-member-slip');
+
+    const agentGridPreviewResponse = await agentClient.post('/agent/betting/slips/parse', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      items: [
+        { betType: '2top', number: '12', amount: 5 },
+        { betType: '2bottom', number: '12', amount: 5 },
+        { betType: '2tod', number: '21', amount: 5 },
+        { betType: '3top', number: '654', amount: 5 }
+      ],
+      memo: 'agent grid preview test'
+    });
+    expectStatus(agentGridPreviewResponse, 200, 'Agent grid preview');
+    assert(agentGridPreviewResponse.data.items?.some((item) => item.betType === '2tod' && item.payRate === 91), 'Grid preview did not resolve the 2tod custom rate');
+    assert(agentGridPreviewResponse.data.summary?.itemCount === 4, 'Grid preview item count is incorrect');
+    summary.checks.push('agent-grid-preview');
+
+    const adminPreviewMemberSlipResponse = await adminClient.post('/admin/betting/slips/parse', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      betType: '3top',
+      defaultAmount: 5,
+      rawInput: '765 5',
+      reverse: false,
+      includeDoubleSet: false,
+      memo: 'admin preview test'
+    });
+    expectStatus(adminPreviewMemberSlipResponse, 200, 'Admin preview member slip');
+    assert(adminPreviewMemberSlipResponse.data.member?.uid === memberId, 'Admin preview did not include member UID');
+    assert(adminPreviewMemberSlipResponse.data.placedBy?.role === 'admin', 'Admin preview did not capture placedBy role');
+    summary.checks.push('admin-preview-member-slip');
+
+    const agentGridDraftResponse = await agentClient.post('/agent/betting/slips', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      items: [
+        { betType: '2top', number: '45', amount: 10 },
+        { betType: '2tod', number: '54', amount: 10 },
+        { betType: '3bottom', number: '789', amount: 5 }
+      ],
+      memo: 'agent grid draft slip',
+      action: 'draft'
+    });
+    expectStatus(agentGridDraftResponse, 201, 'Agent create grid draft');
+    created.slipIds.push(agentGridDraftResponse.data.id);
+    assert(agentGridDraftResponse.data.items?.some((item) => item.betType === '2tod'), 'Created grid draft did not include 2tod item');
+    summary.checks.push('agent-grid-draft-slip');
+
+    const agentManualAction = selectedRound.status === 'open' ? 'submit' : 'draft';
+    const agentCreateMemberSlipResponse = await agentClient.post('/agent/betting/slips', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      betType: '3top',
+      defaultAmount: 5,
+      rawInput: '654 5',
+      reverse: false,
+      includeDoubleSet: false,
+      memo: 'agent manual slip',
+      action: agentManualAction
+    });
+    expectStatus(agentCreateMemberSlipResponse, 201, 'Agent create member slip');
+    const agentPlacedSlipId = agentCreateMemberSlipResponse.data.id;
+    created.slipIds.push(agentPlacedSlipId);
+    summary.created.agentPlacedSlip = { id: agentPlacedSlipId, action: agentManualAction };
+    assert(agentCreateMemberSlipResponse.data.customerId === memberId, 'Agent-created slip targeted the wrong member');
+    assert(agentCreateMemberSlipResponse.data.placedBy?.role === 'agent', 'Agent-created slip missing placedBy role');
+    const storedAgentPlacedSlip = await BetSlip.findById(agentPlacedSlipId).lean();
+    assert(storedAgentPlacedSlip && storedAgentPlacedSlip.customerId?.toString() === memberId, 'Stored agent slip is not owned by the member');
+    summary.checks.push('agent-create-member-slip');
+    summary.checks.push('agent-slip-owned-by-member');
+
+    const adminCreateDraftSlipResponse = await adminClient.post('/admin/betting/slips', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      betType: '3top',
+      defaultAmount: 7,
+      rawInput: '876 7',
+      reverse: false,
+      includeDoubleSet: false,
+      memo: 'admin draft slip',
+      action: 'draft'
+    });
+    expectStatus(adminCreateDraftSlipResponse, 201, 'Admin create member draft slip');
+    const adminPlacedSlipId = adminCreateDraftSlipResponse.data.id;
+    created.slipIds.push(adminPlacedSlipId);
+    summary.created.adminPlacedSlip = { id: adminPlacedSlipId, action: 'draft' };
+    assert(adminCreateDraftSlipResponse.data.placedBy?.role === 'admin', 'Admin-created draft slip missing placedBy role');
+    const storedAdminPlacedSlip = await BetSlip.findById(adminPlacedSlipId).lean();
+    assert(storedAdminPlacedSlip && storedAdminPlacedSlip.customerId?.toString() === memberId, 'Stored admin draft is not owned by the member');
+    summary.checks.push('admin-create-member-draft');
+    summary.checks.push('admin-draft-owned-by-member');
+
+    const agentBlockedParseResponse = await agentClient.post('/agent/betting/slips/parse', {
+      customerId: memberId,
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
       betType: '3top',
       defaultAmount: 10,
       rawInput: '123 10',
@@ -367,72 +562,93 @@ const main = async () => {
       includeDoubleSet: false,
       memo: 'blocked test'
     });
-    assert(blockedParseResponse.status === 400, 'Blocked-number parse should fail');
-    summary.checks.push('member-blocked-number');
+    assert(agentBlockedParseResponse.status === 400, 'Blocked-number parse should fail for operator flow');
+    summary.checks.push('agent-blocked-number-for-member');
 
-    const validParseResponse = await memberClient.post('/member/slips/parse', {
+    const memberForbiddenParseResponse = await disabledMemberClient.post('/member/slips/parse', {
       lotteryId: visibleLotteries[0].id,
       roundId: selectedRound.id,
-      rateProfileId: visibleLotteries[0].defaultRateProfileId,
+      rateProfileId: selectedRateProfileId,
       betType: '3top',
       defaultAmount: 10,
       rawInput: '456 10',
       reverse: false,
       includeDoubleSet: false,
-      memo: 'valid test'
+      memo: 'forbidden parse test'
     });
-    expectStatus(validParseResponse, 200, 'Valid parse');
-    assert(validParseResponse.data.items?.[0]?.payRate === 987, 'Expected custom pay rate on valid parse');
-    summary.checks.push('member-valid-parse');
+    assert(memberForbiddenParseResponse.status === 403, 'Member parse should be forbidden');
+    summary.checks.push('member-parse-forbidden');
+
+    const memberForbiddenCreateResponse = await disabledMemberClient.post('/member/slips', {
+      lotteryId: visibleLotteries[0].id,
+      roundId: selectedRound.id,
+      rateProfileId: selectedRateProfileId,
+      betType: '3top',
+      defaultAmount: 10,
+      rawInput: '456 10',
+      reverse: false,
+      includeDoubleSet: false,
+      memo: 'forbidden create test',
+      action: 'submit'
+    });
+    assert(memberForbiddenCreateResponse.status === 403, 'Member create should be forbidden');
+    summary.checks.push('member-create-forbidden');
 
     if (selectedRound.status === 'open') {
-      const submitSlipResponse = await memberClient.post('/member/slips', {
-        lotteryId: visibleLotteries[0].id,
-        roundId: selectedRound.id,
-        rateProfileId: visibleLotteries[0].defaultRateProfileId,
-        betType: '3top',
-        defaultAmount: 10,
-        rawInput: '456 10',
-        reverse: false,
-        includeDoubleSet: false,
-        memo: 'submit test',
-        action: 'submit'
-      });
-      expectStatus(submitSlipResponse, 201, 'Submit slip');
-      slipId = submitSlipResponse.data.id;
-      created.slipId = slipId;
-      summary.created.submittedSlip = { id: slipId, roundCode: submitSlipResponse.data.roundCode };
-      summary.checks.push('member-submit-slip');
+      slipId = agentPlacedSlipId;
+      summary.created.submittedSlip = { id: slipId, roundCode: agentCreateMemberSlipResponse.data.roundCode };
 
       const agentBetsResponse = await agentClient.get('/agent/bets', {
         params: {
-          roundDate: submitSlipResponse.data.roundCode,
-          marketId: submitSlipResponse.data.lotteryCode
+          roundDate: agentCreateMemberSlipResponse.data.roundCode,
+          marketId: agentCreateMemberSlipResponse.data.lotteryCode
         }
       });
       expectStatus(agentBetsResponse, 200, 'Agent bets');
-      assert((agentBetsResponse.data || []).some((item) => item.slipId === slipId), 'Submitted slip not found in agent bets');
+      assert((agentBetsResponse.data || []).some((item) => item.slipId === slipId), 'Operator-submitted slip not found in agent bets');
       summary.checks.push('agent-bets-list');
+
+      const agentRecentItemsResponse = await agentClient.get('/agent/betting/items/recent', {
+        params: {
+          customerId: memberId,
+          roundDate: agentCreateMemberSlipResponse.data.roundCode,
+          marketId: agentCreateMemberSlipResponse.data.lotteryCode
+        }
+      });
+      expectStatus(agentRecentItemsResponse, 200, 'Agent recent betting items');
+      assert((agentRecentItemsResponse.data || []).some((item) => item.slipId === slipId), 'Operator-submitted slip not found in agent recent betting items');
+      summary.checks.push('agent-recent-betting-items');
+
+      const adminRecentItemsResponse = await adminClient.get('/admin/betting/items/recent', {
+        params: {
+          customerId: memberId,
+          roundDate: agentCreateMemberSlipResponse.data.roundCode,
+          marketId: agentCreateMemberSlipResponse.data.lotteryCode
+        }
+      });
+      expectStatus(adminRecentItemsResponse, 200, 'Admin recent betting items');
+      assert((adminRecentItemsResponse.data || []).some((item) => item.slipId === slipId), 'Operator-submitted slip not found in admin recent betting items');
+      summary.checks.push('admin-recent-betting-items');
 
       const reportBeforeCancel = await agentClient.get('/agent/reports', {
         params: {
-          roundDate: submitSlipResponse.data.roundCode,
-          marketId: submitSlipResponse.data.lotteryCode
+          roundDate: agentCreateMemberSlipResponse.data.roundCode,
+          marketId: agentCreateMemberSlipResponse.data.lotteryCode
         }
       });
       expectStatus(reportBeforeCancel, 200, 'Agent reports before cancel');
-      assert((reportBeforeCancel.data.pendingRows || []).some((item) => item.slipId === slipId), 'Submitted slip not found in pending report');
+      assert((reportBeforeCancel.data.pendingRows || []).some((item) => item.slipId === slipId), 'Operator-submitted slip not found in pending report');
       summary.checks.push('agent-reports-pending');
 
-      const cancelSlipResponse = await memberClient.post(`/member/slips/${slipId}/cancel`);
+      const cancelSlipResponse = await agentClient.post(`/agent/betting/slips/${slipId}/cancel`);
       expectStatus(cancelSlipResponse, 200, 'Cancel slip');
       assert(cancelSlipResponse.data.status === 'cancelled', 'Slip status did not change to cancelled');
-      summary.checks.push('member-cancel-slip');
+      summary.checks.push('agent-cancel-member-slip');
 
       const reportAfterCancel = await agentClient.get('/agent/reports', {
         params: {
-          roundDate: submitSlipResponse.data.roundCode,
-          marketId: submitSlipResponse.data.lotteryCode
+          roundDate: agentCreateMemberSlipResponse.data.roundCode,
+          marketId: agentCreateMemberSlipResponse.data.lotteryCode
         }
       });
       expectStatus(reportAfterCancel, 200, 'Agent reports after cancel');
@@ -440,21 +656,8 @@ const main = async () => {
       summary.checks.push('agent-reports-after-cancel');
     } else {
       summary.warnings.push(`Selected round ${selectedRound.code} is not open, submit/cancel smoke was skipped`);
-
-      const draftSlipResponse = await memberClient.post('/member/slips', {
-        lotteryId: visibleLotteries[0].id,
-        roundId: selectedRound.id,
-        rateProfileId: visibleLotteries[0].defaultRateProfileId,
-        betType: '3top',
-        defaultAmount: 10,
-        rawInput: '456 10',
-        reverse: false,
-        includeDoubleSet: false,
-        memo: 'draft test',
-        action: 'draft'
-      });
-      expectStatus(draftSlipResponse, 201, 'Create draft slip');
-      summary.checks.push('member-draft-slip');
+      assert(agentCreateMemberSlipResponse.data.status === 'draft', 'Closed round should create draft operator slip');
+      summary.checks.push('agent-draft-slip-on-closed-round');
     }
 
     console.log(JSON.stringify({
@@ -472,6 +675,19 @@ const main = async () => {
     process.exitCode = 1;
   } finally {
     try {
+      if (lockedRoundId) {
+        if (adminClient) {
+          try {
+            await adminClient.put(`/lottery/rounds/${lockedRoundId}/closed-bet-types`, {
+              closedBetTypes: originalClosedBetTypes || []
+            });
+          } catch {
+            await DrawRound.updateOne({ _id: lockedRoundId }, { $set: { closedBetTypes: originalClosedBetTypes || [] } });
+          }
+        } else {
+          await DrawRound.updateOne({ _id: lockedRoundId }, { $set: { closedBetTypes: originalClosedBetTypes || [] } });
+        }
+      }
       await cleanupSmokeArtifacts(created);
     } catch (cleanupError) {
       console.error(`Cleanup error: ${cleanupError.message}`);
