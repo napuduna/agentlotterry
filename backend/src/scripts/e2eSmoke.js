@@ -267,8 +267,7 @@ const main = async () => {
         username: memberUsername,
         password: memberPassword,
         name: `E2E Member ${uniqueSuffix}`,
-        phone: '0880000000',
-        memberCode: `E2E${uniqueSuffix}`
+        phone: '0880000000'
       },
       profile: {
         creditBalance: 0,
@@ -353,12 +352,12 @@ const main = async () => {
 
     const adminSearchMemberResponse = await adminClient.get('/admin/betting/members/search', {
       params: {
-        q: memberId,
+        q: memberUsername,
         limit: 10
       }
     });
     expectStatus(adminSearchMemberResponse, 200, 'Admin member betting search');
-    assert((adminSearchMemberResponse.data || []).some((member) => member.id === memberId && member.uid === memberId), 'Admin betting search did not return the member by UID');
+    assert((adminSearchMemberResponse.data || []).some((member) => member.id === memberId), 'Admin betting search did not return the member');
     summary.checks.push('admin-search-member-for-betting');
 
     const agentMemberContextResponse = await agentClient.get(`/agent/betting/members/${memberId}/context`);
@@ -373,7 +372,7 @@ const main = async () => {
 
     const adminMemberContextResponse = await adminClient.get(`/admin/betting/members/${memberId}/context`);
     expectStatus(adminMemberContextResponse, 200, 'Admin member betting context');
-    assert(adminMemberContextResponse.data.member?.uid === memberId, 'Admin betting context did not include member UID');
+    assert(adminMemberContextResponse.data.member?.id === memberId, 'Admin betting context returned the wrong member');
     assert(
       flattenLotteries(adminMemberContextResponse.data.catalog).some((lottery) => lottery.code === selectedLottery.code),
       'Admin betting context did not expose the selected lottery'
@@ -609,7 +608,7 @@ const main = async () => {
       memo: 'admin preview test'
     });
     expectStatus(adminPreviewMemberSlipResponse, 200, 'Admin preview member slip');
-    assert(adminPreviewMemberSlipResponse.data.member?.uid === memberId, 'Admin preview did not include member UID');
+    assert(adminPreviewMemberSlipResponse.data.member?.id === memberId, 'Admin preview returned the wrong member');
     assert(adminPreviewMemberSlipResponse.data.placedBy?.role === 'admin', 'Admin preview did not capture placedBy role');
     summary.checks.push('admin-preview-member-slip');
 

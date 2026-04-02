@@ -66,7 +66,7 @@ router.get('/dashboard', async (req, res) => {
         status: 'active',
         lastActiveAt: { $gte: onlineSince }
       })
-        .select('name username memberCode lastActiveAt')
+        .select('name username lastActiveAt')
         .sort({ lastActiveAt: -1 })
         .limit(6)
     ]);
@@ -96,7 +96,6 @@ router.get('/dashboard', async (req, res) => {
         id: member._id.toString(),
         name: member.name,
         username: member.username,
-        memberCode: member.memberCode || '',
         lastActiveAt: member.lastActiveAt,
         isOnline: isUserOnline(member)
       }))
@@ -151,7 +150,6 @@ router.get('/betting/members/:memberId/context', async (req, res) => {
     res.json({
       member: {
         id: member._id.toString(),
-        uid: member._id.toString(),
         name: member.name,
         username: member.username,
         phone: member.phone || '',
@@ -429,7 +427,6 @@ router.get('/customers', async (req, res) => {
       _id: member.id,
       username: member.username,
       name: member.name,
-      memberCode: member.memberCode,
       phone: member.phone,
       isActive: member.isActive,
       status: member.status,

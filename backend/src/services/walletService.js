@@ -47,8 +47,7 @@ const serializeUserRef = (user) => {
     username: user.username || '',
     name: user.name || '',
     role: user.role || '',
-    displayRole: user.displayRole || (user.role === 'customer' ? 'member' : user.role || ''),
-    memberCode: user.memberCode || ''
+    displayRole: user.displayRole || (user.role === 'customer' ? 'member' : user.role || '')
   };
 };
 
@@ -150,9 +149,9 @@ const getWalletSummary = async ({ viewer, targetUserId = '' }) => {
     CreditLedgerEntry.find({ userId: targetUser._id })
       .sort({ createdAt: -1 })
       .limit(10)
-      .populate('userId', 'username name role displayRole memberCode')
-      .populate('counterpartyUserId', 'username name role displayRole memberCode')
-      .populate('performedByUserId', 'username name role displayRole memberCode')
+      .populate('userId', 'username name role displayRole')
+      .populate('counterpartyUserId', 'username name role displayRole')
+      .populate('performedByUserId', 'username name role displayRole')
   ]);
 
   const rollup = totals[0] || {
@@ -168,7 +167,6 @@ const getWalletSummary = async ({ viewer, targetUserId = '' }) => {
       name: targetUser.name,
       role: targetUser.role,
       displayRole: targetUser.displayRole || (targetUser.role === 'customer' ? 'member' : targetUser.role),
-      memberCode: targetUser.memberCode || '',
       creditBalance: toMoney(targetUser.creditBalance),
       status: targetUser.status,
       isActive: targetUser.isActive
@@ -215,9 +213,9 @@ const getWalletHistory = async ({
   const entries = await CreditLedgerEntry.find(filter)
     .sort({ createdAt: -1 })
     .limit(safeLimit)
-    .populate('userId', 'username name role displayRole memberCode')
-    .populate('counterpartyUserId', 'username name role displayRole memberCode')
-    .populate('performedByUserId', 'username name role displayRole memberCode');
+    .populate('userId', 'username name role displayRole')
+    .populate('counterpartyUserId', 'username name role displayRole')
+    .populate('performedByUserId', 'username name role displayRole');
 
   return entries.map(serializeLedgerEntry);
 };
@@ -278,8 +276,8 @@ const adjustCreditBalance = async ({
       })
     ], { session });
 
-    await entry.populate('userId', 'username name role displayRole memberCode');
-    await entry.populate('performedByUserId', 'username name role displayRole memberCode');
+    await entry.populate('userId', 'username name role displayRole');
+    await entry.populate('performedByUserId', 'username name role displayRole');
 
     return {
       groupId,
@@ -380,9 +378,9 @@ const transferCredit = async ({
     ], { session });
 
     await CreditLedgerEntry.populate(createdEntries, [
-      { path: 'userId', select: 'username name role displayRole memberCode' },
-      { path: 'counterpartyUserId', select: 'username name role displayRole memberCode' },
-      { path: 'performedByUserId', select: 'username name role displayRole memberCode' }
+      { path: 'userId', select: 'username name role displayRole' },
+      { path: 'counterpartyUserId', select: 'username name role displayRole' },
+      { path: 'performedByUserId', select: 'username name role displayRole' }
     ]);
 
     return {

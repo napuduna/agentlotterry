@@ -83,7 +83,7 @@ const resolveBettingActor = async ({ actorUser, customerId }) => {
   }
 
   const customer = await User.findById(customerId).select(
-    '_id role name username memberCode agentId isActive status creditBalance'
+    '_id role name username agentId isActive status creditBalance'
   );
 
   if (!customer || customer.role !== 'customer') {
@@ -654,10 +654,8 @@ const previewSlip = async ({
   return {
     member: {
       id: context.customer._id.toString(),
-      uid: context.customer._id.toString(),
       name: context.customer.name,
       username: context.customer.username,
-      memberCode: context.customer.memberCode || '',
       creditBalance: context.customer.creditBalance || 0
     },
     placedBy: {

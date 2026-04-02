@@ -345,10 +345,8 @@ const getMemberLotteryAccess = async ({ customerId, lotteryId, betType = '', rat
 
 const mapMemberSummary = (member, stats = {}, configSummary = {}) => ({
   id: member._id.toString(),
-  uid: member._id.toString(),
   username: member.username,
   name: member.name,
-  memberCode: member.memberCode || '',
   phone: member.phone || '',
   role: member.role,
   displayRole: member.displayRole || 'member',
@@ -430,12 +428,8 @@ const getAgentMembers = async ({ agentId, search = '', status = '', online = '' 
     filter.$or = [
       { name: regex },
       { username: regex },
-      { phone: regex },
-      { memberCode: regex }
+      { phone: regex }
     ];
-    if (mongoose.Types.ObjectId.isValid(searchText)) {
-      filter.$or.push({ _id: new mongoose.Types.ObjectId(searchText) });
-    }
   }
 
   const normalizedStatus = toText(status);
@@ -508,19 +502,14 @@ const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentI
     const orConditions = [
       { name: regex },
       { username: regex },
-      { phone: regex },
-      { memberCode: regex }
+      { phone: regex }
     ];
-
-    if (mongoose.Types.ObjectId.isValid(searchText)) {
-      orConditions.push({ _id: new mongoose.Types.ObjectId(searchText) });
-    }
 
     filter.$or = orConditions;
   }
 
   const members = await User.find(filter)
-    .select('name username memberCode phone creditBalance status isActive agentId')
+    .select('name username phone creditBalance status isActive agentId')
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(Math.max(1, Math.min(50, Number(limit) || 20)))
     .populate('agentId', 'name username');
@@ -534,8 +523,6 @@ const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentI
   const finalRows = members.filter((member) => {
     if (!normalizedSearch) return true;
     return (
-      member._id.toString().toLowerCase() === normalizedSearch ||
-      (member.memberCode || '').toLowerCase() === normalizedSearch ||
       member.name.toLowerCase().includes(normalizedSearch) ||
       member.username.toLowerCase().includes(normalizedSearch) ||
       (member.phone || '').toLowerCase().includes(normalizedSearch)
@@ -544,10 +531,8 @@ const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentI
 
   return finalRows.map((member) => ({
     id: member._id.toString(),
-    uid: member._id.toString(),
     name: member.name,
     username: member.username,
-    memberCode: member.memberCode || '',
     phone: member.phone || '',
     creditBalance: member.creditBalance || 0,
     status: member.status,

@@ -101,7 +101,6 @@ router.get('/betting/members/:memberId/context', async (req, res) => {
     res.json({
       member: {
         id: member._id.toString(),
-        uid: member._id.toString(),
         name: member.name,
         username: member.username,
         phone: member.phone || '',

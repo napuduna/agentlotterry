@@ -51,7 +51,6 @@ router.post('/login', async (req, res) => {
         name: user.name,
         role: user.role,
         displayRole: user.displayRole || (user.role === 'customer' ? 'member' : user.role),
-        memberCode: user.memberCode,
         phone: user.phone,
         creditBalance: user.creditBalance,
         stockPercent: user.stockPercent,
