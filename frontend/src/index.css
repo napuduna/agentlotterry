@@ -909,15 +909,12 @@ input, select, textarea {
 }
 
 .operator-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.42fr) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  display: block;
 }
 
 .operator-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  grid-template-columns: minmax(0, 1.28fr) minmax(320px, 0.72fr);
   gap: 16px;
   align-items: start;
 }
@@ -926,6 +923,12 @@ input, select, textarea {
 .operator-composer-panel,
 .operator-preview-panel {
   box-shadow: 0 20px 36px rgba(127, 29, 29, 0.08);
+}
+
+.operator-composer-divider {
+  height: 1px;
+  margin: 18px 0;
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.14), rgba(220, 38, 38, 0.03));
 }
 
 .operator-search-block {
@@ -1064,19 +1067,26 @@ input, select, textarea {
 .operator-grid-row {
   padding: 12px;
   display: grid;
-  grid-template-columns: minmax(140px, 1.1fr) repeat(3, minmax(90px, 1fr)) 44px;
-  gap: 10px;
+  grid-template-columns: minmax(124px, 1.1fr) repeat(3, minmax(76px, 1fr)) 40px;
+  gap: 8px;
   box-shadow: none;
   align-items: center;
+  width: 100%;
+  overflow: hidden;
 }
 
 .operator-grid-delete {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
   padding: 0;
-  justify-self: end;
+  justify-self: stretch;
   justify-content: center;
+  border-radius: 12px;
+}
+
+.operator-grid-row > .form-input {
+  min-width: 0;
 }
 
 .operator-slip-draft-panel {

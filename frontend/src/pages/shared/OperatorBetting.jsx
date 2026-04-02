@@ -1012,7 +1012,8 @@ const OperatorBetting = () => {
       </section>
 
       <section className="operator-layout">
-        <section className="card ops-section operator-member-panel">
+        <section className="operator-workspace">
+          <section className="card ops-section operator-composer-panel">
           <div className="ui-eyebrow">ขั้นตอนแรก</div>
           <h3 className="card-title">{copy.pickerTitle}</h3>
           <p className="ops-table-note">{copy.pickerNote}</p>
@@ -1068,10 +1069,7 @@ const OperatorBetting = () => {
             </div>
             </>
           ) : null}
-        </section>
-
-        <section className="operator-workspace">
-          <section className="card ops-section operator-composer-panel">
+            <div className="operator-composer-divider" />
             <div className="ui-eyebrow">หน้าส่งโพย</div>
             <h3 className="card-title">เลือกตลาดและกรอกรายการซื้อ</h3>
             <p className="ops-table-note">ทุกเรทและสิทธิ์อ้างอิงจากสมาชิกที่เลือกแบบเรียลไทม์</p>
