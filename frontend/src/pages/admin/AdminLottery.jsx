@@ -4,13 +4,14 @@ import { FiActivity, FiAward, FiDownload, FiEdit3, FiRefreshCw, FiSave } from 'r
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
 import { adminCopy } from '../../i18n/th/admin';
-import { getBetTypeLabel } from '../../i18n/th/labels';
+import { getBetTypeLabel, getProviderLabel, getResultSourceTypeLabel } from '../../i18n/th/labels';
 import {
   fetchLottery,
   getCatalogLotteries,
   getCatalogRounds,
   getLatestLottery,
   getLotteryResults,
+  getRecentMarketResults,
   manualLottery,
   updateRoundClosedBetTypes
 } from '../../services/api';
@@ -38,6 +39,7 @@ const formatDateTime = (value) => {
 const AdminLottery = () => {
   const [latest, setLatest] = useState(null);
   const [results, setResults] = useState([]);
+  const [externalResults, setExternalResults] = useState([]);
   const [lotteryOptions, setLotteryOptions] = useState([]);
   const [selectedLotteryId, setSelectedLotteryId] = useState('');
   const [roundOptions, setRoundOptions] = useState([]);
@@ -108,13 +110,15 @@ const AdminLottery = () => {
 
   const loadData = async () => {
     try {
-      const [latestRes, resultsRes, lotteriesRes] = await Promise.all([
+      const [latestRes, resultsRes, lotteriesRes, externalRes] = await Promise.all([
         getLatestLottery(),
         getLotteryResults(),
-        getCatalogLotteries()
+        getCatalogLotteries(),
+        getRecentMarketResults({ limit: 50 })
       ]);
       setLatest(latestRes.data);
       setResults(resultsRes.data || []);
+      setExternalResults(externalRes.data || []);
       const nextLotteries = lotteriesRes.data || [];
       setLotteryOptions(nextLotteries);
       setSelectedLotteryId((current) => (
@@ -124,6 +128,7 @@ const AdminLottery = () => {
       ));
     } catch (error) {
       console.error(error);
+      toast.error('โหลดข้อมูลหน้าผลหวยไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
@@ -299,7 +304,7 @@ const AdminLottery = () => {
   };
 
   if (loading) {
-    return <PageSkeleton statCount={4} rows={5} sidebar={false} />;
+    return <PageSkeleton statCount={4} rows={6} sidebar={false} />;
   }
 
   return (
@@ -566,6 +571,54 @@ const AdminLottery = () => {
                         {resultStatusLabel(result)}
                       </span>
                     </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card ops-section admin-lottery-history">
+        <div className="ops-table-head">
+          <div>
+            <div className="ui-eyebrow">ฟีดผลจาก API</div>
+            <h3 className="card-title">ผลล่าสุดจากทุกตลาด</h3>
+            <p className="ops-table-note">แสดง snapshot ล่าสุดจาก API ภายนอกทั้งหมดที่ระบบดึงและเก็บไว้แล้ว</p>
+          </div>
+          <div className="ops-actions admin-lottery-history-actions">
+            <span className="ui-pill"><FiDownload /> {externalResults.length} ตลาด</span>
+          </div>
+        </div>
+
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ตลาด</th>
+                <th>ผู้ให้บริการ</th>
+                <th>งวด</th>
+                <th>ผลล่าสุด</th>
+                <th>ที่มา</th>
+                <th>อัปเดตล่าสุด</th>
+              </tr>
+            </thead>
+            <tbody>
+              {externalResults.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="text-center text-muted table-empty-cell">ยังไม่มีข้อมูลฟีดภายนอก</td>
+                </tr>
+              ) : (
+                externalResults.map((result) => (
+                  <tr key={`${result.lotteryCode}-${result.roundCode}-${result.id}`}>
+                    <td className="ops-history-cell-strong">
+                      {result.lotteryName || result.lotteryCode || '-'}
+                    </td>
+                    <td>{getProviderLabel(result.provider, '-')}</td>
+                    <td>{result.roundCode || '-'}</td>
+                    <td>{result.headline || result.firstPrize || result.twoBottom || '-'}</td>
+                    <td>{getResultSourceTypeLabel(result.sourceType, '-')}</td>
+                    <td>{formatDateTime(result.resultPublishedAt || result.drawAt)}</td>
                   </tr>
                 ))
               )}

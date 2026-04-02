@@ -235,7 +235,7 @@ const mapLegacyResult = (legacyResult, lotteryType) => {
   };
 };
 
-const getRecentResults = async ({ lotteryId = null, limit = 20 } = {}) => {
+const getRecentResults = async ({ lotteryId = null, limit = 50 } = {}) => {
   const results = await ResultRecord.find({ isPublished: true, ...(lotteryId && { lotteryTypeId: lotteryId }) })
     .sort({ updatedAt: -1 })
     .limit(limit)
@@ -318,7 +318,7 @@ const getCatalogOverview = async (viewer = null) => {
     DrawRound.find({ isActive: true, drawAt: { $gte: new Date(Date.now() - 5 * DAY_MS) } })
       .sort({ drawAt: 1 }),
     Announcement.find(getAnnouncementFilter(viewer)).sort({ publishedAt: -1 }).limit(5),
-    getRecentResults({ limit: 25 })
+    getRecentResults({ limit: 50 })
   ]);
 
   let memberConfigMap = null;

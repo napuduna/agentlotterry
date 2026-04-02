@@ -14,13 +14,32 @@ const MANYCAI_FEED_BASE_URL = (
 const RESULT_SYNC_TIMEOUT_MS = Number(process.env.RESULT_SYNC_TIMEOUT_MS || 12000);
 
 const FEED_CONFIGS = [
+  { feedCode: 'hnvip', lotteryCode: 'hnvip', marketName: 'ฮานอย VIP', parser: 'simple', syncToResults: false },
+  { feedCode: 'tlzc', lotteryCode: 'tlzc', marketName: 'หวยลาว', parser: 'simple', syncToResults: false },
+  { feedCode: 'tykc', lotteryCode: 'tykc', marketName: 'ยี่กี VIP', parser: 'simple', syncToResults: false },
   { feedCode: 'tgfc', lotteryCode: 'thai_government', marketName: 'รัฐบาลไทย', parser: 'government', syncToResults: true },
-  { feedCode: 'baac', lotteryCode: 'baac', marketName: 'ธกส', parser: 'baac', syncToResults: false },
-  { feedCode: 'bfhn', lotteryCode: 'hanoi_special', marketName: 'ฮานอยพิเศษ', parser: 'simple5', syncToResults: true },
-  { feedCode: 'zcvip', lotteryCode: 'lao_vip', marketName: 'ลาว VIP', parser: 'simple5', syncToResults: true },
-  { feedCode: 'gsus', lotteryCode: 'dowjones_vip', marketName: 'ดาวโจนส์ VIP', parser: 'stock', syncToResults: true },
+  { feedCode: 'baac', lotteryCode: 'baac', marketName: 'ธ.ก.ส.', parser: 'baac', syncToResults: false },
+  { feedCode: 'gshka', lotteryCode: 'gshka', marketName: 'หุ้นฮั่งเส็ง เช้า', parser: 'stock', syncToResults: false },
+  { feedCode: 'gshkp', lotteryCode: 'gshkp', marketName: 'หุ้นฮั่งเส็ง บ่าย', parser: 'stock', syncToResults: false },
+  { feedCode: 'bfhn', lotteryCode: 'hanoi_special', marketName: 'ฮานอยพิเศษ', parser: 'simple', syncToResults: true },
+  { feedCode: 'gstw', lotteryCode: 'gstw', marketName: 'หุ้นไต้หวัน', parser: 'stock', syncToResults: false },
   { feedCode: 'gsjpa', lotteryCode: 'nikkei_morning', marketName: 'นิเคอิเช้า', parser: 'stock', syncToResults: true },
-  { feedCode: 'gscnp', lotteryCode: 'china_afternoon', marketName: 'จีนบ่าย', parser: 'stock', syncToResults: true }
+  { feedCode: 'gsjpp', lotteryCode: 'gsjpp', marketName: 'นิเคอิบ่าย', parser: 'stock', syncToResults: false },
+  { feedCode: 'gskr', lotteryCode: 'gskr', marketName: 'หุ้นเกาหลี', parser: 'stock', syncToResults: false },
+  { feedCode: 'gscna', lotteryCode: 'gscna', marketName: 'หุ้นจีนเช้า', parser: 'stock', syncToResults: false },
+  { feedCode: 'gscnp', lotteryCode: 'china_afternoon', marketName: 'หุ้นจีนบ่าย', parser: 'stock', syncToResults: true },
+  { feedCode: 'gssg', lotteryCode: 'gssg', marketName: 'หุ้นสิงคโปร์', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsth', lotteryCode: 'gsth', marketName: 'หุ้นไทย', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsin', lotteryCode: 'gsin', marketName: 'หุ้นอินเดีย', parser: 'stock', syncToResults: false },
+  { feedCode: 'gseg', lotteryCode: 'gseg', marketName: 'หุ้นอียิปต์', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsru', lotteryCode: 'gsru', marketName: 'หุ้นรัสเซีย', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsde', lotteryCode: 'gsde', marketName: 'หุ้นเยอรมัน', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsuk', lotteryCode: 'gsuk', marketName: 'หุ้นอังกฤษ', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsus', lotteryCode: 'dowjones_vip', marketName: 'หุ้นดาวโจนส์', parser: 'stock', syncToResults: true },
+  { feedCode: 'cqhn', lotteryCode: 'cqhn', marketName: 'ฮานอยเฉพาะกิจ', parser: 'simple', syncToResults: false },
+  { feedCode: 'zcvip', lotteryCode: 'lao_vip', marketName: 'ลาว VIP', parser: 'simple', syncToResults: true },
+  { feedCode: 'ynhn', lotteryCode: 'ynhn', marketName: 'ฮานอยธรรมดา', parser: 'simple', syncToResults: false },
+  { feedCode: 'ynma', lotteryCode: 'ynma', marketName: 'มาเลย์', parser: 'simple', syncToResults: false }
 ];
 
 const syncState = {
@@ -38,7 +57,7 @@ const joinDigits = (value) => String(value || '').replace(/\D/g, '');
 const uniqueDigits = (value) => [...new Set(flattenValues(value).map(joinDigits).filter(Boolean))];
 const parseIssueToRoundCode = (value) => {
   const digits = joinDigits(value);
-  if (digits.length !== 8) return '';
+  if (digits.length < 8) return '';
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 };
 
@@ -65,6 +84,7 @@ const toHeadline = (...candidates) => {
 };
 
 const buildRunDigits = (values) => [...new Set(values.join('').split('').filter(Boolean))];
+const getSettlementSafety = (config) => Boolean(config.syncToResults);
 
 const buildGovernmentSnapshot = (config, row) => {
   const firstPrize = joinDigits(row?.code?.code);
@@ -92,7 +112,7 @@ const buildGovernmentSnapshot = (config, row) => {
     runTop: buildRunDigits(threeTop ? [threeTop] : []),
     runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
-    isSettlementSafe: true,
+    isSettlementSafe: getSettlementSafety(config),
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
     rawPayload: row,
     legacyGovernmentPayload: {
@@ -108,30 +128,35 @@ const buildGovernmentSnapshot = (config, row) => {
   };
 };
 
-const buildSimple5Snapshot = (config, row) => {
+const buildSimpleSnapshot = (config, row) => {
   const firstPrize = joinDigits(row?.code?.code);
   const threeTop = joinDigits(row?.code?.code_last3) || (firstPrize ? firstPrize.slice(-3) : '');
-  const twoTail = joinDigits(row?.code?.code_last2) || (firstPrize ? firstPrize.slice(-2) : '');
+  const twoBottom = joinDigits(row?.code?.code_last2) || (firstPrize ? firstPrize.slice(-2) : '');
+  const twoTop =
+    joinDigits(row?.code?.code2) ||
+    joinDigits(row?.code?.code_pre2) ||
+    joinDigits(row?.code?.code_mid2) ||
+    twoBottom;
 
   return {
     lotteryCode: config.lotteryCode,
     feedCode: config.feedCode,
     marketName: config.marketName,
     roundCode: parseIssueToRoundCode(row?.officialissue || row?.issue),
-    headline: toHeadline(firstPrize, threeTop, twoTail),
+    headline: toHeadline(firstPrize, threeTop, twoBottom, twoTop),
     firstPrize,
     threeTop,
-    twoTop: twoTail,
-    twoBottom: twoTail,
+    twoTop,
+    twoBottom,
     threeBottom: '',
     threeTopHits: threeTop ? [threeTop] : [],
-    twoTopHits: twoTail ? [twoTail] : [],
-    twoBottomHits: twoTail ? [twoTail] : [],
+    twoTopHits: twoTop ? [twoTop] : [],
+    twoBottomHits: twoBottom ? [twoBottom] : [],
     threeBottomHits: [],
     runTop: buildRunDigits(threeTop ? [threeTop] : []),
-    runBottom: buildRunDigits(twoTail ? [twoTail] : []),
+    runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
-    isSettlementSafe: true,
+    isSettlementSafe: getSettlementSafety(config),
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
     rawPayload: row
   };
@@ -159,7 +184,7 @@ const buildStockSnapshot = (config, row) => {
     runTop: buildRunDigits(threeDigits ? [threeDigits] : []),
     runBottom: buildRunDigits(twoDigits ? [twoDigits] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
-    isSettlementSafe: true,
+    isSettlementSafe: getSettlementSafety(config),
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
     rawPayload: row
   };
@@ -200,7 +225,7 @@ const buildBaacSnapshot = (config, row) => {
 
 const snapshotBuilders = {
   government: buildGovernmentSnapshot,
-  simple5: buildSimple5Snapshot,
+  simple: buildSimpleSnapshot,
   stock: buildStockSnapshot,
   baac: buildBaacSnapshot
 };
@@ -392,7 +417,7 @@ const syncLatestExternalResults = async () => {
   }
 };
 
-const getStoredLatestExternalResults = async ({ lotteryId = null, limit = 20 } = {}) => {
+const getStoredLatestExternalResults = async ({ lotteryId = null, limit = 50 } = {}) => {
   const query = lotteryId ? { lotteryTypeId: lotteryId } : {};
   const items = await MarketFeedResult.find(query)
     .sort({ resultPublishedAt: -1, updatedAt: -1 })
@@ -454,13 +479,14 @@ const startExternalResultAutoSync = (intervalMs) => {
 };
 
 const fetchThaiGovernmentResultByRoundCode = async (roundCode) => {
+  const config = FEED_CONFIGS.find((item) => item.feedCode === 'tgfc');
   const rows = await fetchFeedRows('tgfc');
   const row = rows.find((item) => parseIssueToRoundCode(item.officialissue || item.issue) === roundCode);
-  if (!row) {
+  if (!row || !config) {
     return null;
   }
 
-  const snapshot = buildGovernmentSnapshot(FEED_CONFIGS[0], row);
+  const snapshot = buildGovernmentSnapshot(config, row);
   return snapshot.legacyGovernmentPayload;
 };
 

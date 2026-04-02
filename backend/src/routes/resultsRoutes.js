@@ -12,7 +12,7 @@ router.get('/recent', async (req, res) => {
     const { lotteryId, limit } = req.query;
     const items = await getRecentResults({
       lotteryId: lotteryId || null,
-      limit: Number(limit) || 20
+        limit: Number(limit) || 50
     });
 
     res.json(items);
