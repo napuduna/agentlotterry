@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiBell, FiClock, FiCopy, FiDollarSign, FiEye, FiTrendingUp, FiUsers, FiWifi, FiX } from 'react-icons/fi';
+import { FiBell, FiClock, FiDollarSign, FiEye, FiTrendingUp, FiUsers, FiWifi } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import SlipPreviewModal from '../../components/SlipPreviewModal';
 import { useCatalog } from '../../context/CatalogContext';
 import { agentCopy } from '../../i18n/th/agent';
 import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
@@ -303,69 +304,17 @@ const AgentDashboard = () => {
       </section>
 
       {selectedSlip ? (
-        <div className="modal-overlay" onClick={() => setSelectedSlip(null)}>
-          <div className="modal recent-slip-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <div className="ui-eyebrow">รายละเอียดโพย</div>
-                <h3 className="modal-title">โพย {selectedSlip.slipNumber || selectedSlip.slipId || '-'}</h3>
-              </div>
-              <div className="recent-slip-modal-actions">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopySlipImage} disabled={copyingSlipImage}>
-                  <FiCopy />
-                  {copyingSlipImage ? 'กำลังคัดลอกโพยเป็นรูป...' : 'คัดลอกโพยเป็นรูป'}
-                </button>
-                <button type="button" className="modal-close" onClick={() => setSelectedSlip(null)}>
-                  <FiX />
-                </button>
-              </div>
-            </div>
-
-            <div className="recent-slip-meta-grid">
-              <div className="recent-slip-meta-card">
-                <span>สมาชิก</span>
-                <strong>{selectedSlip.customer?.name || agentCopy.dashboard.unknownMember}</strong>
-              </div>
-              <div className="recent-slip-meta-card">
-                <span>ตลาด / งวด</span>
-                <strong>{selectedSlip.marketName} • {selectedSlip.roundLabel}</strong>
-              </div>
-              <div className="recent-slip-meta-card">
-                <span>ยอดแทงรวม</span>
-                <strong>{money(selectedSlip.totalAmount)} บาท</strong>
-              </div>
-              <div className="recent-slip-meta-card">
-                <span>จ่ายสูงสุด</span>
-                <strong>{money(selectedSlip.totalPotentialPayout)} บาท</strong>
-              </div>
-            </div>
-
-            <div className="recent-slip-items">
-              {selectedSlip.items.map((item) => (
-                <div key={item._id} className="recent-slip-item">
-                  <div className="recent-slip-number">{item.number}</div>
-                  <div className="recent-slip-item-body">
-                    <div className="recent-slip-item-head">
-                      <strong>{getBetTypeLabel(item.betType)}</strong>
-                      <span>x{item.payRate}</span>
-                    </div>
-                    <div className="recent-slip-item-values">
-                      <span>ยอดแทง {money(item.amount)} บาท</span>
-                      <span>จ่ายสูงสุด {money(item.potentialPayout)} บาท</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="modal-footer recent-slip-footer">
-              <button type="button" className="btn btn-secondary" onClick={handleCopySlipImage} disabled={copyingSlipImage}>
-                <FiCopy />
-                {copyingSlipImage ? 'กำลังคัดลอกโพยเป็นรูป...' : 'คัดลอกโพยเป็นรูป'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlipPreviewModal
+          slip={{
+            ...selectedSlip,
+            resultLabel: getBetResultLabel(selectedSlip.result)
+          }}
+          onClose={() => setSelectedSlip(null)}
+          onCopyImage={handleCopySlipImage}
+          copyingImage={copyingSlipImage}
+          actorLabel="เอเย่นต์"
+          unknownMember={agentCopy.dashboard.unknownMember}
+        />
       ) : null}
 
       <style>{`

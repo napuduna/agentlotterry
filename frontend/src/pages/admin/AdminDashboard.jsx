@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiActivity, FiCopy, FiDollarSign, FiEye, FiTrendingUp, FiUser, FiUsers, FiX } from 'react-icons/fi';
+import { FiActivity, FiDollarSign, FiEye, FiTrendingUp, FiUser, FiUsers } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
+import SlipPreviewModal from '../../components/SlipPreviewModal';
 import { adminCopy } from '../../i18n/th/admin';
 import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
 import { getAdminDashboard } from '../../services/api';
@@ -226,69 +227,17 @@ const AdminDashboard = () => {
       </section>
 
       {selectedSlip ? (
-        <div className="modal-overlay" onClick={() => setSelectedSlip(null)}>
-          <div className="modal admin-slip-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <div className="ui-eyebrow">รายละเอียดโพย</div>
-                <h3 className="modal-title">โพย {selectedSlip.slipNumber || selectedSlip.slipId || '-'}</h3>
-              </div>
-              <div className="admin-slip-modal-actions">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopySlipImage} disabled={copyingSlipImage}>
-                  <FiCopy />
-                  {copyingSlipImage ? 'กำลังคัดลอกโพยเป็นรูป...' : 'คัดลอกโพยเป็นรูป'}
-                </button>
-                <button type="button" className="modal-close" onClick={() => setSelectedSlip(null)}>
-                  <FiX />
-                </button>
-              </div>
-            </div>
-
-            <div className="admin-slip-meta-grid">
-              <div className="admin-slip-meta-card">
-                <span>สมาชิก</span>
-                <strong>{selectedSlip.customer?.name || copy.unknownName}</strong>
-              </div>
-              <div className="admin-slip-meta-card">
-                <span>ตลาด / งวด</span>
-                <strong>{selectedSlip.marketName} • {selectedSlip.roundLabel}</strong>
-              </div>
-              <div className="admin-slip-meta-card">
-                <span>ยอดแทงรวม</span>
-                <strong>{money(selectedSlip.totalAmount)} บาท</strong>
-              </div>
-              <div className="admin-slip-meta-card">
-                <span>จ่ายสูงสุด</span>
-                <strong>{money(selectedSlip.totalPotentialPayout)} บาท</strong>
-              </div>
-            </div>
-
-            <div className="admin-slip-items">
-              {selectedSlip.items.map((item) => (
-                <div key={item._id} className="admin-slip-item">
-                  <div className="admin-slip-number">{item.number}</div>
-                  <div className="admin-slip-item-body">
-                    <div className="admin-slip-item-head">
-                      <strong>{getBetTypeLabel(item.betType)}</strong>
-                      <span>x{item.payRate}</span>
-                    </div>
-                    <div className="admin-slip-item-values">
-                      <span>ยอดแทง {money(item.amount)} บาท</span>
-                      <span>จ่ายสูงสุด {money(item.potentialPayout)} บาท</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="modal-footer admin-slip-footer">
-              <button type="button" className="btn btn-secondary" onClick={handleCopySlipImage} disabled={copyingSlipImage}>
-                <FiCopy />
-                {copyingSlipImage ? 'กำลังคัดลอกโพยเป็นรูป...' : 'คัดลอกโพยเป็นรูป'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlipPreviewModal
+          slip={{
+            ...selectedSlip,
+            resultLabel: getBetResultLabel(selectedSlip.result)
+          }}
+          onClose={() => setSelectedSlip(null)}
+          onCopyImage={handleCopySlipImage}
+          copyingImage={copyingSlipImage}
+          actorLabel="ผู้ดูแล"
+          unknownMember={copy.unknownName}
+        />
       ) : null}
 
       <style>{`

@@ -115,8 +115,15 @@ const parseRawLines = (rawInput) => {
     .filter(Boolean);
 };
 
+const sanitizeFastLine = (line) =>
+  String(line || '')
+    .replace(/[xX×*]/g, ' ')
+    .replace(/[^\d=/:,\-.\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const parseLine = (line) => {
-  const match = line.match(/^(\d+)(?:\s*(?:[=/:,\-]|\s)\s*(\d+(?:\.\d+)?))?$/);
+  const match = sanitizeFastLine(line).match(/^(\d+)(?:\s*(?:[=/:,\-]|\s)\s*(\d+(?:\.\d+)?))?$/);
   if (!match) {
     throw new Error(`Invalid fast bet line: ${line}`);
   }
@@ -624,7 +631,8 @@ const previewSlip = async ({
   rawInput,
   items = [],
   reverse = false,
-  includeDoubleSet = false
+  includeDoubleSet = false,
+  memo = ''
 }) => {
   const context = await loadSlipContext({ actorUser, customerId, lotteryId, roundId, rateProfileId, betType });
   const entries = Array.isArray(items) && items.length
@@ -683,6 +691,7 @@ const previewSlip = async ({
       totalAmount: entries.reduce((sum, item) => sum + item.amount, 0),
       potentialPayout: entries.reduce((sum, item) => sum + item.potentialPayout, 0)
     },
+    memo,
     memberLimits: context.memberConfig ? {
       minimumBet: context.memberConfig.minimumBet,
       maximumBet: context.memberConfig.maximumBet,
@@ -726,7 +735,8 @@ const createSlip = async ({
     rawInput,
     items,
     reverse,
-    includeDoubleSet
+    includeDoubleSet,
+    memo
   });
 
   if (action === 'submit' && preview.roundStatus.status !== 'open') {

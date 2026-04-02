@@ -1024,6 +1024,34 @@ input, select, textarea {
   margin-top: 16px;
 }
 
+.operator-fast-grid-wide {
+  grid-column: 1 / -1;
+}
+
+.operator-fast-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.operator-fast-amount-card {
+  padding: 12px;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.operator-fast-amount-card strong {
+  font-size: 1.15rem;
+  color: var(--primary);
+}
+
+.operator-fast-amount-card-disabled {
+  opacity: 0.6;
+}
+
 .operator-grid-memo,
 .operator-fast-input {
   margin-top: 16px;
@@ -1342,6 +1370,22 @@ input, select, textarea {
 
 .operator-preview-actions {
   margin-top: 16px;
+}
+
+.operator-preview-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-height: min(88vh, 920px);
+  overflow: auto;
+}
+
+.operator-preview-note {
+  margin-top: 12px;
+  padding: 14px;
+  box-shadow: none;
+}
+
+.operator-preview-modal-actions {
+  align-items: center;
 }
 
 @media (max-width: 1180px) {
@@ -2132,3 +2176,4 @@ input, select, textarea {
     font-size: 1.5rem;
   }
 }
+

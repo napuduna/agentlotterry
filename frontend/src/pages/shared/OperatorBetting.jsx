@@ -3,10 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiAlertCircle,
+  FiCheckCircle,
   FiChevronDown,
   FiChevronUp,
   FiClock,
   FiCopy,
+  FiFileText,
   FiLayers,
   FiPlus,
   FiRefreshCw,
@@ -37,6 +39,7 @@ import {
 } from '../../services/api';
 import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySlipPreviewImage } from '../../utils/slipImage';
+import { copyPreviewSlipText } from '../../utils/slipText';
 
 const quickAmountOptions = ['10', '20', '50', '100'];
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
@@ -45,6 +48,44 @@ const doubleSetCounts = {
   2: 10,
   3: 270
 };
+
+const buildInitialFastAmounts = () => ({
+  top: '',
+  bottom: '',
+  tod: ''
+});
+
+const fastFamilyOptions = [
+  {
+    value: '2',
+    label: '2 ตัว',
+    digits: 2,
+    columns: [
+      { key: 'top', betType: '2top' },
+      { key: 'bottom', betType: '2bottom' },
+      { key: 'tod', betType: '2tod' }
+    ]
+  },
+  {
+    value: '3',
+    label: '3 ตัว',
+    digits: 3,
+    columns: [
+      { key: 'top', betType: '3top' },
+      { key: 'bottom', betType: '3bottom' },
+      { key: 'tod', betType: '3tod' }
+    ]
+  },
+  {
+    value: 'run',
+    label: 'วิ่ง',
+    digits: 1,
+    columns: [
+      { key: 'top', betType: 'run_top' },
+      { key: 'bottom', betType: 'run_bottom' }
+    ]
+  }
+];
 
 
 const roleConfig = {
@@ -94,16 +135,67 @@ const flattenLotteries = (catalog) => (catalog?.leagues || []).flatMap((league) 
 const buildEmptyGridRow = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, number: '', amounts: { top: '', bottom: '', tod: '' } });
 const buildInitialGridRows = () => Array.from({ length: 2 }, buildEmptyGridRow);
 
-const getFastDraftSummary = ({ rawInput, activeBetType, includeDoubleSet, reverse }) => {
-  const lineCount = String(rawInput || '')
+const getFastFamilyConfig = (fastFamily) =>
+  fastFamilyOptions.find((option) => option.value === fastFamily) || fastFamilyOptions[0];
+
+const extractFastNumbersByDigits = (rawInput, digits) => {
+  const numbers = [];
+
+  String(rawInput || '')
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean).length;
-  const digits = activeBetType?.startsWith('3') ? 3 : activeBetType?.startsWith('2') ? 2 : 1;
+    .map((line) =>
+      line
+        .replace(/[xX×*]/g, ' ')
+        .replace(/[^\d\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    )
+    .filter(Boolean)
+    .forEach((line) => {
+      (line.match(/\d+/g) || [])
+        .filter((token) => token.length === digits)
+        .forEach((token) => numbers.push(token));
+    });
+
+  return numbers;
+};
+
+const getFastEnabledColumns = ({ fastFamily, supportedBetTypes = [], closedBetTypes = [] }) => {
+  const config = getFastFamilyConfig(fastFamily);
+  const supported = new Set(supportedBetTypes);
+  const closed = new Set(closedBetTypes);
+
+  return config.columns.reduce((acc, column) => {
+    acc[column.key] = supported.has(column.betType) && !closed.has(column.betType);
+    return acc;
+  }, {});
+};
+
+const getFastDraftSummary = ({
+  rawInput,
+  fastFamily,
+  includeDoubleSet,
+  reverse,
+  fastAmounts,
+  supportedBetTypes,
+  closedBetTypes
+}) => {
+  const config = getFastFamilyConfig(fastFamily);
+  const extractedNumbers = extractFastNumbersByDigits(rawInput, config.digits);
+  const enabledColumns = getFastEnabledColumns({
+    fastFamily,
+    supportedBetTypes,
+    closedBetTypes
+  });
+  const pricedColumns = config.columns.filter(
+    (column) => enabledColumns[column.key] && Number(fastAmounts?.[column.key] || 0) > 0
+  ).length;
+
   return {
-    lineCount,
-    helperCount: includeDoubleSet ? doubleSetCounts[digits] || 0 : 0,
-    reverseEnabled: Boolean(reverse)
+    lineCount: extractedNumbers.length,
+    helperCount: includeDoubleSet ? doubleSetCounts[config.digits] || 0 : 0,
+    reverseEnabled: Boolean(reverse),
+    pricedColumns
   };
 };
 
@@ -297,16 +389,6 @@ const fastDigitLengths = {
   'run_bottom': 1
 };
 
-const parseFastDraftLine = (line) => {
-  const match = String(line || '').trim().match(/^(\d+)(?:\s*(?:[=/:,\-]|\s)\s*(\d+(?:\.\d+)?))?$/);
-  if (!match) return null;
-
-  return {
-    number: match[1],
-    amount: match[2] ? Number(match[2]) : null
-  };
-};
-
 const buildDraftDoubleSet = (digits) => {
   if (digits === 1) {
     return Array.from({ length: 10 }, (_, index) => String(index));
@@ -383,56 +465,66 @@ const combineFastDraftItems = (items) => {
 };
 
 const buildFastDraftItems = ({
-  betType,
-  defaultAmount,
+  fastFamily,
   rawInput,
   reverse,
   includeDoubleSet,
-  payRate
+  rates,
+  amounts,
+  supportedBetTypes,
+  closedBetTypes
 }) => {
-  if (!betType || !payRate) return [];
-
-  const digits = fastDigitLengths[betType] || 0;
-  if (!digits) return [];
-
-  const fallbackAmount = Number(defaultAmount || 0);
-  const lines = String(rawInput || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const config = getFastFamilyConfig(fastFamily);
+  const enabledColumns = getFastEnabledColumns({
+    fastFamily,
+    supportedBetTypes,
+    closedBetTypes
+  });
+  const numbers = extractFastNumbersByDigits(rawInput, config.digits);
 
   const items = [];
 
-  lines.forEach((line) => {
-    const parsed = parseFastDraftLine(line);
-    if (!parsed) return;
+  const appendNumberItems = (number) => {
+    config.columns.forEach((column) => {
+      const amount = Number(amounts?.[column.key] || 0);
+      const payRate = Number(rates?.[column.betType] || 0);
+      if (!enabledColumns[column.key] || amount <= 0 || payRate <= 0) return;
 
-    const number = normalizeDigits(parsed.number);
-    const amount = parsed.amount ?? fallbackAmount;
-    if (!number || number.length !== digits || amount <= 0) return;
-
-    expandFastDraftNumbers(number, betType, reverse).forEach((expandedNumber) => {
-      items.push({
-        betType,
-        number: expandedNumber,
-        amount,
-        payRate
+      expandFastDraftNumbers(number, column.betType, reverse).forEach((expandedNumber) => {
+        items.push({
+          betType: column.betType,
+          number: expandedNumber,
+          amount,
+          payRate
+        });
       });
     });
+  };
+
+  numbers.forEach((number) => {
+    if (normalizeDigits(number).length !== config.digits) return;
+    appendNumberItems(number);
   });
 
-  if (includeDoubleSet && fallbackAmount > 0) {
-    buildDraftDoubleSet(digits).forEach((number) => {
-      items.push({
-        betType,
-        number,
-        amount: fallbackAmount,
-        payRate
-      });
+  if (includeDoubleSet) {
+    buildDraftDoubleSet(config.digits).forEach((number) => {
+      appendNumberItems(number);
     });
   }
 
   return combineFastDraftItems(items);
+};
+
+const getFastFamilyPlaceholder = (fastFamily) => {
+  if (fastFamily === '3') {
+    return 'พิมพ์ 1 บรรทัดต่อ 1 รายการ ระบบจะดึงเฉพาะเลข 3 ตัวให้เอง\n101 110 112\nabc 211 xx';
+  }
+
+  if (fastFamily === 'run') {
+    return 'พิมพ์ตัวเลขคละกันได้ ระบบจะดึงเลขวิ่ง 1 ตัวให้อัตโนมัติ\n1 2 3 9\nabc7xx';
+  }
+
+  return 'พิมพ์ 1 บรรทัดต่อ 1 รายการ ระบบจะดึงเฉพาะเลข 2 ตัวให้เอง\n11 10 01 12\nabc 21 xx';
 };
 
 const OperatorBetting = () => {
@@ -452,9 +544,9 @@ const OperatorBetting = () => {
   const [rounds, setRounds] = useState([]);
   const [loadingRounds, setLoadingRounds] = useState(false);
   const [mode, setMode] = useState('fast');
-  const [activeBetType, setActiveBetType] = useState('3top');
+  const [fastFamily, setFastFamily] = useState('2');
   const [digitMode, setDigitMode] = useState('2');
-  const [defaultAmount, setDefaultAmount] = useState('');
+  const [fastAmounts, setFastAmounts] = useState(buildInitialFastAmounts);
   const [rawInput, setRawInput] = useState('');
   const [reverse, setReverse] = useState(false);
   const [includeDoubleSet, setIncludeDoubleSet] = useState(false);
@@ -462,7 +554,9 @@ const OperatorBetting = () => {
   const [gridBulkAmounts, setGridBulkAmounts] = useState({ top: '', bottom: '', tod: '' });
   const [memo, setMemo] = useState('');
   const [preview, setPreview] = useState(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [copyingText, setCopyingText] = useState(false);
   const [copyingImage, setCopyingImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [recentItems, setRecentItems] = useState([]);
@@ -485,26 +579,54 @@ const OperatorBetting = () => {
   const canSubmit = selectedRound?.status === 'open';
   const recentRoundCode = selectedRound?.code || '';
   const recentMarketId = selectedLottery?.code || selectedLottery?.id || '';
+  const fastFamilyConfig = useMemo(() => getFastFamilyConfig(fastFamily), [fastFamily]);
+  const enabledFastFamilies = useMemo(() => {
+    const supported = new Set(selectedLottery?.supportedBetTypes || []);
+    const closed = new Set(roundClosedBetTypes);
+
+    return fastFamilyOptions.filter((option) =>
+      option.columns.some((column) => supported.has(column.betType) && !closed.has(column.betType))
+    );
+  }, [roundClosedBetTypes, selectedLottery]);
+  const supportedFastColumns = useMemo(
+    () =>
+      getFastEnabledColumns({
+        fastFamily,
+        supportedBetTypes: selectedLottery?.supportedBetTypes || [],
+        closedBetTypes: roundClosedBetTypes
+      }),
+    [fastFamily, roundClosedBetTypes, selectedLottery]
+  );
   const fastDraftSummary = useMemo(
-    () => getFastDraftSummary({ rawInput, activeBetType, includeDoubleSet, reverse }),
-    [activeBetType, includeDoubleSet, rawInput, reverse]
+    () =>
+      getFastDraftSummary({
+        rawInput,
+        fastFamily,
+        includeDoubleSet,
+        reverse,
+        fastAmounts,
+        supportedBetTypes: selectedLottery?.supportedBetTypes || [],
+        closedBetTypes: roundClosedBetTypes
+      }),
+    [fastAmounts, fastFamily, includeDoubleSet, rawInput, reverse, roundClosedBetTypes, selectedLottery]
   );
   const gridDraftSummary = useMemo(() => getGridDraftSummary(gridRows), [gridRows]);
   const recentSlipGroups = useMemo(() => groupRecentItemsBySlip(recentItems), [recentItems]);
-  const fastDraftGroups = useMemo(() => {
+  const fastDraftItems = useMemo(() => {
     if (mode !== 'fast') return [];
 
-    return buildSlipDisplayGroups(
-      buildFastDraftItems({
-        betType: activeBetType,
-        defaultAmount,
-        rawInput,
-        reverse,
-        includeDoubleSet,
-        payRate: Number(selectedRateProfile?.rates?.[activeBetType] || 0)
-      })
-    );
-  }, [activeBetType, defaultAmount, includeDoubleSet, mode, rawInput, reverse, selectedRateProfile]);
+    return buildFastDraftItems({
+      fastFamily,
+      rawInput,
+      reverse,
+      includeDoubleSet,
+      rates: selectedRateProfile?.rates || {},
+      amounts: fastAmounts,
+      supportedBetTypes: selectedLottery?.supportedBetTypes || [],
+      closedBetTypes: roundClosedBetTypes
+    });
+  }, [fastAmounts, fastFamily, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
+  const fastDraftGroups = useMemo(() => buildSlipDisplayGroups(fastDraftItems), [fastDraftItems]);
   const gridDraftGroups = useMemo(() => {
     if (mode !== 'grid') return [];
 
@@ -515,6 +637,7 @@ const OperatorBetting = () => {
     }
   }, [digitMode, gridRows, mode]);
   const previewGroups = useMemo(() => buildSlipDisplayGroups(preview?.items || []), [preview]);
+  const hasDraftItems = mode === 'fast' ? fastDraftItems.length > 0 : gridDraftGroups.length > 0;
 
   const supportedGridColumns = useMemo(() => {
     const supported = new Set(selectedLottery?.supportedBetTypes || []);
@@ -584,7 +707,7 @@ const OperatorBetting = () => {
   const buildPayload = () => {
     const basePayload = { customerId: selectedMember?.id, lotteryId: selectedLottery?.id, roundId: selectedRound?.id, rateProfileId: selectedRateProfile?.id, memo };
     if (mode === 'grid') return { ...basePayload, items: buildGridItems({ rows: gridRows, digitMode }) };
-    return { ...basePayload, betType: activeBetType, defaultAmount: Number(defaultAmount || 0), rawInput, reverse, includeDoubleSet };
+    return { ...basePayload, items: fastDraftItems };
   };
 
   const handlePreview = async () => {
@@ -611,15 +734,23 @@ const OperatorBetting = () => {
     }
   };
 
+  const handleOpenPreviewDialog = async () => {
+    const nextPreview = preview || await handlePreview();
+    if (!nextPreview) return null;
+    setPreviewDialogOpen(true);
+    return nextPreview;
+  };
+
   const handleSubmitSlip = async () => {
     const nextPreview = preview || await handlePreview();
     if (!nextPreview) return;
     setSubmitting(true);
     try {
       const response = await copy.createSlip({ ...buildPayload(), action: 'submit' });
-      toast.success(`ส่งรายการซื้อ ${response.data.slipNumber} แล้ว`);
+      toast.success(`บันทึกโพย ${response.data.slipNumber} แล้ว`);
       setPreview(null);
-      setDefaultAmount('');
+      setPreviewDialogOpen(false);
+      setFastAmounts(buildInitialFastAmounts);
       setRawInput('');
       setReverse(false);
       setIncludeDoubleSet(false);
@@ -629,9 +760,34 @@ const OperatorBetting = () => {
       await fetchMemberContext(selectedMember.id, { silent: true });
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'สร้างโพยไม่สำเร็จ');
+      toast.error(error.response?.data?.message || 'บันทึกโพยไม่สำเร็จ');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCopyAsText = async () => {
+    setCopyingText(true);
+    try {
+      const nextPreview = preview || await handlePreview();
+      if (!nextPreview) return;
+
+      await copyPreviewSlipText({
+        preview: nextPreview,
+        selectedMember,
+        selectedLottery,
+        selectedRound,
+        selectedRateProfile,
+        actorLabel: copy.actorLabel,
+        operatorName: user?.name,
+        resolveRoundStatusLabel: getRoundStatusLabel
+      });
+      toast.success('คัดลอกข้อความสรุปโพยแล้ว');
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || 'คัดลอกข้อความสรุปโพยไม่สำเร็จ');
+    } finally {
+      setCopyingText(false);
     }
   };
 
@@ -662,7 +818,8 @@ const OperatorBetting = () => {
 
   const clearComposer = () => {
     setPreview(null);
-    setDefaultAmount('');
+    setPreviewDialogOpen(false);
+    setFastAmounts(buildInitialFastAmounts);
     setRawInput('');
     setReverse(false);
     setIncludeDoubleSet(false);
@@ -686,8 +843,12 @@ const OperatorBetting = () => {
 
   const applyRecentItem = (item) => {
     setMode('fast');
-    setActiveBetType(item.betType);
-    setDefaultAmount(String(item.amount || ''));
+    setFastFamily(item.betType?.startsWith('3') ? '3' : item.betType?.startsWith('2') ? '2' : 'run');
+    setFastAmounts({
+      top: item.betType?.endsWith('top') ? String(item.amount || '') : '',
+      bottom: item.betType?.endsWith('bottom') ? String(item.amount || '') : '',
+      tod: item.betType?.endsWith('tod') ? String(item.amount || '') : ''
+    });
     setRawInput(String(item.number || ''));
     setReverse(false);
     setIncludeDoubleSet(false);
@@ -718,7 +879,7 @@ const OperatorBetting = () => {
     }
 
     setMode('fast');
-    setActiveBetType(targetBetType);
+    setFastFamily(targetBetType.startsWith('3') ? '3' : targetBetType.startsWith('2') ? '2' : 'run');
     setRawInput(uniqueDigits.join('\n'));
     setReverse(false);
     setIncludeDoubleSet(false);
@@ -740,8 +901,12 @@ const OperatorBetting = () => {
 
     if (draft.mode === 'fast') {
       setMode('fast');
-      setActiveBetType(draft.betType);
-      setDefaultAmount(draft.defaultAmount);
+      setFastFamily(draft.betType?.startsWith('3') ? '3' : draft.betType?.startsWith('2') ? '2' : 'run');
+      setFastAmounts({
+        top: draft.betType?.endsWith('top') ? draft.defaultAmount : '',
+        bottom: draft.betType?.endsWith('bottom') ? draft.defaultAmount : '',
+        tod: draft.betType?.endsWith('tod') ? draft.defaultAmount : ''
+      });
       setRawInput(draft.rawInput);
       setGridRows(buildInitialGridRows);
       setGridBulkAmounts({ top: '', bottom: '', tod: '' });
@@ -750,7 +915,7 @@ const OperatorBetting = () => {
       setDigitMode(draft.digitMode);
       setGridRows(draft.rows);
       setGridBulkAmounts({ top: '', bottom: '', tod: '' });
-      setDefaultAmount('');
+      setFastAmounts(buildInitialFastAmounts);
       setRawInput('');
     }
 
@@ -870,6 +1035,21 @@ const OperatorBetting = () => {
   const updateGridAmount = (rowId, key, value) => setGridRows((current) => current.map((row) => (row.id === rowId ? { ...row, amounts: { ...row.amounts, [key]: value } } : row)));
   const updateGridRow = (rowId, patch) => setGridRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...patch } : row)));
   const removeGridRow = (rowId) => setGridRows((current) => (current.length <= 1 ? [buildEmptyGridRow()] : current.filter((row) => row.id !== rowId)));
+  const updateFastAmount = (columnKey, value) =>
+    setFastAmounts((current) => ({
+      ...current,
+      [columnKey]: value
+    }));
+  const applyFastAmountPreset = (amount) =>
+    setFastAmounts((current) => {
+      const next = { ...current };
+      fastFamilyConfig.columns.forEach((column) => {
+        if (supportedFastColumns[column.key]) {
+          next[column.key] = amount;
+        }
+      });
+      return next;
+    });
   const applyGridBulkAmount = (columnKey) => {
     const nextValue = gridBulkAmounts[columnKey];
     if (!nextValue) {
@@ -933,10 +1113,19 @@ const OperatorBetting = () => {
 
   useEffect(() => {
     if (!selectedLottery?.supportedBetTypes?.length) return;
-    const available = selectedLottery.supportedBetTypes.filter((betType) => !roundClosedBetTypes.includes(betType));
-    const nextTypes = available.length ? available : selectedLottery.supportedBetTypes;
-    if (!nextTypes.includes(activeBetType)) setActiveBetType(nextTypes[0]);
-  }, [activeBetType, roundClosedBetTypes, selectedLottery]);
+    const supported = new Set(selectedLottery.supportedBetTypes);
+    const closed = new Set(roundClosedBetTypes);
+    const fallbackFamilies = fastFamilyOptions.filter((option) =>
+      option.columns.some((column) => supported.has(column.betType))
+    );
+    const availableFamilies = fallbackFamilies.filter((option) =>
+      option.columns.some((column) => supported.has(column.betType) && !closed.has(column.betType))
+    );
+    const nextFamilies = availableFamilies.length ? availableFamilies : fallbackFamilies;
+    if (nextFamilies.length && !nextFamilies.some((option) => option.value === fastFamily)) {
+      setFastFamily(nextFamilies[0].value);
+    }
+  }, [fastFamily, roundClosedBetTypes, selectedLottery]);
 
   useEffect(() => {
     const desired = digitModeOptions.find((item) => item.value === digitMode)?.columns || [];
@@ -949,7 +1138,8 @@ const OperatorBetting = () => {
 
   useEffect(() => {
     setPreview(null);
-  }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, activeBetType, digitMode, defaultAmount, rawInput, reverse, includeDoubleSet, memo, gridRows]);
+    setPreviewDialogOpen(false);
+  }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, fastFamily, digitMode, fastAmounts, rawInput, reverse, includeDoubleSet, memo, gridRows]);
 
   useEffect(() => {
     setShowRates(false);
@@ -1150,25 +1340,98 @@ const OperatorBetting = () => {
                 {mode === 'fast' ? (
                   <>
                     <div className="operator-bettype-row">
-                      {(selectedLottery?.supportedBetTypes || []).map((betType) => <button key={betType} type="button" className={`btn ${activeBetType === betType ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setActiveBetType(betType)} disabled={roundClosedBetTypes.includes(betType)}>{getBetTypeLabel(betType)} • x{selectedRateProfile?.rates?.[betType] || 0}</button>)}
+                      {(enabledFastFamilies.length ? enabledFastFamilies : fastFamilyOptions).map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`btn ${fastFamily === option.value ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                          onClick={() => setFastFamily(option.value)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
                     </div>
                     <div className="operator-fast-grid">
-                      <div><label className="form-label">จำนวนมาตรฐาน</label><input className="form-input" type="number" min="1" placeholder="เช่น 10" value={defaultAmount} onChange={(event) => setDefaultAmount(event.target.value)} /></div>
-                      <div><label className="form-label">บันทึกช่วยจำ</label><input className="form-input" type="text" placeholder="เช่น ลูกค้า VIP รอบเช้า" value={memo} onChange={(event) => setMemo(event.target.value)} /></div>
+                      <div className="operator-fast-grid-wide">
+                        <label className="form-label">บันทึกช่วยจำ</label>
+                        <input
+                          className="form-input"
+                          type="text"
+                          placeholder="เช่น โพยรวมหน้าร้าน"
+                          value={memo}
+                          onChange={(event) => setMemo(event.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="operator-fast-rate-grid">
+                      {fastFamilyConfig.columns.map((column) => {
+                        const betLabel = getBetTypeLabel(column.betType);
+                        const enabled = supportedFastColumns[column.key];
+                        const rate = selectedRateProfile?.rates?.[column.betType] || 0;
+
+                        return (
+                          <div key={column.key} className={`card operator-fast-amount-card ${enabled ? '' : 'operator-fast-amount-card-disabled'}`}>
+                            <div className="ops-table-note">{betLabel}</div>
+                            <strong>x{rate}</strong>
+                            <input
+                              className="form-input"
+                              type="number"
+                              min="0"
+                              placeholder="ยอด"
+                              disabled={!enabled}
+                              value={fastAmounts[column.key]}
+                              onChange={(event) => setFastAmounts((current) => ({ ...current, [column.key]: event.target.value }))}
+                            />
+                            <div className="operator-helper-row compact">
+                              {quickAmountOptions.map((amount) => (
+                                <button
+                                  key={`${column.key}-${amount}`}
+                                  type="button"
+                                  className={`btn ${fastAmounts[column.key] === amount ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                                  disabled={!enabled}
+                                  onClick={() => setFastAmounts((current) => ({ ...current, [column.key]: amount }))}
+                                >
+                                  {amount} บาท
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="operator-helper-row compact">
-                      {quickAmountOptions.map((amount) => <button key={amount} type="button" className={`btn ${defaultAmount === amount ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setDefaultAmount(amount)}>{amount} บาท</button>)}
+                      <button type="button" className={`btn ${reverse ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setReverse((value) => !value)}>
+                        <FiShuffle /> กลับเลข
+                      </button>
+                      <button type="button" className={`btn ${includeDoubleSet ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setIncludeDoubleSet((value) => !value)}>
+                        <FiStar /> {includeDoubleSet ? 'เลขเบิ้ล' : 'ชุดปกติ'}
+                      </button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={clearComposer}>
+                        <FiRotateCcw /> ล้างทั้งหมด
+                      </button>
                     </div>
                     <div className="operator-helper-row compact">
-                      <button type="button" className={`btn ${reverse ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setReverse((value) => !value)}><FiShuffle /> กลับเลข</button>
-                      <button type="button" className={`btn ${includeDoubleSet ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setIncludeDoubleSet((value) => !value)}><FiStar /> {includeDoubleSet ? 'เลขเบิ้ล' : 'ชุดปกติ'}</button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={clearComposer}><FiRotateCcw /> ล้างทั้งหมด</button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}>
+                        วินบน
+                      </button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_bottom')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_bottom') || roundClosedBetTypes.includes('run_bottom')}>
+                        วินล่าง
+                      </button>
                     </div>
-                    <div className="operator-helper-row compact">
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}>วินบน</button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_bottom')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_bottom') || roundClosedBetTypes.includes('run_bottom')}>วินล่าง</button>
+                    <div className="operator-fast-input">
+                      <label className="form-label">วางข้อความคำสั่งซื้อ</label>
+                      <textarea
+                        ref={fastInputRef}
+                        className="form-input"
+                        rows="14"
+                        placeholder={getFastFamilyPlaceholder(fastFamily)}
+                        value={rawInput}
+                        onChange={(event) => setRawInput(event.target.value)}
+                      />
+                      <div className="ops-table-note" style={{ marginTop: 8 }}>
+                        ระบบจะกรองเครื่องหมายที่ไม่จำเป็นออก และดึงเฉพาะเลข {fastFamilyConfig.digits} ตัวตามแท็บที่เลือกให้อัตโนมัติ
+                      </div>
                     </div>
-                    <div style={{ marginTop: 16 }}><label className="form-label">แทงเร็ว</label><textarea ref={fastInputRef} className="form-input" rows="14" placeholder={'พิมพ์ 1 บรรทัดต่อ 1 รายการ\n123 10\n456=20\n789'} value={rawInput} onChange={(event) => setRawInput(event.target.value)} /></div>
                     {fastDraftGroups.length ? (
                       <div className="card operator-slip-draft-panel">
                         <div className="operator-slip-draft-head">
@@ -1313,14 +1576,14 @@ const OperatorBetting = () => {
 
           <aside className="card ops-section operator-preview-panel">
             <div className="ui-panel-head">
-              <div><div className="ui-eyebrow">ตัวอย่างโพย</div><h3 className="card-title">รีวิวก่อนส่งรายการซื้อ</h3></div>
-              <button className="btn btn-secondary btn-sm" onClick={handlePreview} disabled={previewing || !selectedMember}>{previewing ? <FiRefreshCw className="spin-animation" /> : <FiLayers />} รีวิวโพย</button>
+              <div><div className="ui-eyebrow">ตัวอย่างโพย</div><h3 className="card-title">รีวิวก่อนบันทึกรายการซื้อ</h3></div>
+              <button className="btn btn-secondary btn-sm" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasDraftItems}>{previewing ? <FiRefreshCw className="spin-animation" /> : <FiCheckCircle />} เปิดหน้าสรุปโพย</button>
             </div>
 
             {!preview ? (
               <div className="empty-state operator-preview-empty">
                 <div className="empty-state-icon"><FiLayers /></div>
-                <div className="empty-state-text">กรอกรายการซื้อแล้วกดรีวิวโพยเพื่อดูยอดรวม เรท และรายการที่จะส่งจริง</div>
+                <div className="empty-state-text">เตรียมรายการซื้อแล้วกดเปิดหน้าสรุปโพย เพื่อคัดลอกข้อความ คัดลอกรูป และตรวจสอบก่อนบันทึกเข้าระบบ</div>
               </div>
             ) : (
               <>
@@ -1395,11 +1658,80 @@ const OperatorBetting = () => {
             </div>
 
             <div className="operator-preview-actions">
-              <button className="btn btn-secondary" onClick={handleCopyAsImage} disabled={previewing || copyingImage || submitting || !selectedMember}><FiCopy /> {copyingImage ? 'กำลังคัดลอกโพยเป็นรูป...' : 'คัดลอกโพยเป็นรูป'}</button>
-              <button className="btn btn-primary" onClick={handleSubmitSlip} disabled={previewing || copyingImage || submitting || !selectedMember || !canSubmit}><FiSend /> {submitting ? 'กำลังส่งรายการซื้อ...' : 'ส่งรายการซื้อ'}</button>
-              {!canSubmit && selectedMember ? <div className="submit-warning">งวดนี้ไม่ได้อยู่ในสถานะเปิดรับ จึงส่งรายการซื้อไม่ได้ แต่ยังคัดลอกโพยเป็นรูปได้</div> : null}
+              <button className="btn btn-primary" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasDraftItems}><FiCheckCircle /> {previewing ? 'กำลังเตรียมสรุปโพย...' : 'รีวิวและบันทึกโพย'}</button>
+              {!canSubmit && selectedMember ? <div className="submit-warning">งวดนี้ไม่ได้อยู่ในสถานะเปิดรับ จึงยังบันทึกโพยเข้าระบบไม่ได้ แต่สามารถคัดลอกข้อความหรือรูปโพยให้ลูกค้าตรวจสอบได้</div> : null}
             </div>
           </aside>
+
+          {previewDialogOpen && preview ? (
+            <div className="modal-overlay" onClick={() => setPreviewDialogOpen(false)}>
+              <div className="modal operator-preview-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+                <div className="modal-header">
+                  <div>
+                    <div className="ui-eyebrow">สรุปโพยดิจิทัล</div>
+                    <h3 className="modal-title">ตรวจสอบก่อนบันทึกโพย</h3>
+                  </div>
+                  <button type="button" className="modal-close" onClick={() => setPreviewDialogOpen(false)} aria-label="ปิดหน้าต่าง">
+                    <FiX />
+                  </button>
+                </div>
+
+                <div className="card operator-preview-meta">
+                  <div>
+                    <strong>ซื้อแทน:</strong> {preview.member?.name || selectedMember?.name}
+                    <span className="ops-table-note">
+                      @{preview.member?.username || selectedMember?.username || '-'} • ได้เสีย {money(preview.member?.totals?.netProfit || selectedMember?.totals?.netProfit)} บาท
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 6 }}><strong>ผู้ทำรายการ:</strong> {preview.placedBy?.name || user?.name} <span className="ops-table-note">{copy.actorLabel}</span></div>
+                </div>
+                <div className="operator-preview-summary">
+                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>จำนวนรายการ</div><strong>{preview.summary?.itemCount || 0}</strong></div>
+                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>ยอดรวม</div><strong>{money(preview.summary?.totalAmount)} บาท</strong></div>
+                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>จ่ายสูงสุด</div><strong>{money(preview.summary?.potentialPayout)} บาท</strong></div>
+                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>สถานะงวด</div><strong>{getRoundStatusLabel(preview.roundStatus?.status)}</strong></div>
+                </div>
+                <div className="operator-preview-list operator-slip-group-list">
+                  {previewGroups.map((group) => (
+                    <div key={group.key} className="card operator-slip-group-card operator-slip-group-card-compact">
+                      <div className="operator-slip-group-side">
+                        <div className="operator-slip-family">{group.familyLabel}</div>
+                        <div className="operator-slip-combo">{group.comboLabel}</div>
+                        <div className="operator-slip-amount">{group.amountLabel}</div>
+                      </div>
+                      <div className="operator-slip-group-body">
+                        <div className="operator-slip-group-head">
+                          <span className="ops-table-note">{group.itemCount} รายการ</span>
+                          <strong>{money(group.totalAmount)} บาท</strong>
+                        </div>
+                        <div className="operator-slip-numbers">{group.numbersText}</div>
+                        <div className="ops-table-note">จ่ายสูงสุด {money(group.potentialPayout)} บาท</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {preview.memo ? (
+                  <div className="card operator-preview-note">
+                    <div className="ops-table-note" style={{ margin: 0 }}>บันทึกช่วยจำ</div>
+                    <strong>{preview.memo}</strong>
+                  </div>
+                ) : null}
+
+                <div className="modal-footer operator-preview-modal-actions">
+                  <button className="btn btn-secondary" onClick={handleCopyAsText} disabled={copyingText || copyingImage || submitting}>
+                    <FiFileText /> {copyingText ? 'กำลังคัดลอกข้อความ...' : 'คัดลอกข้อความ'}
+                  </button>
+                  <button className="btn btn-secondary" onClick={handleCopyAsImage} disabled={copyingText || copyingImage || submitting}>
+                    <FiCopy /> {copyingImage ? 'กำลังคัดลอกโพยเป็นรูป...' : 'คัดลอกโพยเป็นรูป'}
+                  </button>
+                  <button className="btn btn-primary" onClick={handleSubmitSlip} disabled={copyingText || copyingImage || submitting || !canSubmit}>
+                    <FiSend /> {submitting ? 'กำลังบันทึกโพย...' : 'บันทึกโพย'}
+                  </button>
+                </div>
+                {!canSubmit ? <div className="submit-warning">งวดนี้ไม่ได้อยู่ในสถานะเปิดรับ จึงยังบันทึกโพยเข้าระบบไม่ได้ แต่สามารถคัดลอกข้อความหรือรูปโพยเพื่อส่งให้ลูกค้าตรวจสอบได้</div> : null}
+              </div>
+            </div>
+          ) : null}
         </section>
       </section>
     </div>
