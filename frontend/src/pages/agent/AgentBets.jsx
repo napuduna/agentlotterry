@@ -12,8 +12,9 @@ import {
 } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
 import { agentCopy } from '../../i18n/th/agent';
-import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
+import { getBetResultLabel } from '../../i18n/th/labels';
 import { cancelAgentBettingSlip, getAgentBets } from '../../services/api';
+import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySavedSlipImage } from '../../utils/slipImage';
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
@@ -21,7 +22,7 @@ const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const ui = {
   eyebrow: 'พื้นที่ติดตามโพย',
   title: 'รายการโพยที่ซื้อแทน',
-  subtitle: 'รวมรายการที่อยู่ในเลขอ้างอิงเดียวกันไว้ในการ์ดเดียว เพื่อให้ดูโพยแต่ละใบง่ายขึ้นและจัดการได้จากจอเดียว',
+  subtitle: 'รวมรายการที่อยู่ในเลขอ้างอิงเดียวกันไว้ในการ์ดเดียว และแสดงผลแบบเดียวกับรีวิวโพยก่อนส่งรายการซื้อ',
   count: (value) => `${value} โพย`,
   roundLabel: 'งวดที่กำลังดู',
   allRounds: 'ทุกงวด',
@@ -30,15 +31,12 @@ const ui = {
   wonLabel: 'ยอดถูกรวม',
   cancellableLabel: 'โพยที่ยกเลิกได้',
   filterTitle: 'กรองตามงวด',
-  filterHint: 'เลือกงวดที่ต้องการก่อนดูโพย โดยระบบจะรวมรายการที่เป็นโพยเดียวกันให้อัตโนมัติ',
+  filterHint: 'เลือกรายการตามงวดที่ต้องการ แล้วดูโพยแบบรวมเลขในเลขอ้างอิงเดียวกัน',
   clearFilter: 'ล้างงวด',
   loadError: 'โหลดรายการโพยไม่สำเร็จ',
   cancelSuccess: 'ยกเลิกโพยสำเร็จ',
   cancelError: 'ยกเลิกโพยไม่สำเร็จ',
   slipLabel: 'เลขอ้างอิง',
-  slipItems: 'รายการในโพย',
-  stake: 'ยอดแทง',
-  won: 'ยอดถูก',
   totalStake: 'ยอดแทงรวมโพย',
   totalWon: 'ยอดถูกรวมโพย',
   marketRound: 'ตลาด / งวด',
@@ -52,23 +50,28 @@ const ui = {
   createImageSuccess: 'สร้างไฟล์รูปโพยแล้ว',
   copyImageError: 'คัดลอกโพยเป็นรูปไม่สำเร็จ',
   openFootnote: 'โพยนี้ยังเปิดอยู่และยกเลิกได้',
-  closedFootnote: 'โพยนี้ปิดการยกเลิกแล้ว',
+  closedFootnote: 'โพยนี้ปิดการยกเลิกแล้ว'
 };
 
-const buildSlipGroups = (bets) => {
+const groupBetsBySlip = (bets = []) => {
   const grouped = new Map();
 
   bets.forEach((bet) => {
-    const slipKey = bet.slipId || bet.slipNumber || `${bet.customerId?.id || bet.customerId?._id || bet.customerId?.name || 'member'}-${bet.roundDate}-${bet.marketId}-${bet.createdAt}`;
-    const existing = grouped.get(slipKey);
+    const slipKey =
+      bet.slipId ||
+      bet.slipNumber ||
+      `${bet.customerId?.id || bet.customerId?._id || bet.customerId?.name || 'member'}-${bet.roundDate}-${bet.marketId}-${bet.createdAt}`;
 
-    if (existing) {
-      existing.items.push(bet);
-      existing.totalStake += Number(bet.amount || 0);
-      existing.totalWon += Number(bet.wonAmount || 0);
-      existing.hasPending = existing.hasPending || (bet.result || 'pending') === 'pending';
-      existing.hasWon = existing.hasWon || (bet.result || 'pending') === 'won' || Number(bet.wonAmount || 0) > 0;
-      existing.createdAt = existing.createdAt > bet.createdAt ? existing.createdAt : bet.createdAt;
+    const current = grouped.get(slipKey);
+    if (current) {
+      current.items.push(bet);
+      current.totalStake += Number(bet.amount || 0);
+      current.totalWon += Number(bet.wonAmount || 0);
+      current.hasPending = current.hasPending || (bet.result || 'pending') === 'pending';
+      current.hasWon = current.hasWon || (bet.result || 'pending') === 'won' || Number(bet.wonAmount || 0) > 0;
+      if (new Date(bet.createdAt || 0) > new Date(current.createdAt || 0)) {
+        current.createdAt = bet.createdAt;
+      }
       return;
     }
 
@@ -91,6 +94,7 @@ const buildSlipGroups = (bets) => {
   return [...grouped.values()]
     .map((group) => ({
       ...group,
+      displayGroups: buildSlipDisplayGroups(group.items),
       result: group.hasPending ? 'pending' : group.hasWon ? 'won' : 'lost',
       canCancel: group.hasPending && !!group.slipId,
       itemCount: group.items.length
@@ -105,16 +109,12 @@ const AgentBets = () => {
   const [cancellingSlipId, setCancellingSlipId] = useState('');
   const [copyingSlipId, setCopyingSlipId] = useState('');
 
-  useEffect(() => {
-    load();
-  }, [roundDate]);
-
   const load = async () => {
     try {
       const params = {};
       if (roundDate) params.roundDate = roundDate;
-      const res = await getAgentBets(params);
-      setBets(res.data || []);
+      const response = await getAgentBets(params);
+      setBets(response.data || []);
     } catch (error) {
       console.error(error);
       toast.error(ui.loadError);
@@ -122,6 +122,10 @@ const AgentBets = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    load();
+  }, [roundDate]);
 
   const handleCancelSlip = async (slipId) => {
     if (!slipId) return;
@@ -150,8 +154,7 @@ const AgentBets = () => {
           ...group,
           resultLabel: getBetResultLabel(group.result)
         },
-        actorLabel: agentCopy.dashboard?.heroTitle || ui.title,
-        resolveBetTypeLabel: getBetTypeLabel
+        actorLabel: agentCopy.dashboard?.heroTitle || ui.title
       });
       toast.success(result.mode === 'clipboard' ? ui.copyImageSuccess : ui.createImageSuccess);
     } catch (error) {
@@ -162,14 +165,17 @@ const AgentBets = () => {
     }
   };
 
-  const slipGroups = useMemo(() => buildSlipGroups(bets), [bets]);
+  const slipGroups = useMemo(() => groupBetsBySlip(bets), [bets]);
 
-  const summary = useMemo(() => ({
-    totalStake: slipGroups.reduce((sum, group) => sum + Number(group.totalStake || 0), 0),
-    pendingSlips: slipGroups.filter((group) => group.result === 'pending').length,
-    totalWon: slipGroups.reduce((sum, group) => sum + Number(group.totalWon || 0), 0),
-    cancellableSlips: slipGroups.filter((group) => group.canCancel).length,
-  }), [slipGroups]);
+  const summary = useMemo(
+    () => ({
+      totalStake: slipGroups.reduce((sum, group) => sum + Number(group.totalStake || 0), 0),
+      pendingSlips: slipGroups.filter((group) => group.result === 'pending').length,
+      totalWon: slipGroups.reduce((sum, group) => sum + Number(group.totalWon || 0), 0),
+      cancellableSlips: slipGroups.filter((group) => group.canCancel).length
+    }),
+    [slipGroups]
+  );
 
   if (loading) return <PageSkeleton statCount={4} rows={4} sidebar={false} />;
 
@@ -288,27 +294,21 @@ const AgentBets = () => {
               </div>
             </div>
 
-            <div className="ag-bet-items-board">
-              {group.items.map((item) => (
-                <div key={item._id} className="ag-bet-item-tile">
-                  <div className="ag-bet-number-pill">{item.number}</div>
-                  <div className="ag-bet-item-body">
-                    <div className="ag-bet-item-head">
-                      <strong>{getBetTypeLabel(item.betType)}</strong>
-                      <span>x{item.payRate}</span>
+            <div className="operator-slip-group-list ag-bet-group-list">
+              {group.displayGroups.map((displayGroup) => (
+                <div key={displayGroup.key} className="card operator-slip-group-card ag-bet-group-card">
+                  <div className="operator-slip-group-side">
+                    <div className="operator-slip-family">{displayGroup.familyLabel}</div>
+                    <div className="operator-slip-combo">{displayGroup.comboLabel}</div>
+                    <div className="operator-slip-amount">{displayGroup.amountLabel}</div>
+                  </div>
+                  <div className="operator-slip-group-body">
+                    <div className="operator-slip-group-head">
+                      <span className="ops-table-note">{ui.itemCount(displayGroup.itemCount)}</span>
+                      <strong>{money(displayGroup.totalAmount)} บาท</strong>
                     </div>
-                    <div className="ag-bet-item-values">
-                      <div>
-                        <span>{ui.stake}</span>
-                        <strong>{money(item.amount)} บาท</strong>
-                      </div>
-                      <div>
-                        <span>{ui.won}</span>
-                        <strong className={(item.wonAmount || 0) > 0 ? 'ag-bet-meta-positive' : ''}>
-                          {(item.wonAmount || 0) > 0 ? `+${money(item.wonAmount)} บาท` : '-'}
-                        </strong>
-                      </div>
-                    </div>
+                    <div className="operator-slip-numbers">{displayGroup.numbersText}</div>
+                    <div className="ops-table-note">จ่ายสูงสุด {money(displayGroup.potentialPayout)} บาท</div>
                   </div>
                 </div>
               ))}
@@ -509,8 +509,7 @@ const AgentBets = () => {
           background: rgba(255, 252, 252, 0.9);
         }
 
-        .ag-bet-meta-block span,
-        .ag-bet-item-values span {
+        .ag-bet-meta-block span {
           color: var(--text-muted);
           font-size: 0.77rem;
           letter-spacing: 0.04em;
@@ -526,73 +525,13 @@ const AgentBets = () => {
           color: var(--success);
         }
 
-        .ag-bet-items-board {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        .ag-bet-group-list {
           gap: 12px;
         }
 
-        .ag-bet-item-tile {
-          display: grid;
-          grid-template-columns: 84px minmax(0, 1fr);
-          gap: 12px;
-          padding: 12px;
-          border-radius: 18px;
-          border: 1px solid var(--border);
-          background: rgba(255, 255, 255, 0.92);
-        }
-
-        .ag-bet-number-pill {
-          min-height: 84px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 18px;
-          background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(254, 242, 242, 0.92));
-          border: 1px solid rgba(220, 38, 38, 0.14);
-          color: var(--primary-dark);
-          font-size: clamp(1.5rem, 3vw, 2rem);
-          font-weight: 800;
-          letter-spacing: 0.08em;
-        }
-
-        .ag-bet-item-body {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          min-width: 0;
-        }
-
-        .ag-bet-item-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
-        .ag-bet-item-head strong {
-          font-size: 1rem;
-        }
-
-        .ag-bet-item-head span {
-          color: var(--primary);
-          font-weight: 700;
-        }
-
-        .ag-bet-item-values {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .ag-bet-item-values > div {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .ag-bet-item-values strong {
-          font-size: 0.96rem;
+        .ag-bet-group-card {
+          background: rgba(255, 255, 255, 0.94);
+          border-color: rgba(220, 38, 38, 0.14);
         }
 
         .ag-bet-card-bottom {
@@ -643,14 +582,6 @@ const AgentBets = () => {
         }
 
         @media (max-width: 720px) {
-          .ag-bet-item-tile {
-            grid-template-columns: 1fr;
-          }
-
-          .ag-bet-item-values {
-            grid-template-columns: 1fr;
-          }
-
           .ag-bets-date-field {
             width: 100%;
           }
@@ -662,11 +593,6 @@ const AgentBets = () => {
 
           .ag-bet-card {
             padding: 16px;
-          }
-
-          .ag-bet-number-pill {
-            min-height: 72px;
-            font-size: clamp(1.35rem, 5vw, 1.8rem);
           }
         }
       `}</style>

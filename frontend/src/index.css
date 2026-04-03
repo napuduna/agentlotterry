@@ -1177,14 +1177,14 @@ input, select, textarea {
 
 .operator-slip-group-card {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 18px;
-  padding: 16px;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
   box-shadow: none;
 }
 
 .operator-slip-group-card-compact {
-  padding: 16px;
+  padding: 12px;
 }
 
 .operator-slip-group-side {
@@ -1193,16 +1193,16 @@ input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 118px;
-  padding: 14px 16px;
-  border-radius: 18px;
+  min-height: 92px;
+  padding: 12px 10px;
+  border-radius: 16px;
   border: 1px solid rgba(220, 38, 38, 0.14);
   background: rgba(255, 245, 245, 0.96);
   text-align: center;
 }
 
 .operator-slip-family {
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 800;
   color: var(--primary);
   line-height: 1.1;
@@ -1210,7 +1210,7 @@ input, select, textarea {
 
 .operator-slip-combo,
 .operator-slip-amount {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--text-secondary);
   line-height: 1.2;
@@ -1224,7 +1224,7 @@ input, select, textarea {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   justify-content: flex-start;
 }
 
@@ -1237,15 +1237,15 @@ input, select, textarea {
 }
 
 .operator-slip-numbers {
-  padding: 18px 20px;
+  padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid rgba(220, 38, 38, 0.12);
   background: rgba(255, 253, 253, 0.96);
-  font-size: 1.12rem;
+  font-size: 1.04rem;
   font-weight: 700;
-  line-height: 1.9;
+  line-height: 1.72;
   word-break: break-word;
-  min-height: 112px;
+  min-height: 0;
 }
 
 .operator-draft-summary {
@@ -1334,25 +1334,25 @@ input, select, textarea {
 }
 
 .operator-preview-meta {
-  padding: 14px;
-  margin-top: 18px;
+  padding: 12px 14px;
+  margin-top: 12px;
   border-color: rgba(220, 38, 38, 0.2);
   background: linear-gradient(180deg, rgba(255, 253, 253, 0.96), rgba(255, 245, 245, 0.98));
 }
 
 .operator-preview-meta-row {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .operator-preview-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .operator-preview-summary .card {
-  padding: 12px;
+  padding: 10px 12px;
   box-shadow: none;
 }
 
@@ -1374,7 +1374,7 @@ input, select, textarea {
 .operator-preview-list {
   max-height: min(52vh, 640px);
   overflow: auto;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .operator-preview-item {
@@ -1411,7 +1411,7 @@ input, select, textarea {
 }
 
 .operator-preview-dialog {
-  width: min(1320px, calc(100vw - 32px));
+  width: min(1120px, calc(100vw - 32px));
   max-height: min(90vh, 980px);
   overflow: auto;
 }
