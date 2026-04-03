@@ -18,7 +18,6 @@ import {
   FiShuffle,
   FiStar,
   FiTrash2,
-  FiUser,
   FiX
 } from 'react-icons/fi';
 import GroupedSlipSummary from '../../components/GroupedSlipSummary';
@@ -154,6 +153,14 @@ Object.assign(roleConfig.admin, operatorBettingCopy.roles.admin);
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
+const sortMembersByActivity = (members = []) =>
+  [...members].sort((left, right) => {
+    const betDiff = Number(right?.totals?.totalBets || 0) - Number(left?.totals?.totalBets || 0);
+    if (betDiff !== 0) return betDiff;
+    const totalDiff = Number(right?.totals?.totalAmount || 0) - Number(left?.totals?.totalAmount || 0);
+    if (totalDiff !== 0) return totalDiff;
+    return String(left?.name || '').localeCompare(String(right?.name || ''), 'th');
+  });
 const formatDateTime = (value) =>
   value
     ? new Date(value).toLocaleString('th-TH', {
@@ -204,8 +211,27 @@ const toDraftPayloadEntries = (entries = []) =>
       : []
   }));
 
-const getFastFamilyConfig = (fastFamily) =>
-  fastFamilyOptions.find((option) => option.value === fastFamily) || fastFamilyOptions[0];
+const getFastFamilyConfig = (fastFamily) => {
+  const matched = fastFamilyOptions.find((option) => option.value === fastFamily) || fastFamilyOptions[0];
+
+  if (fastFamily === '2') {
+    return {
+      ...matched,
+      label: '2 ตัว',
+      columns: matched.columns.filter((column) => column.betType !== '2tod')
+    };
+  }
+
+  if (fastFamily === '3') {
+    return { ...matched, label: '3 ตัว' };
+  }
+
+  if (fastFamily === 'run') {
+    return { ...matched, label: 'วิ่ง' };
+  }
+
+  return matched;
+};
 
 const extractFastNumbersByDigits = (rawInput, digits) => {
   const numbers = [];
@@ -605,6 +631,7 @@ const OperatorBetting = () => {
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [memberPickerOpen, setMemberPickerOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -634,6 +661,7 @@ const OperatorBetting = () => {
   const [recentLoading, setRecentLoading] = useState(false);
   const [expandedRecentGroups, setExpandedRecentGroups] = useState({});
   const gridCellRefs = useRef({});
+  const memberPickerRef = useRef(null);
   const searchInputRef = useRef(null);
   const fastInputRef = useRef(null);
   const draftHydratingRef = useRef(false);
@@ -644,6 +672,7 @@ const OperatorBetting = () => {
   const selectedLottery = useMemo(() => flatLotteries.find((item) => item.id === selection.lotteryId) || null, [flatLotteries, selection.lotteryId]);
   const selectedRateProfile = useMemo(() => selectedLottery?.rateProfiles?.find((item) => item.id === selection.rateProfileId) || selectedLottery?.rateProfiles?.[0] || null, [selectedLottery, selection.rateProfileId]);
   const selectedRound = useMemo(() => rounds.find((item) => item.id === selection.roundId) || selectedLottery?.activeRound || null, [rounds, selection.roundId, selectedLottery]);
+  const sortedSearchResults = useMemo(() => sortMembersByActivity(searchResults), [searchResults]);
   const selectableRounds = useMemo(() => {
     const visible = rounds.filter((item) => !hiddenRoundStatuses.has(item.status));
     return visible.length ? visible : rounds;
@@ -1137,7 +1166,21 @@ const OperatorBetting = () => {
     if (!persisted) return;
 
     await fetchMemberContext(memberId);
+    setMemberPickerOpen(false);
   };
+
+  useEffect(() => {
+    if (!memberPickerOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!memberPickerRef.current?.contains(event.target)) {
+        setMemberPickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [memberPickerOpen]);
 
   const handleLotteryChange = async (lotteryId) => {
     const nextLottery = flatLotteries.find((item) => item.id === lotteryId);
@@ -1395,16 +1438,17 @@ const OperatorBetting = () => {
   }, []);
 
   useEffect(() => {
-    if (!searchText.trim()) {
+    if (!memberPickerOpen) {
       setSearchResults([]);
       setSearching(false);
       return undefined;
     }
+
     const timer = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const response = await copy.search({ q: searchText.trim(), limit: 8 });
-        setSearchResults(response.data || []);
+        const response = await copy.search({ q: searchText.trim(), limit: 12 });
+        setSearchResults(sortMembersByActivity(response.data || []));
       } catch (error) {
         console.error(error);
         toast.error(error.response?.data?.message || copyMessages.searchFailed);
@@ -1413,7 +1457,7 @@ const OperatorBetting = () => {
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [copy, searchText]);
+  }, [copy, memberPickerOpen, searchText]);
 
   useEffect(() => {
     const loadRounds = async () => {
@@ -1619,23 +1663,42 @@ const OperatorBetting = () => {
         <div className="ops-hero-copy operator-hero-copy">
           <div className="ui-eyebrow">{copy.actorLabel}</div>
           <h1 className="page-title">{copy.title}</h1>
-          <p className="page-subtitle">{copy.subtitle}</p>
+          {copy.subtitle ? <p className="page-subtitle">{copy.subtitle}</p> : null}
         </div>
       </section>
 
       <section className="operator-layout">
         <section className="operator-workspace">
           <section className="card ops-section operator-composer-panel">
-          <div className="ui-eyebrow">{copyText.firstStepEyebrow}</div>
-          <h3 className="card-title">{copy.pickerTitle}</h3>
-          <p className="ops-table-note">{copy.pickerNote}</p>
-
-          <div className="operator-search-block">
-            <label className="form-label">{copyText.searchMemberLabel}</label>
-            <div className="form-input operator-search-field">
+          <div className="operator-search-block" ref={memberPickerRef}>
+            <div className={`form-input operator-search-field ${memberPickerOpen ? 'operator-search-field-open' : ''}`}>
               <FiSearch />
-              <input ref={searchInputRef} className="operator-search-input" type="text" value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder={copy.searchPlaceholder} />
+              <input
+                ref={searchInputRef}
+                className="operator-search-input"
+                type="text"
+                value={searchText}
+                onFocus={() => setMemberPickerOpen(true)}
+                onChange={(event) => {
+                  setSearchText(event.target.value);
+                  setMemberPickerOpen(true);
+                }}
+                placeholder={copy.searchPlaceholder}
+              />
+              <FiChevronDown className={`operator-search-chevron ${memberPickerOpen ? 'is-open' : ''}`} />
             </div>
+            {memberPickerOpen ? (
+              <div className="operator-search-dropdown">
+                {searching ? <div className="operator-search-empty">{copyText.searching}</div> : null}
+                {!searching && sortedSearchResults.map((member) => (
+                  <button key={member.id} type="button" className="operator-search-option" onClick={() => handleSelectMember(member.id)}>
+                    <span>{member.name}</span>
+                    <small>{member.totals?.totalBets || 0} {copyText.itemsSuffix} • {money(member.totals?.totalAmount)} {copyText.baht}</small>
+                  </button>
+                ))}
+                {!searching && !sortedSearchResults.length ? <div className="operator-search-empty">ไม่พบสมาชิก</div> : null}
+              </div>
+            ) : null}
           </div>
 
           {selectedMember ? (
@@ -1649,38 +1712,13 @@ const OperatorBetting = () => {
             </div>
           ) : null}
 
-          {searchText.trim() ? (
+          {selectedMember ? (
             <>
-
-            <div className="operator-search-results">
-              {searching ? <div className="card" style={{ padding: 14 }}>{copyText.searching}</div> : null}
-              {!searching && searchResults.map((member) => (
-                <button key={member.id} type="button" className="card operator-search-result" onClick={() => handleSelectMember(member.id)}>
-                  <div>
-                    <strong>{member.name}</strong>
-                    <div className="ops-table-note">@{member.username}</div>
-                    <div className="ops-table-note">{member.phone || getUserStatusLabel(member.status)}</div>
-                  </div>
-                  <div className="operator-search-meta">
-                    <strong>{money(member.totals?.netProfit)} {copyText.baht}</strong>
-                    <div className="ops-table-note">{copyText.creditBalance} {money(member.creditBalance)} {copyText.baht}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <div className="operator-composer-divider" />
             </>
           ) : null}
-            <div className="operator-composer-divider" />
-            <div className="ui-eyebrow">{copyText.bettingEyebrow}</div>
-            <h3 className="card-title">{copyText.bettingTitle}</h3>
-            <p className="ops-table-note">{copyText.bettingSubtitle}</p>
 
-            {!selectedMember ? (
-              <div className="empty-state" style={{ marginTop: 20 }}>
-                <div className="empty-state-icon"><FiUser /></div>
-                <div className="empty-state-text">{copyText.selectMemberFirst}</div>
-              </div>
-            ) : (
+            {selectedMember ? (
               <>
                 <div className="operator-select-grid">
                   <div>
@@ -1762,28 +1800,28 @@ const OperatorBetting = () => {
                         </button>
                       ))}
                     </div>
-                    <div className="operator-fast-grid">
-                      <div className="operator-fast-grid-wide">
-                        <label className="form-label">{copyText.memoLabel}</label>
-                        <input
-                          className="form-input"
-                          type="text"
-                          placeholder={copyText.memoPlaceholder}
-                          value={memo}
-                          onChange={(event) => setMemo(event.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="operator-fast-rate-grid">
+                    <div className={`operator-fast-entry-row ${fastFamily === '2' ? 'operator-fast-entry-row-two' : ''}`}>
+                      {fastFamily === '2' ? (
+                        <div className="card operator-fast-amount-card operator-fast-order-card">
+                          <label className="operator-fast-amount-label" htmlFor="fast-order-input">{copyText.pastedOrderLabel}</label>
+                          <textarea
+                            id="fast-order-input"
+                            ref={fastInputRef}
+                            className="form-input operator-inline-order-input"
+                            rows="1"
+                            placeholder={getFastFamilyPlaceholder(fastFamily)}
+                            value={rawInput}
+                            onChange={(event) => setRawInput(event.target.value)}
+                          />
+                        </div>
+                      ) : null}
                       {fastFamilyConfig.columns.map((column) => {
                         const betLabel = getBetTypeLabel(column.betType);
                         const enabled = supportedFastColumns[column.key];
 
                         return (
                           <div key={column.key} className={`card operator-fast-amount-card ${enabled ? '' : 'operator-fast-amount-card-disabled'}`}>
-                            <div className="operator-fast-amount-head">
-                              <label className="operator-fast-amount-label" htmlFor={`fast-amount-${column.key}`}>{betLabel}</label>
-                            </div>
+                            <label className="operator-fast-amount-label" htmlFor={`fast-amount-${column.key}`}>{betLabel}</label>
                             <input
                               id={`fast-amount-${column.key}`}
                               className="form-input"
@@ -1817,18 +1855,28 @@ const OperatorBetting = () => {
                         {copyText.runBottom}
                       </button>
                     </div>
-                    <div className="operator-fast-input">
-                      <label className="form-label">{copyText.pastedOrderLabel}</label>
-                      <textarea
-                        ref={fastInputRef}
-                        className="form-input"
-                        rows="14"
-                        placeholder={getFastFamilyPlaceholder(fastFamily)}
-                        value={rawInput}
-                        onChange={(event) => setRawInput(event.target.value)}
-                      />
-                      <div className="ops-table-note" style={{ marginTop: 8 }}>
-                        {operatorBettingCopy.common.pastedOrderHintForDigits(fastFamilyConfig.digits)}
+                    {fastFamily !== '2' ? (
+                      <div className="operator-fast-input">
+                        <label className="form-label">{copyText.pastedOrderLabel}</label>
+                        <textarea
+                          ref={fastInputRef}
+                          className="form-input"
+                          rows="8"
+                          placeholder={getFastFamilyPlaceholder(fastFamily)}
+                          value={rawInput}
+                          onChange={(event) => setRawInput(event.target.value)}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="operator-fast-grid">
+                      <div className="operator-fast-grid-wide">
+                        <input
+                          className="form-input"
+                          type="text"
+                          placeholder={copyText.memoPlaceholder}
+                          value={memo}
+                          onChange={(event) => setMemo(event.target.value)}
+                        />
                       </div>
                     </div>
                   </>
@@ -1999,7 +2047,7 @@ const OperatorBetting = () => {
                 </div>
                 <div className="bet-note" style={{ marginTop: 16 }}><FiAlertCircle /><span>{copyText.validationNote}</span></div>
               </>
-            )}
+            ) : null}
           </section>
 
           <aside className="card ops-section operator-preview-panel">

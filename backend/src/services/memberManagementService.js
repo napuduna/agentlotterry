@@ -538,6 +538,7 @@ const searchMembersForBetting = async ({ actorId, actorRole, search = '', agentI
     status: member.status,
     isActive: member.isActive,
     totals: {
+      totalBets: totalsByCustomer[member._id.toString()]?.count || 0,
       totalAmount: totalsByCustomer[member._id.toString()]?.totalAmount || 0,
       totalWon: totalsByCustomer[member._id.toString()]?.totalWon || 0,
       netProfit:
