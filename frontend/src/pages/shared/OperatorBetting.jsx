@@ -631,7 +631,7 @@ const OperatorBetting = () => {
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [memberPickerOpen, setMemberPickerOpen] = useState(false);
+  const [memberPickerOpen, setMemberPickerOpen] = useState(true);
   const [selectedMember, setSelectedMember] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -1157,6 +1157,7 @@ const OperatorBetting = () => {
     setRecentItems([]);
     setSearchText('');
     setSearchResults([]);
+    setMemberPickerOpen(true);
     setSearchParams({});
     window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
@@ -1455,7 +1456,7 @@ const OperatorBetting = () => {
       } finally {
         setSearching(false);
       }
-    }, 250);
+    }, searchText.trim() ? 250 : 0);
     return () => window.clearTimeout(timer);
   }, [copy, memberPickerOpen, searchText]);
 
@@ -1694,20 +1695,12 @@ const OperatorBetting = () => {
           </div>
 
           {selectedMember ? (
-            <div className="operator-selected-member">
-              <div className="operator-selected-member-head">
-                <div className="operator-selected-body">
-                  <strong>{selectedMember.name}</strong>
-                </div>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={clearSelectedMember}><FiX /> {copyText.clearSelection}</button>
-              </div>
+            <div className="operator-search-selection">
+              <span className="operator-search-selection-name">{selectedMember.name}</span>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={clearSelectedMember}>
+                <FiX /> {copyText.clearSelection}
+              </button>
             </div>
-          ) : null}
-
-          {selectedMember ? (
-            <>
-            <div className="operator-composer-divider" />
-            </>
           ) : null}
 
             {selectedMember ? (
@@ -1799,9 +1792,9 @@ const OperatorBetting = () => {
                           <textarea
                             id="fast-order-input"
                             ref={fastInputRef}
-                            className="form-input operator-inline-order-input"
+                            className="form-input operator-inline-order-input operator-command-input-masked"
                             rows="1"
-                            placeholder={getFastFamilyPlaceholder(fastFamily)}
+                            placeholder=""
                             value={rawInput}
                             onChange={(event) => setRawInput(event.target.value)}
                           />
@@ -1852,9 +1845,9 @@ const OperatorBetting = () => {
                         <label className="form-label">{copyText.pastedOrderLabel}</label>
                         <textarea
                           ref={fastInputRef}
-                          className="form-input"
+                          className="form-input operator-command-input-masked"
                           rows="8"
-                          placeholder={getFastFamilyPlaceholder(fastFamily)}
+                          placeholder=""
                           value={rawInput}
                           onChange={(event) => setRawInput(event.target.value)}
                         />

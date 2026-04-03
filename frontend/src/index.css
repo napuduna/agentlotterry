@@ -988,6 +988,24 @@ input, select, textarea {
   overflow: auto;
 }
 
+.operator-search-selection {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  background: #fff8f8;
+}
+
+.operator-search-selection-name {
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: var(--text-strong);
+  line-height: 1.2;
+}
+
 .operator-search-option,
 .operator-search-empty {
   padding: 8px 10px;
@@ -1161,6 +1179,17 @@ input, select, textarea {
   height: 42px;
   padding-top: 9px;
   padding-bottom: 9px;
+}
+
+.operator-command-input-masked {
+  color: transparent !important;
+  caret-color: var(--text-strong);
+  text-shadow: none;
+}
+
+.operator-command-input-masked::selection {
+  background: rgba(220, 38, 38, 0.18);
+  color: transparent;
 }
 
 .operator-fast-amount-card-disabled {
