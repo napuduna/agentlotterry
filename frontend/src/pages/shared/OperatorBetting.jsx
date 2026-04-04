@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -6,7 +6,6 @@ import {
   FiCheckCircle,
   FiChevronDown,
   FiChevronUp,
-  FiClock,
   FiCopy,
   FiFileText,
   FiLayers,
@@ -153,6 +152,14 @@ Object.assign(roleConfig.admin, operatorBettingCopy.roles.admin);
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
+const dedupeOrderedNumbers = (numbers = []) => {
+  const seen = new Set();
+  return (numbers || []).filter((value) => {
+    if (!value || seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
+};
 const sortMembersByActivity = (members = []) =>
   [...members].sort((left, right) => {
     const betDiff = Number(right?.totals?.totalBets || 0) - Number(left?.totals?.totalBets || 0);
@@ -252,7 +259,7 @@ const extractFastNumbersByDigits = (rawInput, digits) => {
         .forEach((token) => numbers.push(token));
     });
 
-  return numbers;
+  return dedupeOrderedNumbers(numbers);
 };
 
 const getFastEnabledColumns = ({ fastFamily, supportedBetTypes = [], closedBetTypes = [] }) => {
@@ -267,7 +274,8 @@ const getFastEnabledColumns = ({ fastFamily, supportedBetTypes = [], closedBetTy
 };
 
 const getFastDraftSummary = ({
-  rawInput,
+  parsedCandidates,
+  activeNumbers,
   fastFamily,
   includeDoubleSet,
   reverse,
@@ -276,7 +284,6 @@ const getFastDraftSummary = ({
   closedBetTypes
 }) => {
   const config = getFastFamilyConfig(fastFamily);
-  const extractedNumbers = extractFastNumbersByDigits(rawInput, config.digits);
   const enabledColumns = getFastEnabledColumns({
     fastFamily,
     supportedBetTypes,
@@ -285,12 +292,17 @@ const getFastDraftSummary = ({
   const pricedColumns = config.columns.filter(
     (column) => enabledColumns[column.key] && Number(fastAmounts?.[column.key] || 0) > 0
   ).length;
+  const activeAmounts = config.columns
+    .filter((column) => enabledColumns[column.key] && Number(fastAmounts?.[column.key] || 0) > 0)
+    .map((column) => `${getBetTypeLabel(column.betType)} ${money(fastAmounts?.[column.key] || 0)}`);
 
   return {
-    lineCount: extractedNumbers.length,
+    parsedCount: parsedCandidates.length,
+    selectedCount: activeNumbers.length,
     helperCount: includeDoubleSet ? doubleSetCounts[config.digits] || 0 : 0,
     reverseEnabled: Boolean(reverse),
-    pricedColumns
+    pricedColumns,
+    activeAmountSummary: activeAmounts.join(' • ') || 'ยังไม่ใส่ยอด'
   };
 };
 
@@ -562,6 +574,7 @@ const combineFastDraftItems = (items) => {
 const buildFastDraftItems = ({
   fastFamily,
   rawInput,
+  numbers,
   reverse,
   includeDoubleSet,
   rates,
@@ -575,7 +588,9 @@ const buildFastDraftItems = ({
     supportedBetTypes,
     closedBetTypes
   });
-  const numbers = extractFastNumbersByDigits(rawInput, config.digits);
+  const activeNumbers = Array.isArray(numbers)
+    ? dedupeOrderedNumbers(numbers.filter((number) => normalizeDigits(number).length === config.digits))
+    : extractFastNumbersByDigits(rawInput, config.digits);
 
   const items = [];
 
@@ -596,7 +611,7 @@ const buildFastDraftItems = ({
     });
   };
 
-  numbers.forEach((number) => {
+  activeNumbers.forEach((number) => {
     if (normalizeDigits(number).length !== config.digits) return;
     appendNumberItems(number);
   });
@@ -644,6 +659,7 @@ const OperatorBetting = () => {
   const [digitMode, setDigitMode] = useState('2');
   const [fastAmounts, setFastAmounts] = useState(buildInitialFastAmounts);
   const [rawInput, setRawInput] = useState('');
+  const [excludedFastNumbers, setExcludedFastNumbers] = useState([]);
   const [reverse, setReverse] = useState(false);
   const [includeDoubleSet, setIncludeDoubleSet] = useState(false);
   const [gridRows, setGridRows] = useState(buildInitialGridRows);
@@ -715,10 +731,19 @@ const OperatorBetting = () => {
       }),
     [fastFamily, roundClosedBetTypes, selectedLottery]
   );
+  const parsedFastCandidates = useMemo(() => {
+    if (mode !== 'fast') return [];
+    return extractFastNumbersByDigits(rawInput, fastFamilyConfig.digits);
+  }, [fastFamilyConfig.digits, mode, rawInput]);
+  const activeFastNumbers = useMemo(
+    () => parsedFastCandidates.filter((number) => !excludedFastNumbers.includes(number)),
+    [excludedFastNumbers, parsedFastCandidates]
+  );
   const fastDraftSummary = useMemo(
     () =>
       getFastDraftSummary({
-        rawInput,
+        parsedCandidates: parsedFastCandidates,
+        activeNumbers: activeFastNumbers,
         fastFamily,
         includeDoubleSet,
         reverse,
@@ -726,7 +751,7 @@ const OperatorBetting = () => {
         supportedBetTypes: selectedLottery?.supportedBetTypes || [],
         closedBetTypes: roundClosedBetTypes
       }),
-    [fastAmounts, fastFamily, includeDoubleSet, rawInput, reverse, roundClosedBetTypes, selectedLottery]
+    [activeFastNumbers, fastAmounts, fastFamily, includeDoubleSet, parsedFastCandidates, reverse, roundClosedBetTypes, selectedLottery]
   );
   const gridDraftSummary = useMemo(() => getGridDraftSummary(gridRows), [gridRows]);
   const recentSlipGroups = useMemo(() => groupRecentItemsBySlip(recentItems), [recentItems]);
@@ -736,6 +761,7 @@ const OperatorBetting = () => {
     return buildFastDraftItems({
       fastFamily,
       rawInput,
+      numbers: activeFastNumbers,
       reverse,
       includeDoubleSet,
       rates: selectedRateProfile?.rates || {},
@@ -743,7 +769,7 @@ const OperatorBetting = () => {
       supportedBetTypes: selectedLottery?.supportedBetTypes || [],
       closedBetTypes: roundClosedBetTypes
     });
-  }, [fastAmounts, fastFamily, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
+  }, [activeFastNumbers, fastAmounts, fastFamily, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
   const fastDraftGroups = useMemo(() => buildSlipDisplayGroups(fastDraftItems), [fastDraftItems]);
   const gridDraftItems = useMemo(() => {
     if (mode !== 'grid') return [];
@@ -762,7 +788,16 @@ const OperatorBetting = () => {
   );
   const combinedDraftGroups = useMemo(() => buildSlipDisplayGroups(combinedDraftItems), [combinedDraftItems]);
   const previewGroups = useMemo(() => buildSlipDisplayGroups(preview?.items || []), [preview]);
+  const combinedDraftSummary = useMemo(() => ({
+    itemCount: combinedDraftItems.length,
+    totalAmount: combinedDraftItems.reduce((sum, item) => sum + Number(item?.amount || 0), 0),
+    potentialPayout: combinedDraftItems.reduce((sum, item) => sum + Number(item?.potentialPayout || (Number(item?.amount || 0) * Number(item?.payRate || 0))), 0)
+  }), [combinedDraftItems]);
   const hasDraftItems = currentDraftItems.length > 0;
+  const combinedDraftMemo = useMemo(
+    () => [...savedDraftEntries.map((entry) => entry.memo).filter(Boolean), hasDraftItems ? memo : ''].filter(Boolean).join(' | '),
+    [hasDraftItems, memo, savedDraftEntries]
+  );
   const hasSavedDraftEntries = savedDraftEntries.length > 0;
   const hasPendingSlip = combinedDraftItems.length > 0;
 
@@ -836,6 +871,7 @@ const OperatorBetting = () => {
     setPreviewDialogOpen(false);
     setFastAmounts(buildInitialFastAmounts);
     setRawInput('');
+    setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
     setGridRows(buildInitialGridRows);
@@ -929,6 +965,7 @@ const OperatorBetting = () => {
       fastFamily,
       fastAmounts: { ...fastAmounts },
       rawInput,
+      excludedFastNumbers: [...excludedFastNumbers],
       reverse,
       includeDoubleSet,
       memo
@@ -956,6 +993,7 @@ const OperatorBetting = () => {
     setFastFamily(source?.fastFamily || '2');
     setFastAmounts(source?.fastAmounts || buildInitialFastAmounts());
     setRawInput(source?.rawInput || '');
+    setExcludedFastNumbers(source?.excludedFastNumbers || []);
     setReverse(Boolean(source?.reverse));
     setIncludeDoubleSet(Boolean(source?.includeDoubleSet));
     setGridRows(buildInitialGridRows);
@@ -1086,6 +1124,12 @@ const OperatorBetting = () => {
     setPreview(null);
     setPreviewDialogOpen(false);
     toast.success(copyMessages.removeDraftSuccess);
+  };
+
+  const toggleFastCandidate = (number) => {
+    setExcludedFastNumbers((current) =>
+      current.includes(number) ? current.filter((value) => value !== number) : [...current, number]
+    );
   };
 
   const handleCopyAsText = async () => {
@@ -1224,6 +1268,7 @@ const OperatorBetting = () => {
       tod: item.betType?.endsWith('tod') ? String(item.amount || '') : ''
     });
     setRawInput(String(item.number || ''));
+    setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
     setPreview(null);
@@ -1244,7 +1289,9 @@ const OperatorBetting = () => {
     const sourceNumbers =
       mode === 'grid'
         ? gridRows.map((row) => row.number)
-        : extractFastLineNumbers(rawInput);
+        : activeFastNumbers.length
+          ? activeFastNumbers
+          : extractFastLineNumbers(rawInput);
     const uniqueDigits = extractUniqueDigits(sourceNumbers);
 
     if (!uniqueDigits.length) {
@@ -1255,6 +1302,7 @@ const OperatorBetting = () => {
     setMode('fast');
     setFastFamily(targetBetType.startsWith('3') ? '3' : targetBetType.startsWith('2') ? '2' : 'run');
     setRawInput(uniqueDigits.join('\n'));
+    setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
     setPreview(null);
@@ -1514,7 +1562,11 @@ const OperatorBetting = () => {
   useEffect(() => {
     setPreview(null);
     setPreviewDialogOpen(false);
-  }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, fastFamily, digitMode, fastAmounts, rawInput, reverse, includeDoubleSet, memo, gridRows, savedDraftEntries]);
+  }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, fastFamily, digitMode, fastAmounts, rawInput, excludedFastNumbers, reverse, includeDoubleSet, memo, gridRows, savedDraftEntries]);
+
+  useEffect(() => {
+    setExcludedFastNumbers((current) => current.filter((number) => parsedFastCandidates.includes(number)));
+  }, [parsedFastCandidates]);
 
   useEffect(() => {
     if (!draftScopeParams || !draftScopeKey) {
@@ -1600,6 +1652,7 @@ const OperatorBetting = () => {
     digitMode,
     fastAmounts,
     rawInput,
+    excludedFastNumbers,
     reverse,
     includeDoubleSet,
     memo,
@@ -1676,7 +1729,7 @@ const OperatorBetting = () => {
                   setSearchText(event.target.value);
                   setMemberPickerOpen(true);
                 }}
-                placeholder="ค้นหาสมาชิก"
+                placeholder={copy.searchPlaceholder}
               />
               <FiChevronDown className={`operator-search-chevron ${memberPickerOpen ? 'is-open' : ''}`} />
             </div>
@@ -1720,14 +1773,6 @@ const OperatorBetting = () => {
                   </div>
                 </div>
 
-                <div className="operator-pill-row">
-                  <span className="ui-pill"><FiLayers /> {selectedLottery?.name || '-'}</span>
-                  <span className="ui-pill"><FiClock /> {selectedRound?.title || '-'}</span>
-                  <span className="ui-pill">{getRoundStatusLabel(selectedRound?.status)}</span>
-                  <span className="ui-pill">{copyText.closeAtPrefix} {formatDateTime(selectedRound?.closeAt)}</span>
-                  <span className="ui-pill">{selectedRateProfile?.name || copyText.defaultRateName}</span>
-                </div>
-
                 <button type="button" className="btn btn-secondary btn-sm operator-rate-toggle" onClick={() => setShowRates((value) => !value)}>
                   {showRates ? <FiChevronUp /> : <FiChevronDown />}
                   {showRates ? copyText.hideRates : copyText.showRates}
@@ -1752,25 +1797,6 @@ const OperatorBetting = () => {
                   <button type="button" className={`btn ${mode === 'grid' ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setMode('grid')}>{copyText.gridMode}</button>
                 </div>
 
-                <div className="operator-draft-summary">
-                  <div>
-                    <div className="ops-table-note" style={{ margin: 0 }}>{copyText.currentMode}</div>
-                    <strong>{mode === 'fast' ? copyText.fastMode : `กรอกตาราง ${digitMode} ตัว`}</strong>
-                  </div>
-                  <div>
-                    <div className="ops-table-note" style={{ margin: 0 }}>{copyText.itemsBeforePreview}</div>
-                    <strong>{mode === 'fast' ? `${fastDraftSummary.lineCount} ${copyText.linesSuffix}` : `${gridDraftSummary.filledRows} ${copyText.rowsSuffix}`}</strong>
-                  </div>
-                  <div>
-                    <div className="ops-table-note" style={{ margin: 0 }}>{copyText.enabledHelpers}</div>
-                    <strong>
-                      {mode === 'fast'
-                        ? [fastDraftSummary.reverseEnabled ? copyText.reverse : null, fastDraftSummary.helperCount ? `${copyText.doubleSet} ${fastDraftSummary.helperCount}` : null].filter(Boolean).join(' • ') || copyText.noHelpers
-                        : `${gridDraftSummary.amountCells} ${copyText.amountCellsSuffix}`}
-                    </strong>
-                  </div>
-                </div>
-
                 {mode === 'fast' ? (
                   <>
                     <div className="operator-bettype-row">
@@ -1784,6 +1810,41 @@ const OperatorBetting = () => {
                           {option.label}
                         </button>
                       ))}
+                    </div>
+                    <div className="operator-working-slip-flat">
+                      <div className="operator-working-slip-stats">
+                        <div>
+                          <div className="ops-table-note" style={{ margin: 0 }}>เลขที่คัดได้</div>
+                          <strong>{fastDraftSummary.parsedCount} เลข</strong>
+                        </div>
+                        <div>
+                          <div className="ops-table-note" style={{ margin: 0 }}>เลขที่เลือกอยู่</div>
+                          <strong>{fastDraftSummary.selectedCount} เลข</strong>
+                        </div>
+                        <div>
+                          <div className="ops-table-note" style={{ margin: 0 }}>ยอดชุดปัจจุบัน</div>
+                          <strong>{fastDraftSummary.activeAmountSummary || '-'}</strong>
+                        </div>
+                      </div>
+                      <div className="operator-fast-chip-list">
+                        {parsedFastCandidates.length ? (
+                          parsedFastCandidates.map((number) => {
+                            const isActive = activeFastNumbers.includes(number);
+                            return (
+                              <button
+                                key={number}
+                                type="button"
+                                className={`operator-fast-chip ${isActive ? 'is-active' : 'is-muted'}`}
+                                onClick={() => toggleFastCandidate(number)}
+                              >
+                                {number}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="ops-table-note">คัดเลขจากข้อความคำสั่งซื้อแล้วจะแสดงที่นี่</div>
+                        )}
+                      </div>
                     </div>
                     <div className={`operator-fast-entry-row ${fastFamily === '2' ? 'operator-fast-entry-row-two' : ''}`}>
                       {fastFamily === '2' ? (
@@ -1831,8 +1892,6 @@ const OperatorBetting = () => {
                       <button type="button" className="btn btn-secondary btn-sm" onClick={clearComposer}>
                         <FiRotateCcw /> {copyText.clearAll}
                       </button>
-                    </div>
-                    <div className="operator-helper-row compact">
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}>
                         {copyText.runTop}
                       </button>
@@ -1955,76 +2014,10 @@ const OperatorBetting = () => {
                   </>
                 )}
 
-                {hasSavedDraftEntries ? (
-                  <div className="card operator-saved-drafts-panel">
-                    <div className="operator-slip-draft-head">
-                      <div>
-                        <div className="ui-eyebrow">{copyText.savedEyebrow}</div>
-                        <h4 className="card-title" style={{ marginBottom: 0 }}>{copyText.savedTitle}</h4>
-                      </div>
-                      <div className="ops-table-note">{savedDraftEntries.length} {copyText.groupsSuffix}</div>
-                    </div>
-                    <div className="operator-saved-draft-list">
-                      {savedDraftEntries.map((entry, index) => (
-                        <div key={entry.id} className="card operator-saved-draft-item">
-                          <div className="operator-saved-draft-copy">
-                            <strong>{copyText.setLabel} {index + 1}</strong>
-                            <div className="ops-table-note">{entry.itemCount} {copyText.itemsSuffix} • {money(entry.totalAmount)} {copyText.baht}</div>
-                            {entry.groups?.length ? (
-                              <div className="ops-table-note">
-                                {entry.groups.map((group) => `${group.familyLabel} ${group.comboLabel} ${group.amountLabel}`).join(' • ')}
-                              </div>
-                            ) : null}
-                            {entry.memo ? <div className="ops-table-note">{copyText.memoPrefix} {entry.memo}</div> : null}
-                          </div>
-                          <div className="operator-saved-draft-actions">
-                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleEditSavedDraftEntry(entry.id)}>
-                              {copyText.edit}
-                            </button>
-                            <button type="button" className="btn btn-danger btn-sm" onClick={() => handleRemoveSavedDraftEntry(entry.id)}>
-                              {copyText.delete}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {combinedDraftGroups.length ? (
-                  <div className="card operator-slip-draft-panel">
-                    <div className="operator-slip-draft-head">
-                      <div>
-                        <div className="ui-eyebrow">{copyText.draftEyebrow}</div>
-                        <h4 className="card-title" style={{ marginBottom: 0 }}>{copyText.draftAllTitle}</h4>
-                      </div>
-                      <div className="ops-table-note">{selectedLottery?.name || '-'} • {selectedRound?.title || '-'}</div>
-                    </div>
-                    <div className="operator-slip-group-list">
-                      {combinedDraftGroups.map((group) => (
-                        <div key={group.key} className="card operator-slip-group-card">
-                          <div className="operator-slip-group-side">
-                            <div className="operator-slip-family">{group.familyLabel}</div>
-                            <div className="operator-slip-combo">{group.comboLabel}</div>
-                            <div className="operator-slip-amount">{group.amountLabel}</div>
-                          </div>
-                          <div className="operator-slip-group-body">
-                            <div className="operator-slip-group-head">
-                              <span className="ops-table-note">{group.itemCount} {copyText.itemsSuffix}</span>
-                              <strong>{money(group.totalAmount)} {copyText.baht}</strong>
-                            </div>
-                            <div className="operator-slip-numbers">{group.numbersText}</div>
-                            <div className="ops-table-note">จ่ายสูงสุด {money(group.potentialPayout)} {copyText.baht}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
 
                 <div className="operator-helper-row compact operator-staged-actions">
                   <button type="button" className="btn btn-secondary btn-sm" onClick={handleSaveDraftEntry} disabled={!selectedMember || !hasDraftItems}>
-                    <FiFileText /> {copyText.saveForLater}
+                    <FiSend /> {copyText.submitSlip}
                   </button>
                   <button type="button" className="btn btn-primary btn-sm" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasPendingSlip}>
                     {previewing ? <FiRefreshCw className="spin-animation" /> : <FiCheckCircle />} {copyText.summarizeSlip}
@@ -2041,82 +2034,53 @@ const OperatorBetting = () => {
               <button className="btn btn-secondary btn-sm" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasPendingSlip}>{previewing ? <FiRefreshCw className="spin-animation" /> : <FiCheckCircle />} {copyText.openPreview}</button>
               </div>
 
-            {!preview ? (
+            {!hasPendingSlip ? (
               <div className="empty-state operator-preview-empty">
                 <div className="empty-state-icon"><FiLayers /></div>
-                <div className="empty-state-text">{copyText.previewEmpty}</div>
+                <div className="empty-state-text">คีย์เลขแล้วกดสั่งซื้อ เพื่อรวมเข้าโพยรอบนี้</div>
               </div>
             ) : (
               <>
-                <div className="card operator-preview-meta">
+                <div className="card operator-preview-compact-summary">
                   <div>
-                    <strong>{previewCopy.memberLabel}:</strong> {preview.member?.name || selectedMember?.name}
-                    <span className="ops-table-note">
-                      @{preview.member?.username || selectedMember?.username || '-'} • {copyText.netProfit} {money(preview.member?.totals?.netProfit || selectedMember?.totals?.netProfit)} {copyText.baht}
-                    </span>
+                    <div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.memberLabel}</div>
+                    <strong>{selectedMember?.name || '-'}</strong>
                   </div>
-                  <div style={{ marginTop: 6 }}><strong>{previewCopy.actorLabel}:</strong> {preview.placedBy?.name || user?.name} <span className="ops-table-note">{copy.actorLabel}</span></div>
+                  <div>
+                    <div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.totalAmountLabel}</div>
+                    <strong>{money(combinedDraftSummary.totalAmount)} {copyText.baht}</strong>
+                  </div>
                 </div>
-                <div className="operator-preview-summary">
-                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{copyText.itemsBeforePreview}</div><strong>{preview.summary?.itemCount || 0}</strong></div>
-                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.totalAmountLabel}</div><strong>{money(preview.summary?.totalAmount)} {copyText.baht}</strong></div>
-                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.maxPayoutLabel}</div><strong>{money(preview.summary?.potentialPayout)} {copyText.baht}</strong></div>
-                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.roundStatusLabel}</div><strong>{getRoundStatusLabel(preview.roundStatus?.status)}</strong></div>
-                </div>
-                <div className="operator-preview-list operator-slip-group-list">
-                  {previewGroups.map((group) => (
-                    <div key={group.key} className="card operator-slip-group-card operator-slip-group-card-compact">
-                      <div className="operator-slip-group-side">
-                        <div className="operator-slip-family">{group.familyLabel}</div>
-                        <div className="operator-slip-combo">{group.comboLabel}</div>
-                        <div className="operator-slip-amount">{group.amountLabel}</div>
-                      </div>
-                      <div className="operator-slip-group-body">
-                        <div className="operator-slip-group-head">
-                          <span className="ops-table-note">{group.itemCount} {copyText.itemsSuffix}</span>
-                          <strong>{money(group.totalAmount)} {copyText.baht}</strong>
+                <div className="operator-preview-grouped-summary">
+                  {hasSavedDraftEntries ? (
+                    <div className="operator-preview-staged-toolbar">
+                      {savedDraftEntries.map((entry, index) => (
+                        <div key={entry.id} className="operator-preview-stage-pill">
+                          <div className="operator-preview-stage-pill-copy">
+                            <strong>{copyText.setLabel} {index + 1}</strong>
+                            <span className="ops-table-note">{entry.itemCount} {copyText.itemsSuffix} • {money(entry.totalAmount)} {copyText.baht}</span>
+                          </div>
+                          <div className="operator-preview-stage-pill-actions">
+                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleEditSavedDraftEntry(entry.id)}>
+                              {copyText.edit}
+                            </button>
+                            <button type="button" className="btn btn-danger btn-sm" onClick={() => handleRemoveSavedDraftEntry(entry.id)}>
+                              {copyText.delete}
+                            </button>
+                          </div>
                         </div>
-                        <div className="operator-slip-numbers">{group.numbersText}</div>
-                        <div className="ops-table-note">จ่ายสูงสุด {money(group.potentialPayout)} {copyText.baht}</div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : null}
+                  <GroupedSlipSummary
+                    slip={{ items: combinedDraftItems, displayGroups: combinedDraftGroups, memo: combinedDraftMemo }}
+                    dense
+                    showMemo={Boolean(combinedDraftMemo)}
+                    className="slip-grouped-compact"
+                  />
                 </div>
               </>
             )}
-
-            <div className="card operator-recent-panel">
-              <div className="ui-panel-head">
-                <div>
-                  <div className="ui-eyebrow">{copyText.recentEyebrow}</div>
-                  <h4 className="card-title" style={{ marginBottom: 0 }}>{copyText.recentTitle}</h4>
-                </div>
-                {recentLoading ? <FiRefreshCw className="spin-animation" /> : null}
-              </div>
-
-              {!selectedMember ? (
-                <div className="ops-table-note" style={{ marginTop: 12 }}>{copyText.recentNeedsMember}</div>
-              ) : recentItems.length ? (
-                <div className="operator-recent-list">
-                  {recentItems.map((item) => (
-                    <div key={item._id} className="card operator-recent-item">
-                      <div>
-                        <strong>{item.number}</strong>
-                        <div className="ops-table-note" style={{ marginTop: 4 }}>{getBetTypeLabel(item.betType)} • {item.slipNumber}</div>
-                        <div className="ops-table-note">{formatDateTime(item.createdAt)}</div>
-                      </div>
-                      <div className="operator-recent-item-right">
-                        <strong>{money(item.amount)} {copyText.baht}</strong>
-                        <div className="ops-table-note">x{item.payRate}</div>
-                        <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={() => applyRecentItem(item)}>{copyText.useAgain}</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="ops-table-note" style={{ marginTop: 12 }}>{copyText.recentEmpty}</div>
-              )}
-            </div>
 
             <div className="operator-preview-actions">
               <button className="btn btn-primary" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasPendingSlip}><FiCheckCircle /> {previewing ? copyText.previewPreparing : copyText.submitSlipNow}</button>
@@ -2139,17 +2103,17 @@ const OperatorBetting = () => {
 
                 <div className="card operator-preview-meta">
                   <div>
-                    <strong>ซื้อแทน:</strong> {preview.member?.name || selectedMember?.name}
+                    <strong>{previewCopy.memberLabel}:</strong> {preview.member?.name || selectedMember?.name}
                     <span className="ops-table-note">
-                      @{preview.member?.username || selectedMember?.username || '-'} • ได้เสีย {money(preview.member?.totals?.netProfit || selectedMember?.totals?.netProfit)} บาท
+                      @{preview.member?.username || selectedMember?.username || '-'} • {copyText.netProfit} {money(preview.member?.totals?.netProfit || selectedMember?.totals?.netProfit)} {copyText.baht}
                     </span>
                   </div>
-                  <div style={{ marginTop: 6 }}><strong>ผู้ทำรายการ:</strong> {preview.placedBy?.name || user?.name} <span className="ops-table-note">{copy.actorLabel}</span></div>
+                  <div style={{ marginTop: 6 }}><strong>{previewCopy.actorLabel}:</strong> {preview.placedBy?.name || user?.name} <span className="ops-table-note">{copy.actorLabel}</span></div>
                 </div>
                 <div className="operator-preview-summary">
                   <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.itemCountLabel}</div><strong>{preview.summary?.itemCount || 0}</strong></div>
-                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.totalAmountLabel}</div><strong>{money(preview.summary?.totalAmount)} บาท</strong></div>
-                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.maxPayoutLabel}</div><strong>{money(preview.summary?.potentialPayout)} บาท</strong></div>
+                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.totalAmountLabel}</div><strong>{money(preview.summary?.totalAmount)} {copyText.baht}</strong></div>
+                  <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.maxPayoutLabel}</div><strong>{money(preview.summary?.potentialPayout)} {copyText.baht}</strong></div>
                   <div className="card" style={{ padding: 12 }}><div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.roundStatusLabel}</div><strong>{getRoundStatusLabel(preview.roundStatus?.status)}</strong></div>
                 </div>
                 <div className="operator-preview-list operator-slip-group-list">
@@ -2162,11 +2126,11 @@ const OperatorBetting = () => {
                       </div>
                       <div className="operator-slip-group-body">
                         <div className="operator-slip-group-head">
-                          <span className="ops-table-note">{group.itemCount} รายการ</span>
-                          <strong>{money(group.totalAmount)} บาท</strong>
+                          <span className="ops-table-note">{group.itemCount} {copyText.itemsSuffix}</span>
+                          <strong>{money(group.totalAmount)} {copyText.baht}</strong>
                         </div>
                         <div className="operator-slip-numbers">{group.numbersText}</div>
-                        <div className="ops-table-note">{previewCopy.maxPayoutLabel} {money(group.potentialPayout)} บาท</div>
+                        <div className="ops-table-note">{previewCopy.maxPayoutLabel} {money(group.potentialPayout)} {copyText.baht}</div>
                       </div>
                     </div>
                   ))}

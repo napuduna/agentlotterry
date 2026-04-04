@@ -910,7 +910,7 @@ input, select, textarea {
 
 .operator-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  grid-template-columns: minmax(0, 6fr) minmax(320px, 4fr);
   gap: 10px;
   align-items: start;
 }
@@ -1101,12 +1101,12 @@ input, select, textarea {
 .operator-helper-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .operator-helper-row.compact {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .operator-mode-row {
@@ -1119,8 +1119,8 @@ input, select, textarea {
 .operator-fast-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .operator-fast-grid-wide {
@@ -1130,21 +1130,21 @@ input, select, textarea {
 .operator-fast-entry-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
   align-items: stretch;
 }
 
 .operator-fast-entry-row-two {
-  grid-template-columns: minmax(0, 1.55fr) minmax(150px, 0.72fr) minmax(150px, 0.72fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .operator-fast-amount-card {
-  padding: 10px 10px 8px;
+  padding: 8px 8px 7px;
   box-shadow: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   border: 1px solid rgba(220, 38, 38, 0.24);
   background: #fff;
   border-radius: 12px;
@@ -1158,8 +1158,8 @@ input, select, textarea {
 }
 
 .operator-fast-amount-card .form-input {
-  min-height: 42px;
-  padding: 7px 10px;
+  min-height: 40px;
+  padding: 6px 10px;
   border-color: rgba(220, 38, 38, 0.5);
   background: #fff;
   color: var(--text-strong);
@@ -1175,10 +1175,10 @@ input, select, textarea {
   resize: none;
   overflow: hidden;
   line-height: 1.25;
-  min-height: 42px;
-  height: 42px;
-  padding-top: 9px;
-  padding-bottom: 9px;
+  min-height: 40px;
+  height: 40px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .operator-command-input-masked {
@@ -1198,14 +1198,14 @@ input, select, textarea {
 
 .operator-grid-memo,
 .operator-fast-input {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .operator-grid-bulk {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .operator-grid-bulk-card {
@@ -1237,8 +1237,8 @@ input, select, textarea {
 .operator-grid-rows {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .operator-grid-row {
@@ -1281,42 +1281,8 @@ input, select, textarea {
   margin-bottom: 12px;
 }
 
-.operator-saved-drafts-panel {
-  margin-top: 16px;
-  padding: 14px;
-  box-shadow: none;
-}
-
-.operator-saved-draft-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.operator-saved-draft-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
-  box-shadow: none;
-}
-
-.operator-saved-draft-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.operator-saved-draft-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .operator-staged-actions {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 .operator-slip-group-list {
   display: flex;
@@ -1426,27 +1392,61 @@ input, select, textarea {
   line-height: 1.38;
 }
 
-.operator-draft-summary {
-  margin-top: 12px;
-  padding: 8px 10px;
+.operator-working-slip-flat {
+  margin-top: 8px;
+}
+
+.operator-working-slip-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  box-shadow: none;
-  background: #fff;
-  border: 1px solid rgba(220, 38, 38, 0.16);
-  border-radius: 14px;
+  margin-top: 0;
 }
 
-.operator-draft-summary .ops-table-note {
-  margin: 0;
+.operator-working-slip-stats > div {
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.12);
+  background: rgba(255, 255, 255, 0.86);
 }
 
-.operator-draft-summary strong {
+.operator-working-slip-stats strong {
   display: block;
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 1.02rem;
   line-height: 1.2;
+}
+
+.operator-fast-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.operator-fast-chip {
+  min-width: 52px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  background: #fff;
+  color: #991b1b;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.operator-fast-chip.is-active {
+  background: linear-gradient(180deg, #34d399, #22c55e);
+  border-color: rgba(22, 163, 74, 0.42);
+  color: #fff;
+}
+
+.operator-fast-chip.is-muted {
+  background: rgba(248, 250, 252, 0.92);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #94a3b8;
 }
 
 .operator-rate-row {
@@ -1516,8 +1516,72 @@ input, select, textarea {
   top: 88px;
 }
 
+.operator-preview-staged-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.operator-preview-staged-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  box-shadow: none;
+}
+
+.operator-preview-staged-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.operator-preview-stage-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(220, 38, 38, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 251, 251, 0.94);
+}
+
+.operator-preview-stage-pill-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.operator-preview-stage-pill-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .operator-preview-empty {
   margin-top: 18px;
+}
+
+.operator-preview-compact-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  box-shadow: none;
+}
+
+.operator-preview-compact-summary strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.08rem;
+  line-height: 1.2;
 }
 
 .operator-preview-meta {
@@ -1807,7 +1871,7 @@ input, select, textarea {
   .operator-preview-summary,
   .operator-fast-entry-row,
   .operator-fast-grid,
-  .operator-draft-summary,
+  .operator-working-slip-stats,
   .operator-grid-bulk {
     grid-template-columns: 1fr;
   }
@@ -2598,11 +2662,11 @@ input, select, textarea {
 
 
 @media (max-width: 760px) {
-  .operator-saved-draft-item {
+  .operator-preview-staged-item {
     flex-direction: column;
   }
 
-  .operator-saved-draft-actions {
+  .operator-preview-staged-actions {
     width: 100%;
   }
 }
