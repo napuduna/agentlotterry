@@ -1,17 +1,20 @@
 const BetItem = require('../models/BetItem');
 const BetSlip = require('../models/BetSlip');
 const User = require('../models/User');
+const { Types } = require('mongoose');
 const { normalizeLotteryCode } = require('../utils/lotteryCode');
+
+const toObjectId = (value) => (Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : value);
 
 const buildSubmittedItemMatch = ({ agentId, customerId, startDate, endDate } = {}) => {
   const match = { status: 'submitted' };
 
   if (agentId) {
-    match.agentId = agentId;
+    match.agentId = toObjectId(agentId);
   }
 
   if (customerId) {
-    match.customerId = customerId;
+    match.customerId = toObjectId(customerId);
   }
 
   if (startDate && endDate) {
@@ -36,11 +39,11 @@ const buildSlipMatch = ({ roundDate, marketId, agentId, customerId } = {}) => {
   }
 
   if (agentId) {
-    match.agentId = agentId;
+    match.agentId = toObjectId(agentId);
   }
 
   if (customerId) {
-    match.customerId = customerId;
+    match.customerId = toObjectId(customerId);
   }
 
   return match;
@@ -159,14 +162,38 @@ const getBetTotals = async ({ agentId, customerId, startDate, endDate } = {}) =>
 };
 
 const getRecentBetItems = async ({ agentId, limit = 10 } = {}) => {
-  const items = await BetItem.find(buildSubmittedItemMatch({ agentId }))
+  const recentSlips = await BetSlip.find(buildSlipMatch({ agentId }))
     .sort({ createdAt: -1 })
     .limit(limit)
+    .select('_id');
+
+  if (!recentSlips.length) {
+    return [];
+  }
+
+  const slipOrder = new Map(recentSlips.map((slip, index) => [slip._id.toString(), index]));
+  const items = await BetItem.find({
+    ...buildSubmittedItemMatch({ agentId }),
+    slipId: { $in: recentSlips.map((slip) => slip._id) }
+  })
     .populate('customerId', 'name username')
     .populate('agentId', 'name username')
-    .populate('slipId', 'slipNumber lotteryCode lotteryName roundCode roundTitle');
+    .populate('slipId', 'slipNumber lotteryCode lotteryName roundCode roundTitle memo')
+    .sort({ sequence: 1, createdAt: 1 });
 
-  return items.map(mapBetItemToLegacyShape);
+  return items
+    .sort((left, right) => {
+      const leftSlipId = left.slipId?._id?.toString?.() || left.slipId?.toString?.() || '';
+      const rightSlipId = right.slipId?._id?.toString?.() || right.slipId?.toString?.() || '';
+      const slipDiff = (slipOrder.get(leftSlipId) ?? Number.MAX_SAFE_INTEGER) - (slipOrder.get(rightSlipId) ?? Number.MAX_SAFE_INTEGER);
+      if (slipDiff !== 0) return slipDiff;
+
+      const sequenceDiff = Number(left.sequence || 0) - Number(right.sequence || 0);
+      if (sequenceDiff !== 0) return sequenceDiff;
+
+      return new Date(left.createdAt || 0) - new Date(right.createdAt || 0);
+    })
+    .map(mapBetItemToLegacyShape);
 };
 
 const getTotalsGroupedByField = async (field, match = {}) => {

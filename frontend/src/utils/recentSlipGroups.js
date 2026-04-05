@@ -18,6 +18,7 @@ export const groupRecentBetsBySlip = (
   items.forEach((bet) => {
     const key = bet.slipId || bet.slipNumber || bet._id;
     const existing = grouped.get(key);
+    const resolvedMarketName = resolveMarketName?.(bet) || bet.marketName || bet.marketId || defaultMarketName;
 
     if (existing) {
       existing.items.push(bet);
@@ -33,7 +34,7 @@ export const groupRecentBetsBySlip = (
       slipId: bet.slipId || '',
       slipNumber: bet.slipNumber || '',
       customer: bet.customerId,
-      marketName: resolveMarketName?.(bet) || defaultMarketName,
+      marketName: resolvedMarketName,
       roundLabel: formatRoundLabel(bet.roundTitle || bet.roundDate || '-'),
       result: bet.result || 'pending',
       totalAmount: Number(bet.amount || 0),

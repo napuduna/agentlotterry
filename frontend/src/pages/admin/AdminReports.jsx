@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import PageSkeleton from '../../components/PageSkeleton';
 import { adminCopy } from '../../i18n/th/admin';
 import { getAdminReports, getAgents, getCatalogLotteries, getCatalogRounds } from '../../services/api';
-import { formatMoney as money } from '../../utils/formatters';
+import { formatMoney as money, formatRoundLabel } from '../../utils/formatters';
 const copy = adminCopy.reports;
 const defaultFilters = {
   agentId: '',
@@ -223,7 +223,7 @@ const AdminReports = () => {
               </option>
               {roundOptions.map((round) => (
                 <option key={round.id} value={round.code}>
-                  {`${round.title} • ${round.statusLabel}`}
+                  {`${formatRoundLabel(round.title || round.code)} • ${round.statusLabel}`}
                 </option>
               ))}
             </select>
@@ -306,7 +306,7 @@ const AdminReports = () => {
               ) : (
                 reports.map((report, index) => (
                   <tr key={`${report.roundDate}-${report.agentName || index}`}>
-                    <td className="ops-history-cell-strong">{report.roundDate}</td>
+                    <td className="ops-history-cell-strong">{formatRoundLabel(report.roundDate)}</td>
                     <td>{report.marketName || adminCopy.common.defaultMarket}</td>
                     <td>{report.agentName || '-'}</td>
                     <td>{report.betCount}</td>
