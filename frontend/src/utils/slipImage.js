@@ -1,4 +1,5 @@
 import { buildSlipDisplayGroups } from './slipGrouping';
+import { formatMoney as money } from './formatters';
 
 const REM = 16;
 
@@ -65,8 +66,6 @@ const NOTE = {
   paddingY: 7,
   lineHeight: TYPE.noteText * 1.35
 };
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const wrapText = (ctx, text, maxWidth) => {
   const content = String(text || '').trim();

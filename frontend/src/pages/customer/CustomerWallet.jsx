@@ -5,8 +5,7 @@ import { memberCopy } from '../../i18n/th/member';
 import { getWalletEntryTypeLabel, getWalletReasonLabel } from '../../i18n/th/labels';
 import { getWalletHistory, getWalletSummary } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatDateTime, formatMoney as money } from '../../utils/formatters';
 
 const CustomerWallet = () => {
   const copy = memberCopy.wallet;
@@ -87,7 +86,7 @@ const CustomerWallet = () => {
               </div>
               {entry.note ? <div className="wallet-row-note">{entry.note}</div> : null}
             </div>
-            <div className="wallet-row-time"><FiClock /><span>{new Date(entry.createdAt).toLocaleString('th-TH')}</span></div>
+            <div className="wallet-row-time"><FiClock /><span>{formatDateTime(entry.createdAt)}</span></div>
           </article>
         ))}
       </section>

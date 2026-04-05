@@ -15,6 +15,7 @@ import {
   manualLottery,
   updateRoundClosedBetTypes
 } from '../../services/api';
+import { formatDateTime } from '../../utils/formatters';
 
 const copy = adminCopy.lottery;
 
@@ -27,13 +28,6 @@ const resultStatusLabel = (result) => {
   if (result?.isCalculated) return copy.settled;
   if (result?.firstPrize) return copy.resultSaved;
   return copy.waitingResult;
-};
-
-const formatDateTime = (value) => {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
 const AdminLottery = () => {

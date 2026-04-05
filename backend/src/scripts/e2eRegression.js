@@ -25,7 +25,6 @@ const uniqueSuffix = Date.now().toString().slice(-6);
 const shouldStartServer = process.env.E2E_SKIP_SERVER !== '1';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const toId = (value) => value?._id?.toString?.() || value?.toString?.() || '';
 
 const makeClient = (token = '') =>
   axios.create({
@@ -303,8 +302,7 @@ const main = async () => {
         username: memberUsername,
         password: memberPassword,
         name: `E2E Regression Member ${uniqueSuffix}`,
-        phone: '0881111111',
-        memberCode: `RGR${uniqueSuffix}`
+        phone: '0881111111'
       },
       profile: {
         creditBalance: 0,

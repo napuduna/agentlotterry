@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { FiX } from 'react-icons/fi';
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {

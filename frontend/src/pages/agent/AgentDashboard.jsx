@@ -8,55 +8,9 @@ import { useCatalog } from '../../context/CatalogContext';
 import { agentCopy } from '../../i18n/th/agent';
 import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
 import { getAgentDashboard } from '../../services/api';
+import { groupRecentBetsBySlip } from '../../utils/recentSlipGroups';
 import { copySavedSlipImage } from '../../utils/slipImage';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
-
-const formatDateTime = (value) => {
-  if (!value) return agentCopy.dashboard.noRecentActivity;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return agentCopy.dashboard.noRecentActivity;
-  return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
-};
-
-const groupRecentBetsBySlip = (items = []) => {
-  const grouped = new Map();
-
-  items.forEach((bet) => {
-    const key = bet.slipId || bet.slipNumber || bet._id;
-    const existing = grouped.get(key);
-
-    if (existing) {
-      existing.items.push(bet);
-      existing.totalAmount += Number(bet.amount || 0);
-      existing.totalPotentialPayout += Number(bet.potentialPayout || 0);
-      existing.result =
-        existing.result === 'pending' || (bet.result || 'pending') === 'pending'
-          ? 'pending'
-          : existing.result === 'won' || (bet.result || 'pending') === 'won'
-            ? 'won'
-            : 'lost';
-      existing.memo = existing.memo || bet.memo || '';
-      return;
-    }
-
-    grouped.set(key, {
-      key,
-      slipId: bet.slipId || '',
-      slipNumber: bet.slipNumber || '',
-      customer: bet.customerId,
-      marketName: bet.marketName || bet.marketId || '-',
-      roundLabel: bet.roundTitle || bet.roundDate || '-',
-      result: bet.result || 'pending',
-      totalAmount: Number(bet.amount || 0),
-      totalPotentialPayout: Number(bet.potentialPayout || 0),
-      memo: bet.memo || '',
-      items: [bet]
-    });
-  });
-
-  return [...grouped.values()];
-};
+import { formatDateTime, formatMoney as money } from '../../utils/formatters';
 
 const AgentDashboard = () => {
   const { announcements, markAnnouncementRead } = useCatalog();
@@ -82,7 +36,13 @@ const AgentDashboard = () => {
 
   const stats = data?.stats || {};
   const unreadAnnouncements = announcements.filter((announcement) => !announcement.isRead).length;
-  const groupedRecentBets = useMemo(() => groupRecentBetsBySlip(data?.recentBets || []), [data?.recentBets]);
+  const groupedRecentBets = useMemo(
+    () =>
+      groupRecentBetsBySlip(data?.recentBets || [], {
+        resolveMarketName: (bet) => bet.marketName || bet.marketId || '-'
+      }),
+    [data?.recentBets]
+  );
   const hasSidePanels = Boolean(data?.onlineMembers?.length || announcements.length);
 
   const statCards = useMemo(
@@ -241,7 +201,7 @@ const AgentDashboard = () => {
                         <div className="recent-meta">@{member.username}</div>
                       </div>
                       <div className="recent-right">
-                        <span>{formatDateTime(member.lastActiveAt)}</span>
+                        <span>{formatDateTime(member.lastActiveAt, { fallback: agentCopy.dashboard.noRecentActivity })}</span>
                       </div>
                     </article>
                   ))}

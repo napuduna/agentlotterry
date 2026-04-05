@@ -13,9 +13,9 @@ import {
   getAgents,
   updateAdminCustomer
 } from '../../services/api';
+import { formatMoney as money } from '../../utils/formatters';
 
 const copy = adminCopy.customers;
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerManagement = () => {
   const navigate = useNavigate();

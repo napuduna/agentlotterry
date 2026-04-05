@@ -3,8 +3,7 @@ import { FiTrendingDown, FiTrendingUp } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
 import { memberCopy } from '../../i18n/th/member';
 import { getMemberSummary } from '../../services/api';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money } from '../../utils/formatters';
 
 const CustomerSummary = () => {
   const copy = memberCopy.summary;

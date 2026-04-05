@@ -1,7 +1,6 @@
 import { FiCopy, FiX } from 'react-icons/fi';
 import GroupedSlipSummary from './GroupedSlipSummary';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money } from '../utils/formatters';
 
 const copy = {
   eyebrow: 'สรุปโพยดิจิทัล',

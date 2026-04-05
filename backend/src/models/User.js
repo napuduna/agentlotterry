@@ -40,12 +40,6 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Name is required'],
     trim: true
   },
-  memberCode: {
-    type: String,
-    trim: true,
-    uppercase: true,
-    default: null
-  },
   phone: {
     type: String,
     trim: true,

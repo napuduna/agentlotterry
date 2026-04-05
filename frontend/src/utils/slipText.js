@@ -1,7 +1,6 @@
 import { buildSlipDisplayGroups } from './slipGrouping';
 import { operatorBettingCopy } from '../i18n/th/operatorBetting';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money, formatRoundLabel } from './formatters';
 
 const fallbackWriteText = async (text) => {
   const textarea = document.createElement('textarea');
@@ -34,7 +33,7 @@ export const buildPreviewSlipText = ({
     `${copy.memberLabel}: ${memberName} (@${memberUsername})`,
     `${copy.actorLabel}: ${operatorName || '-'}${actorLabel ? ` • ${actorLabel}` : ''}`,
     `${copy.marketLabel}: ${selectedLottery?.name || preview?.lottery?.name || '-'}`,
-    `${copy.roundLabel}: ${selectedRound?.title || preview?.round?.title || '-'}`,
+    `${copy.roundLabel}: ${formatRoundLabel(selectedRound?.title || preview?.round?.title || '-')}`,
     `${copy.rateLabel}: ${selectedRateProfile?.name || preview?.rateProfile?.name || copy.defaultRateName}`,
     `${copy.totalAmountLabel}: ${money(preview?.summary?.totalAmount)} บาท`,
     ''

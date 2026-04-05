@@ -5,6 +5,7 @@ import PageSkeleton from '../../components/PageSkeleton';
 import { agentCopy } from '../../i18n/th/agent';
 import { getBetTypeLabel } from '../../i18n/th/labels';
 import { getAgentReports, getCatalogLotteries, getCatalogRounds } from '../../services/api';
+import { formatMoney as money } from '../../utils/formatters';
 
 const copy = agentCopy.reports;
 const tabs = [
@@ -22,7 +23,6 @@ const sortOptions = [
   { id: 'volume_desc', label: copy.sortOptions.volume_desc }
 ];
 
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const labelOrDash = (value) => value || '-';
 const defaultFilters = {
   roundDate: '',

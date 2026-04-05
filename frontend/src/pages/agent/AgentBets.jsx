@@ -14,10 +14,9 @@ import {
 import GroupedSlipSummary from '../../components/GroupedSlipSummary';
 import PageSkeleton from '../../components/PageSkeleton';
 import { getAgentBets } from '../../services/api';
+import { formatMoney as money, formatRoundLabel } from '../../utils/formatters';
 import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySavedSlipImage } from '../../utils/slipImage';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const getCustomerId = (customer) => String(customer?.id || customer?._id || customer || '');
 
 const ui = {
@@ -100,7 +99,7 @@ const groupBetsBySlip = (bets = []) => {
       customer: bet.customerId,
       marketName: bet.marketName || ui.defaultMarket,
       roundDate: bet.roundDate,
-      roundLabel: bet.roundTitle || bet.roundDate || '-',
+      roundLabel: formatRoundLabel(bet.roundTitle || bet.roundDate || '-'),
       createdAt: bet.createdAt,
       items: [bet],
       totalStake: Number(bet.amount || 0),
@@ -165,7 +164,7 @@ const AgentBets = () => {
           ...group,
           totalAmount: group.totalStake,
           totalPotentialPayout: group.totalPotentialPayout,
-          roundLabel: `${group.marketName || '-'} • ${group.roundDate || '-'}`,
+          roundLabel: `${group.marketName || '-'} • ${formatRoundLabel(group.roundLabel || group.roundDate || '-')}`,
           resultLabel:
             group.result === 'won' ? ui.statusWon : group.result === 'pending' ? 'รอผล' : 'ไม่ถูกรางวัล'
         },
@@ -253,7 +252,7 @@ const AgentBets = () => {
 
         <div className="ops-hero-side">
           <span>{memberId ? ui.memberFilter : ui.roundLabel}</span>
-          <strong>{memberId ? activeMemberName || memberId : roundDate || ui.allRounds}</strong>
+          <strong>{memberId ? activeMemberName || memberId : roundDate ? formatRoundLabel(roundDate) : ui.allRounds}</strong>
           <small>{ui.count(displaySlipGroups.length)}</small>
         </div>
       </section>
@@ -399,7 +398,7 @@ const AgentBets = () => {
             <div className="ag-bet-info-strip">
               <div className="ag-bet-info-chip ag-bet-info-chip-wide">
                 <span>{ui.marketRound}</span>
-                <strong>{group.marketName} • {group.roundDate}</strong>
+                <strong>{group.marketName} • {formatRoundLabel(group.roundLabel || group.roundDate || '-')}</strong>
               </div>
               <div className="ag-bet-info-chip">
                 <span>{ui.totalStake}</span>

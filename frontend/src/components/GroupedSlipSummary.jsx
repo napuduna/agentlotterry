@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { buildSlipDisplayGroups } from '../utils/slipGrouping';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money } from '../utils/formatters';
 
 const ui = {
   baht: 'บาท',

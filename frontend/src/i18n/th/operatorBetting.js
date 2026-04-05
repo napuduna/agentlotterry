@@ -1,4 +1,4 @@
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money } from '../../utils/formatters';
 
 export const operatorBettingCopy = {
   roles: {

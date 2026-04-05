@@ -32,14 +32,7 @@ const normalizeBlockedNumbers = (value) => {
   const list = Array.isArray(value) ? value : [];
   return [...new Set(list.map((item) => String(item || '').trim()).filter(Boolean))];
 };
-const normalizeCustomRates = (value = {}, fallbackRates = {}) =>
-  BET_TYPES.reduce((acc, betType) => {
-    const nextValue = toPositiveAmount(value?.[betType], fallbackRates?.[betType] || DEFAULT_GLOBAL_RATES[betType] || 0);
-    acc[betType] = nextValue;
-    return acc;
-  }, {});
-
-const normalizeRateMap = (value = {}, fallbackRates = {}) =>
+const normalizeRatesByBetType = (value = {}, fallbackRates = {}) =>
   BET_TYPES.reduce((acc, betType) => {
     const nextValue = toPositiveAmount(value?.[betType], fallbackRates?.[betType] || DEFAULT_GLOBAL_RATES[betType] || 0);
     acc[betType] = nextValue;
@@ -149,7 +142,7 @@ const buildLotteryConfigDocument = ({ member, lottery, existingConfig, inputConf
     useCustomRates: inputConfig?.useCustomRates !== undefined
       ? Boolean(inputConfig.useCustomRates)
       : existingConfig?.useCustomRates ?? false,
-    customRates: normalizeCustomRates(
+    customRates: normalizeRatesByBetType(
       inputConfig?.customRates || existingConfig?.customRates,
       fallbackRates
     ),
@@ -216,7 +209,7 @@ const mapRateProfile = (profile) => ({
   code: profile.code,
   name: profile.name,
   description: profile.description,
-  rates: normalizeRateMap(profile.rates),
+  rates: normalizeRatesByBetType(profile.rates),
   commissions: normalizeCommissionMap(profile.commissions || {}),
   isDefault: Boolean(profile.isDefault)
 });
@@ -253,7 +246,7 @@ const mapLotteryConfigRow = ({ lottery, config }) => {
     keepPercent: config?.keepPercent ?? 0,
     commissionRate: config?.commissionRate ?? 0,
     useCustomRates: config?.useCustomRates ?? false,
-    customRates: normalizeCustomRates(
+    customRates: normalizeRatesByBetType(
       config?.customRates,
       activeRateProfiles.find((profile) => profile._id.toString() === selectedRateProfileId)?.rates || {}
     ),
@@ -648,7 +641,6 @@ const createAgentMember = async ({ agentId, payload }) => {
     role: 'customer',
     displayRole: 'member',
     name,
-    memberCode: null,
     phone: toText(account.phone || profile.phone),
     agentId,
     parentUserId: agentId,

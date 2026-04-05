@@ -7,7 +7,15 @@ import PageSkeleton from '../../components/PageSkeleton';
 import { agentCopy } from '../../i18n/th/agent';
 import { getBetTypeLabel, getUserStatusLabel } from '../../i18n/th/labels';
 import { createAgentMember, deleteCustomer, getAgentMemberBootstrap, getAgentMembers } from '../../services/api';
-import { createInitialMemberForm, groupLotterySettingsByLeague, toggleBetType, updateLotterySetting } from './memberFormUtils';
+import { formatDateTime, formatNumber, getInitial, toNumber } from '../../utils/formatters';
+import {
+  applyProfileToLotterySettings,
+  buildMemberFormPayload,
+  createInitialMemberForm,
+  groupLotterySettingsByLeague,
+  toggleBetType,
+  updateLotterySetting
+} from './memberFormUtils';
 
 const copy = agentCopy.customers;
 const steps = copy.steps;
@@ -20,8 +28,6 @@ const sortOptions = [
   { value: 'online_first', label: copy.sortOptions.online_first },
   { value: 'name_asc', label: copy.sortOptions.name_asc }
 ];
-const toNumber = (value) => Number(value || 0);
-const formatNumber = (value) => toNumber(value).toLocaleString('th-TH');
 const formatSignedNumber = (value) => {
   const amount = toNumber(value);
   const formatted = Math.abs(amount).toLocaleString('th-TH');
@@ -29,13 +35,6 @@ const formatSignedNumber = (value) => {
   if (amount < 0) return `-${formatted}`;
   return formatted;
 };
-const formatDateTime = (value) => {
-  if (!value) return agentCopy.dashboard.noRecentActivity;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return agentCopy.dashboard.noRecentActivity;
-  return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
-};
-const getInitial = (value) => (value || '?').trim().charAt(0).toUpperCase();
 
 const AgentCustomers = () => {
   const navigate = useNavigate();
@@ -148,16 +147,7 @@ const AgentCustomers = () => {
   const patchLottery = (lotteryTypeId, patch) => setForm((current) => ({ ...current, lotterySettings: updateLotterySetting(current.lotterySettings, lotteryTypeId, patch) }));
 
   const applyProfileToAllLotteries = () => {
-    setForm((current) => ({
-      ...current,
-      lotterySettings: current.lotterySettings.map((lottery) => ({
-        ...lottery,
-        stockPercent: current.profile.stockPercent,
-        ownerPercent: current.profile.ownerPercent,
-        keepPercent: current.profile.keepPercent,
-        commissionRate: current.profile.commissionRate
-      }))
-    }));
+    setForm((current) => applyProfileToLotterySettings(current));
   };
 
   const submitCreate = async (event) => {
@@ -170,35 +160,7 @@ const AgentCustomers = () => {
 
     setSaving(true);
     try {
-      await createAgentMember({
-        account: { ...form.account },
-        profile: {
-          ...form.profile,
-          stockPercent: toNumber(form.profile.stockPercent),
-          ownerPercent: toNumber(form.profile.ownerPercent),
-          keepPercent: toNumber(form.profile.keepPercent),
-          commissionRate: toNumber(form.profile.commissionRate)
-        },
-        lotterySettings: form.lotterySettings.map((lottery) => ({
-          lotteryTypeId: lottery.lotteryTypeId,
-          isEnabled: lottery.isEnabled,
-          rateProfileId: lottery.rateProfileId,
-          enabledBetTypes: lottery.enabledBetTypes,
-          minimumBet: toNumber(lottery.minimumBet),
-          maximumBet: toNumber(lottery.maximumBet),
-          maximumPerNumber: toNumber(lottery.maximumPerNumber),
-          stockPercent: toNumber(lottery.stockPercent),
-          ownerPercent: toNumber(lottery.ownerPercent),
-          keepPercent: toNumber(lottery.keepPercent),
-          commissionRate: toNumber(lottery.commissionRate),
-          useCustomRates: Boolean(lottery.useCustomRates),
-          customRates: lottery.customRates,
-          keepMode: lottery.keepMode,
-          keepCapAmount: toNumber(lottery.keepCapAmount),
-          blockedNumbers: lottery.blockedNumbers,
-          notes: lottery.notes
-        }))
-      });
+      await createAgentMember(buildMemberFormPayload(form));
       toast.success(copy.wizard.createSuccess);
       closeWizard();
       await loadMembers(filters, true);
@@ -347,7 +309,7 @@ const AgentCustomers = () => {
                     <span>@{member.username}</span>
                     <span><FiPhone /> {member.phone || copy.noPhone}</span>
                   </div>
-                  <div className="member-last-active">{copy.lastActivePrefix}: {member.isOnline ? copy.currentlyOnline : formatDateTime(member.lastActiveAt)}</div>
+                  <div className="member-last-active">{copy.lastActivePrefix}: {member.isOnline ? copy.currentlyOnline : formatDateTime(member.lastActiveAt, { fallback: agentCopy.dashboard.noRecentActivity })}</div>
                 </div>
               </div>
               <div className="member-credit">

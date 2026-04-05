@@ -7,49 +7,10 @@ import SlipPreviewModal from '../../components/SlipPreviewModal';
 import { adminCopy } from '../../i18n/th/admin';
 import { getBetResultLabel, getBetTypeLabel } from '../../i18n/th/labels';
 import { getAdminDashboard } from '../../services/api';
+import { groupRecentBetsBySlip } from '../../utils/recentSlipGroups';
 import { copySavedSlipImage } from '../../utils/slipImage';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money } from '../../utils/formatters';
 const copy = adminCopy.dashboard;
-
-const groupRecentBetsBySlip = (items = []) => {
-  const grouped = new Map();
-
-  items.forEach((bet) => {
-    const key = bet.slipId || bet.slipNumber || bet._id;
-    const existing = grouped.get(key);
-
-    if (existing) {
-      existing.items.push(bet);
-      existing.totalAmount += Number(bet.amount || 0);
-      existing.totalPotentialPayout += Number(bet.potentialPayout || 0);
-      existing.memo = existing.memo || bet.memo || '';
-      existing.result =
-        existing.result === 'pending' || (bet.result || 'pending') === 'pending'
-          ? 'pending'
-          : existing.result === 'won' || (bet.result || 'pending') === 'won'
-            ? 'won'
-            : 'lost';
-      return;
-    }
-
-    grouped.set(key, {
-      key,
-      slipId: bet.slipId || '',
-      slipNumber: bet.slipNumber || '',
-      customer: bet.customerId,
-      marketName: bet.marketName || copy.defaultMarket,
-      roundLabel: bet.roundTitle || bet.roundDate || '-',
-      result: bet.result || 'pending',
-      totalAmount: Number(bet.amount || 0),
-      totalPotentialPayout: Number(bet.potentialPayout || 0),
-      memo: bet.memo || '',
-      items: [bet]
-    });
-  });
-
-  return [...grouped.values()];
-};
 
 const AdminDashboard = () => {
   const [data, setData] = useState(null);
@@ -76,7 +37,10 @@ const AdminDashboard = () => {
   const totalAmount = Number(stats.totalAmount || 0);
   const totalWon = Number(stats.totalWon || 0);
   const netProfit = Number(stats.netProfit || 0);
-  const groupedRecentBets = useMemo(() => groupRecentBetsBySlip(data?.recentBets || []), [data?.recentBets]);
+  const groupedRecentBets = useMemo(
+    () => groupRecentBetsBySlip(data?.recentBets || [], { defaultMarketName: copy.defaultMarket }),
+    [data?.recentBets]
+  );
 
   const statCards = useMemo(
     () => [

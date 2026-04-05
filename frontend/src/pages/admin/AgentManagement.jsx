@@ -6,8 +6,7 @@ import PageSkeleton from '../../components/PageSkeleton';
 import { adminCopy } from '../../i18n/th/admin';
 import { getUserStatusLabel } from '../../i18n/th/labels';
 import { adjustWalletCredit, createAgent, deleteAgent, getAgents, updateAgent } from '../../services/api';
-
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
+import { formatMoney as money } from '../../utils/formatters';
 const copy = adminCopy.agents;
 
 const AgentManagement = () => {

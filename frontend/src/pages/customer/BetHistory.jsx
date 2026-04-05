@@ -6,6 +6,7 @@ import PageSkeleton from '../../components/PageSkeleton';
 import { memberCopy } from '../../i18n/th/member';
 import { getSlipStatusLabel } from '../../i18n/th/labels';
 import { cancelMemberSlip, getMemberSlips } from '../../services/api';
+import { formatDateTime } from '../../utils/formatters';
 
 const tabs = [
   { value: 'draft', label: memberCopy.history.tabs.draft, icon: <FiFileText /> },
@@ -114,7 +115,7 @@ const BetHistory = () => {
               </div>
 
               <div className="slip-history-bottom">
-                <div className="slip-history-date">{slip.submittedAt || slip.createdAt ? new Date(slip.submittedAt || slip.createdAt).toLocaleString('th-TH') : '-'}</div>
+                <div className="slip-history-date">{formatDateTime(slip.submittedAt || slip.createdAt)}</div>
                 {slip.canCancel ? (
                   <button className="btn btn-danger" onClick={() => handleCancel(slip.id)} disabled={cancellingId === slip.id}>
                     <FiRotateCcw /> {copy.cancelSlip}

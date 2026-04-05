@@ -6,17 +6,9 @@ const { createAuditLog } = require('../middleware/auditLog');
 const {
   getBetTotals,
   getRecentBetItems,
-  getTotalsGroupedByField,
-  getAgentReportRows,
   listAgentBetItems,
-  listBettingRecentItems,
   getAgentReportsBundle
 } = require('../services/analyticsService');
-const {
-  previewSlip,
-  createSlip
-} = require('../services/betSlipService');
-const { getCatalogOverview } = require('../services/catalogService');
 const {
   getAgentMemberBootstrap,
   getAgentMembers,
@@ -24,20 +16,29 @@ const {
   createAgentMember,
   updateAgentMember,
   deactivateAgentMember,
-  isUserOnline,
-  searchMembersForBetting,
-  getMemberForBettingActor
+  isUserOnline
 } = require('../services/memberManagementService');
-const {
-  getDraftSession,
-  saveDraftSession,
-  clearDraftSession
-} = require('../services/bettingDraftService');
+const { registerBettingRoutes } = require('./helpers/registerBettingRoutes');
 
 const router = express.Router();
 
 // All agent routes require auth + agent role
 router.use(auth, authorize('agent'));
+
+registerBettingRoutes(router, {
+  buildMemberTotalsParams: (req, member) => ({
+    agentId: req.user._id,
+    customerId: member._id
+  }),
+  createSlipAuditActions: {
+    draft: 'AGENT_CREATE_DRAFT_SLIP_FOR_MEMBER',
+    submit: 'AGENT_CREATE_MEMBER_SLIP'
+  },
+  cancelSlipOptions: {
+    allowCancel: false,
+    forbiddenMessage: 'Only admin can cancel slip'
+  }
+});
 
 // GET /api/agent/dashboard
 router.get('/dashboard', async (req, res) => {
@@ -113,175 +114,6 @@ router.get('/config/bootstrap', async (req, res) => {
   } catch (error) {
     console.error('Agent config bootstrap error:', error);
     res.status(500).json({ message: 'Failed to load member config bootstrap' });
-  }
-});
-
-// GET /api/agent/betting/members/search
-router.get('/betting/members/search', async (req, res) => {
-  try {
-    const members = await searchMembersForBetting({
-      actorId: req.user._id,
-      actorRole: req.user.role,
-      search: req.query.q || req.query.search || '',
-      limit: req.query.limit || 20
-    });
-
-    res.json(members);
-  } catch (error) {
-    res.status(500).json({ message: error.message || 'Failed to search members' });
-  }
-});
-
-// GET /api/agent/betting/members/:memberId/context
-router.get('/betting/members/:memberId/context', async (req, res) => {
-  try {
-    const member = await getMemberForBettingActor({
-      actorId: req.user._id,
-      actorRole: req.user.role,
-      memberId: req.params.memberId
-    });
-
-    const [catalog, totals] = await Promise.all([
-      getCatalogOverview(member),
-      getBetTotals({ agentId: req.user._id, customerId: member._id })
-    ]);
-
-    res.json({
-      member: {
-        id: member._id.toString(),
-        name: member.name,
-        username: member.username,
-        phone: member.phone || '',
-        creditBalance: member.creditBalance || 0,
-        status: member.status,
-        isActive: member.isActive,
-        totals: {
-          totalAmount: totals.totalAmount || 0,
-          totalWon: totals.totalWon || 0,
-          netProfit: totals.netProfit || 0
-        }
-      },
-      catalog
-    });
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to load member betting context' });
-  }
-});
-
-// POST /api/agent/betting/slips/parse
-router.post('/betting/slips/parse', async (req, res) => {
-  try {
-    const preview = await previewSlip({
-      actorUser: req.user,
-      customerId: req.body.customerId,
-      ...req.body
-    });
-
-    res.json(preview);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to parse slip' });
-  }
-});
-
-// POST /api/agent/betting/slips
-router.post('/betting/slips', async (req, res) => {
-  try {
-    const { action = 'submit' } = req.body;
-    const slip = await createSlip({
-      actorUser: req.user,
-      customerId: req.body.customerId,
-      ...req.body,
-      action
-    });
-
-    await createAuditLog(req.user._id, action === 'draft' ? 'AGENT_CREATE_DRAFT_SLIP_FOR_MEMBER' : 'AGENT_CREATE_MEMBER_SLIP', slip.id, {
-      customerId: req.body.customerId,
-      slipNumber: slip.slipNumber,
-      lotteryName: slip.lotteryName,
-      roundCode: slip.roundCode,
-      itemCount: slip.itemCount,
-      totalAmount: slip.totalAmount
-    });
-
-    res.status(201).json(slip);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to create slip' });
-  }
-});
-
-// POST /api/agent/betting/slips/:slipId/cancel
-router.post('/betting/slips/:slipId/cancel', async (req, res) => {
-  res.status(403).json({ message: 'Only admin can cancel slip' });
-});
-
-// GET /api/agent/betting/items/recent
-router.get('/betting/items/recent', async (req, res) => {
-  try {
-    const items = await listBettingRecentItems({
-      actorRole: req.user.role,
-      actorId: req.user._id,
-      customerId: req.query.customerId || '',
-      marketId: req.query.marketId || '',
-      roundDate: req.query.roundDate || '',
-      limit: Number(req.query.limit || 12)
-    });
-
-    res.json(items);
-  } catch (error) {
-    res.status(500).json({ message: error.message || 'Failed to load recent betting items' });
-  }
-});
-
-// GET /api/agent/betting/draft
-router.get('/betting/draft', async (req, res) => {
-  try {
-    const draft = await getDraftSession({
-      actorUser: req.user,
-      customerId: req.query.customerId,
-      lotteryId: req.query.lotteryId,
-      roundId: req.query.roundId,
-      rateProfileId: req.query.rateProfileId || ''
-    });
-
-    res.json(draft);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to load betting draft' });
-  }
-});
-
-// PUT /api/agent/betting/draft
-router.put('/betting/draft', async (req, res) => {
-  try {
-    const draft = await saveDraftSession({
-      actorUser: req.user,
-      customerId: req.body.customerId,
-      lotteryId: req.body.lotteryId,
-      roundId: req.body.roundId,
-      rateProfileId: req.body.rateProfileId || '',
-      composer: req.body.composer || null,
-      savedEntries: req.body.savedEntries || []
-    });
-
-    res.json(draft);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to save betting draft' });
-  }
-});
-
-// DELETE /api/agent/betting/draft
-router.delete('/betting/draft', async (req, res) => {
-  try {
-    const draft = await clearDraftSession({
-      actorUser: req.user,
-      customerId: req.body.customerId,
-      lotteryId: req.body.lotteryId,
-      roundId: req.body.roundId,
-      rateProfileId: req.body.rateProfileId || ''
-    });
-
-    res.json(draft);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to clear betting draft' });
   }
 });
 
@@ -367,8 +199,7 @@ router.post('/members', async (req, res) => {
 
     await createAuditLog(req.user._id, 'CREATE_MEMBER', detail.member.id, {
       username: detail.member.username,
-      name: detail.member.name,
-      memberCode: detail.member.memberCode
+      name: detail.member.name
     });
 
     res.status(201).json(detail);
@@ -388,8 +219,7 @@ router.put('/members/:id', async (req, res) => {
 
     await createAuditLog(req.user._id, 'UPDATE_MEMBER', detail.member.id, {
       username: detail.member.username,
-      name: detail.member.name,
-      memberCode: detail.member.memberCode
+      name: detail.member.name
     });
 
     res.json(detail);

@@ -6,10 +6,10 @@ import { memberCopy } from '../../i18n/th/member';
 import { getBetTypeLabel, getRoundStatusLabel, getSourceFlagLabel } from '../../i18n/th/labels';
 import { createMemberSlip, getCatalogRounds, parseMemberSlip } from '../../services/api';
 import { useCatalog } from '../../context/CatalogContext';
+import { formatMoney as money } from '../../utils/formatters';
 
 const quickAmountOptions = ['10', '20', '50', '100'];
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
 const CustomerBet = () => {
   const copy = memberCopy.bet;

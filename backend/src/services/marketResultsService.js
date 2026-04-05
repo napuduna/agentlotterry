@@ -98,11 +98,6 @@ const cloneSections = () => baseSections.map((section) => ({
   }))
 }));
 
-const valueFromPath = (source, path) => path.split('.').reduce((current, key) => {
-  if (current === null || current === undefined) return undefined;
-  return current[key];
-}, source);
-
 const stringValue = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -116,18 +111,6 @@ const hasValue = (value) => {
   const normalized = stringValue(value);
   return normalized && !isMasked(normalized);
 };
-
-const pickValue = (source, paths) => {
-  for (const path of paths) {
-    const value = valueFromPath(source, path);
-    if (hasValue(value)) {
-      return stringValue(value);
-    }
-  }
-  return '';
-};
-
-const normalizeName = (name) => stringValue(name).toLowerCase().replace(/\s+/g, '');
 
 const setMarketData = (sections, sectionId, nextMarket) => {
   const section = sections.find((entry) => entry.id === sectionId);

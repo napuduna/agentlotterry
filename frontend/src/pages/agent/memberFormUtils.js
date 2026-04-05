@@ -1,3 +1,5 @@
+import { toNumber } from '../../utils/formatters';
+
 const cloneLotterySettings = (lotteries = [], defaults = {}) =>
   lotteries.map((lottery) => ({
     lotteryTypeId: lottery.lotteryTypeId,
@@ -74,6 +76,47 @@ export const createMemberFormFromDetail = (detail, bootstrap) => {
     lotterySettings: cloneLotterySettings(detail?.lotteryConfigs || bootstrap?.lotteries || [], defaults)
   };
 };
+
+export const applyProfileToLotterySettings = (form) => ({
+  ...form,
+  lotterySettings: (form?.lotterySettings || []).map((lottery) => ({
+    ...lottery,
+    stockPercent: form?.profile?.stockPercent,
+    ownerPercent: form?.profile?.ownerPercent,
+    keepPercent: form?.profile?.keepPercent,
+    commissionRate: form?.profile?.commissionRate
+  }))
+});
+
+export const buildMemberFormPayload = (form) => ({
+  account: { ...form.account },
+  profile: {
+    ...form.profile,
+    stockPercent: toNumber(form.profile.stockPercent),
+    ownerPercent: toNumber(form.profile.ownerPercent),
+    keepPercent: toNumber(form.profile.keepPercent),
+    commissionRate: toNumber(form.profile.commissionRate)
+  },
+  lotterySettings: (form.lotterySettings || []).map((lottery) => ({
+    lotteryTypeId: lottery.lotteryTypeId,
+    isEnabled: lottery.isEnabled,
+    rateProfileId: lottery.rateProfileId,
+    enabledBetTypes: lottery.enabledBetTypes,
+    minimumBet: toNumber(lottery.minimumBet),
+    maximumBet: toNumber(lottery.maximumBet),
+    maximumPerNumber: toNumber(lottery.maximumPerNumber),
+    stockPercent: toNumber(lottery.stockPercent),
+    ownerPercent: toNumber(lottery.ownerPercent),
+    keepPercent: toNumber(lottery.keepPercent),
+    commissionRate: toNumber(lottery.commissionRate),
+    useCustomRates: Boolean(lottery.useCustomRates),
+    customRates: lottery.customRates,
+    keepMode: lottery.keepMode,
+    keepCapAmount: toNumber(lottery.keepCapAmount),
+    blockedNumbers: lottery.blockedNumbers,
+    notes: lottery.notes
+  }))
+});
 
 export const updateLotterySetting = (lotterySettings, lotteryTypeId, patch) =>
   lotterySettings.map((lottery) =>

@@ -23,7 +23,7 @@ import GroupedSlipSummary from '../../components/GroupedSlipSummary';
 import PageSkeleton from '../../components/PageSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { operatorBettingCopy } from '../../i18n/th/operatorBetting';
-import { getBetTypeLabel, getRoundStatusLabel, getSourceFlagLabel, getUserStatusLabel } from '../../i18n/th/labels';
+import { getBetTypeLabel, getRoundStatusLabel, getSourceFlagLabel } from '../../i18n/th/labels';
 import {
   clearAdminBettingDraft,
   createAdminBettingSlip,
@@ -43,6 +43,7 @@ import {
   searchAdminBettingMembers,
   searchAgentBettingMembers
 } from '../../services/api';
+import { formatMoney as money, formatRoundLabel } from '../../utils/formatters';
 import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySlipPreviewImage } from '../../utils/slipImage';
 import { copyPreviewSlipText } from '../../utils/slipText';
@@ -150,7 +151,6 @@ digitModeOptions.forEach((option) => {
 Object.assign(roleConfig.agent, operatorBettingCopy.roles.agent);
 Object.assign(roleConfig.admin, operatorBettingCopy.roles.admin);
 
-const money = (value) => Number(value || 0).toLocaleString('th-TH');
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
 const dedupeOrderedNumbers = (numbers = []) => {
   const seen = new Set();
@@ -168,13 +168,6 @@ const sortMembersByActivity = (members = []) =>
     if (totalDiff !== 0) return totalDiff;
     return String(left?.name || '').localeCompare(String(right?.name || ''), 'th');
   });
-const formatDateTime = (value) =>
-  value
-    ? new Date(value).toLocaleString('th-TH', {
-      dateStyle: 'short',
-      timeStyle: 'short'
-    })
-    : '-';
 const flattenLotteries = (catalog) => (catalog?.leagues || []).flatMap((league) => (league.lotteries || []).map((lottery) => ({ ...lottery, leagueName: league.name })));
 const buildEmptyGridRow = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, number: '', amounts: { top: '', bottom: '', tod: '' } });
 const buildInitialGridRows = () => Array.from({ length: 2 }, buildEmptyGridRow);
@@ -506,17 +499,6 @@ const buildGridItems = ({ rows, digitMode }) => {
   return items;
 };
 
-const fastDigitLengths = {
-  '3top': 3,
-  '3bottom': 3,
-  '3tod': 3,
-  '2top': 2,
-  '2bottom': 2,
-  '2tod': 2,
-  'run_top': 1,
-  'run_bottom': 1
-};
-
 const buildDraftDoubleSet = (digits) => {
   if (digits === 1) {
     return Array.from({ length: 10 }, (_, index) => String(index));
@@ -681,18 +663,6 @@ const buildFastDraftItems = ({
   }
 
   return combineFastDraftItems(items);
-};
-
-const getFastFamilyPlaceholder = (fastFamily) => {
-  if (fastFamily === '3') {
-    return 'พิมพ์ 1 บรรทัดต่อ 1 รายการ ระบบจะดึงเฉพาะเลข 3 ตัวให้อัตโนมัติ\n101 110 112\nabc 211 xx';
-  }
-
-  if (fastFamily === 'run') {
-    return 'พิมพ์ตัวเลขคละกันได้ ระบบจะดึงเลขวิ่ง 1 ตัวให้อัตโนมัติ\n1 2 3 9\nabc7xx';
-  }
-
-  return 'พิมพ์ 1 บรรทัดต่อ 1 รายการ ระบบจะดึงเฉพาะเลข 2 ตัวให้อัตโนมัติ\n11 10 01 12\nabc 21 xx';
 };
 
 const OperatorBetting = () => {
@@ -1935,7 +1905,7 @@ const OperatorBetting = () => {
                   <div>
                     <label className="form-label">{copyText.roundLabel}</label>
                     <select className="form-select" value={selectedRound?.id || ''} onChange={(event) => handleRoundChange(event.target.value)} disabled={loadingRounds || !selectableRounds.length}>
-                      {selectableRounds.map((round) => <option key={round.id} value={round.id}>{round.title} • {getRoundStatusLabel(round.status)}</option>)}
+                      {selectableRounds.map((round) => <option key={round.id} value={round.id}>{formatRoundLabel(round.title || round.code)} • {getRoundStatusLabel(round.status)}</option>)}
                     </select>
                   </div>
                 </div>

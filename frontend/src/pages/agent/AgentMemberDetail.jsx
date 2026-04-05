@@ -7,19 +7,19 @@ import { useAuth } from '../../context/AuthContext';
 import { agentCopy } from '../../i18n/th/agent';
 import { getBetTypeLabel, getUserStatusLabel, getWalletDirectionLabel, getWalletEntryTypeLabel, getWalletReasonLabel } from '../../i18n/th/labels';
 import { getAgentMemberBootstrap, getAgentMemberDetail, getWalletHistory, getWalletSummary, transferWalletCredit, updateAgentMemberProfile } from '../../services/api';
-import { createMemberFormFromDetail, groupLotterySettingsByLeague, toggleBetType, updateLotterySetting } from './memberFormUtils';
+import { formatDateTime, formatMoney as money, toNumber } from '../../utils/formatters';
+import {
+  applyProfileToLotterySettings,
+  buildMemberFormPayload,
+  createMemberFormFromDetail,
+  groupLotterySettingsByLeague,
+  toggleBetType,
+  updateLotterySetting
+} from './memberFormUtils';
 
 const tabs = ['ข้อมูลทั่วไป', 'สิทธิ์หวย', 'กระเป๋า'];
 const statusOptions = ['active', 'inactive', 'suspended'];
 const betTypeKeys = ['3top', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
-const toNumber = (value) => Number(value || 0);
-const money = (value) => toNumber(value).toLocaleString('th-TH');
-const formatDateTime = (value) => {
-  if (!value) return agentCopy.memberDetail.noRecentActivity;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return agentCopy.memberDetail.noRecentActivity;
-  return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
-};
 
 const AgentMemberDetail = () => {
   const navigate = useNavigate();
@@ -85,16 +85,7 @@ const AgentMemberDetail = () => {
   const patchLottery = (lotteryTypeId, patch) => setForm((current) => ({ ...current, lotterySettings: updateLotterySetting(current.lotterySettings, lotteryTypeId, patch) }));
 
   const applyProfileToAllLotteries = () => {
-    setForm((current) => ({
-      ...current,
-      lotterySettings: current.lotterySettings.map((lottery) => ({
-        ...lottery,
-        stockPercent: current.profile.stockPercent,
-        ownerPercent: current.profile.ownerPercent,
-        keepPercent: current.profile.keepPercent,
-        commissionRate: current.profile.commissionRate
-      }))
-    }));
+    setForm((current) => applyProfileToLotterySettings(current));
   };
 
   const save = async () => {
@@ -106,35 +97,7 @@ const AgentMemberDetail = () => {
 
     setSaving(true);
     try {
-      const res = await updateAgentMemberProfile(memberId, {
-        account: { ...form.account },
-        profile: {
-          ...form.profile,
-          stockPercent: toNumber(form.profile.stockPercent),
-          ownerPercent: toNumber(form.profile.ownerPercent),
-          keepPercent: toNumber(form.profile.keepPercent),
-          commissionRate: toNumber(form.profile.commissionRate)
-        },
-        lotterySettings: form.lotterySettings.map((lottery) => ({
-          lotteryTypeId: lottery.lotteryTypeId,
-          isEnabled: lottery.isEnabled,
-          rateProfileId: lottery.rateProfileId,
-          enabledBetTypes: lottery.enabledBetTypes,
-          minimumBet: toNumber(lottery.minimumBet),
-          maximumBet: toNumber(lottery.maximumBet),
-          maximumPerNumber: toNumber(lottery.maximumPerNumber),
-          stockPercent: toNumber(lottery.stockPercent),
-          ownerPercent: toNumber(lottery.ownerPercent),
-          keepPercent: toNumber(lottery.keepPercent),
-          commissionRate: toNumber(lottery.commissionRate),
-          useCustomRates: Boolean(lottery.useCustomRates),
-          customRates: lottery.customRates,
-          keepMode: lottery.keepMode,
-          keepCapAmount: toNumber(lottery.keepCapAmount),
-          blockedNumbers: lottery.blockedNumbers,
-          notes: lottery.notes
-        }))
-      });
+      const res = await updateAgentMemberProfile(memberId, buildMemberFormPayload(form));
       setDetail(res.data);
       setForm(createMemberFormFromDetail(res.data, bootstrap));
       toast.success('อัปเดตข้อมูลสมาชิกแล้ว');
@@ -190,7 +153,7 @@ const AgentMemberDetail = () => {
             {member.isOnline ? <span className="member-online"><FiWifi /> ออนไลน์</span> : null}
           </div>
           <h1 className="page-title">{member.name}</h1>
-          <p className="page-subtitle">@{member.username} • ใช้งานล่าสุด {formatDateTime(member.lastActiveAt)}</p>
+          <p className="page-subtitle">@{member.username} • ใช้งานล่าสุด {formatDateTime(member.lastActiveAt, { fallback: agentCopy.memberDetail.noRecentActivity })}</p>
           <div className="member-meta-row">
             <span><FiPhone /> {member.phone || agentCopy.memberDetail.noPhone}</span>
             <span>{getUserStatusLabel(member.status)}</span>
@@ -357,7 +320,7 @@ const AgentMemberDetail = () => {
                           </div>
                           <div className="wallet-right">
                             <strong className={entry.direction === 'credit' ? 'wallet-credit-text' : 'wallet-debit-text'}>{entry.direction === 'credit' ? '+' : '-'}{money(entry.amount)}</strong>
-                            <span>{formatDateTime(entry.createdAt)}</span>
+                            <span>{formatDateTime(entry.createdAt, { fallback: agentCopy.memberDetail.noRecentActivity })}</span>
                           </div>
                         </article>
                       ))}
