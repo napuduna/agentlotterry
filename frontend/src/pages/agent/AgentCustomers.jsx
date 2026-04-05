@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { FiBarChart2, FiChevronRight, FiCreditCard, FiDollarSign, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
+import { FiBarChart2, FiChevronRight, FiClock, FiCreditCard, FiDollarSign, FiPhone, FiPlus, FiRefreshCw, FiSearch, FiTrendingUp, FiUsers, FiWifi, FiXCircle } from 'react-icons/fi';
 import Modal from '../../components/Modal';
 import PageSkeleton from '../../components/PageSkeleton';
 import { agentCopy } from '../../i18n/th/agent';
@@ -22,6 +22,13 @@ const sortOptions = [
 ];
 const toNumber = (value) => Number(value || 0);
 const formatNumber = (value) => toNumber(value).toLocaleString('th-TH');
+const formatSignedNumber = (value) => {
+  const amount = toNumber(value);
+  const formatted = Math.abs(amount).toLocaleString('th-TH');
+  if (amount > 0) return `+${formatted}`;
+  if (amount < 0) return `-${formatted}`;
+  return formatted;
+};
 const formatDateTime = (value) => {
   if (!value) return agentCopy.dashboard.noRecentActivity;
   const date = new Date(value);
@@ -285,9 +292,12 @@ const AgentCustomers = () => {
           <div className="filter-count ui-pill">{copy.count(formatNumber(displayedMembers.length))}</div>
         </div>
         <div className="filter-toolbar">
-          <label className="search-box">
-            <FiSearch />
-            <input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder={copy.searchPlaceholder} />
+          <label className="field-inline field-inline-search">
+            <span className="field-inline-placeholder" aria-hidden="true">{copy.statusLabel}</span>
+            <span className="search-box">
+              <FiSearch />
+              <input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder={copy.searchPlaceholder} />
+            </span>
           </label>
           <label className="field-inline">
             <span>{copy.statusLabel}</span>
@@ -313,8 +323,17 @@ const AgentCustomers = () => {
       <section className="member-list">
         {displayedMembers.length === 0 ? (
           <div className="empty-state"><div className="empty-state-icon"><FiUsers /></div><div className="empty-state-text">{copy.empty}</div></div>
-        ) : displayedMembers.map((member) => (
-          <article key={member.id} className="member-card">
+        ) : displayedMembers.map((member) => {
+          const purchasedSlips = toNumber(member.totals?.slipCount ?? member.totals?.totalBets);
+          const profitLoss = toNumber(member.totals?.netProfit);
+          const profitLossClass = profitLoss > 0 ? 'metric-positive' : profitLoss < 0 ? 'metric-negative' : '';
+          const historyQuery = new URLSearchParams({
+            memberId: String(member.id || ''),
+            memberName: member.name || ''
+          }).toString();
+
+          return (
+            <article key={member.id} className="member-card">
             <div className="member-card-header">
               <div className="member-identity">
                 <div className="member-avatar">{getInitial(member.name)}</div>
@@ -339,11 +358,11 @@ const AgentCustomers = () => {
 
             <div className="member-metrics">
               <div>
-                <span>{copy.enabledLotteries}</span>
-                <strong>{formatNumber(member.configSummary?.enabledLotteryCount || 0)}</strong>
+                <span>{copy.purchasedSlips}</span>
+                <strong>{formatNumber(purchasedSlips)}</strong>
               </div>
               <div>
-                <span>{copy.sales}</span>
+                <span>{copy.purchaseAmount}</span>
                 <strong>{formatNumber(member.totals?.totalAmount)}</strong>
               </div>
               <div>
@@ -351,8 +370,8 @@ const AgentCustomers = () => {
                 <strong>{formatNumber(member.totals?.totalWon)}</strong>
               </div>
               <div>
-                <span>{copy.stockKeep}</span>
-                <strong>{toNumber(member.stockPercent)}% / {toNumber(member.keepPercent)}%</strong>
+                <span>{copy.profitLoss}</span>
+                <strong className={profitLossClass}>{formatSignedNumber(profitLoss)}</strong>
               </div>
             </div>
 
@@ -369,18 +388,23 @@ const AgentCustomers = () => {
                   <FiDollarSign />
                   ซื้อแทน
                 </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent/bets?${historyQuery}`)}>
+                  <FiClock />
+                  {copy.viewHistory}
+                </button>
                 <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/agent/customers/${member.id}`)}>
                   {copy.manage}
                   <FiChevronRight />
                 </button>
-              <button className="btn btn-danger btn-sm" onClick={() => deactivateMember(member)}>
-                <FiXCircle />
-                {copy.deactivate}
-              </button>
+                <button className="btn btn-danger btn-sm" onClick={() => deactivateMember(member)}>
+                  <FiXCircle />
+                  {copy.deactivate}
+                </button>
               </div>
             </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
 
       <Modal isOpen={showWizard} onClose={closeWizard} title={copy.wizardTitle} size="lg">
@@ -667,7 +691,7 @@ const AgentCustomers = () => {
 
         .filter-toolbar {
           display: grid;
-          grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(180px, 0.8fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 12px;
         }
 
@@ -710,6 +734,15 @@ const AgentCustomers = () => {
           display: flex;
           flex-direction: column;
           gap: 8px;
+        }
+
+        .field-inline-search {
+          justify-content: flex-end;
+        }
+
+        .field-inline-placeholder {
+          visibility: hidden;
+          user-select: none;
         }
 
         .field-inline span, .wizard-grid label span {
@@ -841,6 +874,14 @@ const AgentCustomers = () => {
           margin-top: 8px;
           font-size: 1.08rem;
           letter-spacing: -0.03em;
+        }
+
+        .member-metrics strong.metric-positive {
+          color: var(--success);
+        }
+
+        .member-metrics strong.metric-negative {
+          color: var(--danger);
         }
 
         .member-actions {

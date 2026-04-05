@@ -818,7 +818,7 @@ const OperatorBetting = () => {
       }),
     [activeFastNumbers, fastAmounts, fastFamily, includeDoubleSet, parsedFastCandidates, reverse, roundClosedBetTypes, selectedLottery]
   );
-  const gridDraftSummary = useMemo(() => getGridDraftSummary(gridBodyRows), [gridBodyRows]);
+  const gridDraftSummary = useMemo(() => getGridDraftSummary(gridRows), [gridRows]);
   const recentSlipGroups = useMemo(() => groupRecentItemsBySlip(recentItems), [recentItems]);
   const fastDraftItems = useMemo(() => {
     if (mode !== 'fast') return [];
@@ -840,7 +840,7 @@ const OperatorBetting = () => {
     if (mode !== 'grid') return [];
 
     try {
-      return buildGridItems({ rows: gridBodyRows, digitMode });
+      return buildGridItems({ rows: gridRows, digitMode });
     } catch {
       return [];
     }
@@ -1004,7 +1004,7 @@ const OperatorBetting = () => {
 
   const getCurrentComposerItems = () => {
     if (mode === 'grid') {
-      return buildGridItems({ rows: gridBodyRows, digitMode });
+      return buildGridItems({ rows: gridRows, digitMode });
     }
 
     if (!fastDraftItems.length) {
@@ -1979,20 +1979,6 @@ const OperatorBetting = () => {
                       ))}
                     </div>
                     <div className="operator-working-slip-flat">
-                      <div className="operator-working-slip-stats">
-                        <div>
-                          <div className="ops-table-note" style={{ margin: 0 }}>เลขที่คัดได้</div>
-                          <strong>{fastDraftSummary.parsedCount} เลข</strong>
-                        </div>
-                        <div>
-                          <div className="ops-table-note" style={{ margin: 0 }}>เลขที่เลือกอยู่</div>
-                          <strong>{fastDraftSummary.selectedCount} เลข</strong>
-                        </div>
-                        <div>
-                          <div className="ops-table-note" style={{ margin: 0 }}>ยอดชุดปัจจุบัน</div>
-                          <strong>{fastDraftSummary.activeAmountSummary || '-'}</strong>
-                        </div>
-                      </div>
                       <div className="operator-fast-chip-list">
                         {parsedFastCandidates.length ? (
                           parsedFastCandidates.map((number) => {
@@ -2229,7 +2215,7 @@ const OperatorBetting = () => {
 
                 <div className="operator-helper-row compact operator-staged-actions">
                   <button type="button" className="btn btn-secondary btn-sm" onClick={handleSaveDraftEntry} disabled={!selectedMember || !hasDraftItems}>
-                    <FiSend /> {copyText.submitSlip}
+                    <FiFileText /> {copyText.saveForLater}
                   </button>
                   <button type="button" className="btn btn-primary btn-sm" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasPendingSlip}>
                     {previewing ? <FiRefreshCw className="spin-animation" /> : <FiCheckCircle />} {copyText.summarizeSlip}

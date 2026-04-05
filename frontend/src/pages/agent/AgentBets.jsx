@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import {
   FiActivity,
   FiCalendar,
@@ -7,16 +8,17 @@ import {
   FiCopy,
   FiDollarSign,
   FiLayers,
-  FiRefreshCw,
+  FiSearch,
   FiRotateCcw
 } from 'react-icons/fi';
 import GroupedSlipSummary from '../../components/GroupedSlipSummary';
 import PageSkeleton from '../../components/PageSkeleton';
-import { cancelAgentBettingSlip, getAgentBets } from '../../services/api';
+import { getAgentBets } from '../../services/api';
 import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySavedSlipImage } from '../../utils/slipImage';
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
+const getCustomerId = (customer) => String(customer?.id || customer?._id || customer || '');
 
 const ui = {
   eyebrow: 'พื้นที่ติดตามโพย',
@@ -28,29 +30,37 @@ const ui = {
   stakeLabel: 'ยอดแทงรวม',
   pendingLabel: 'โพยรอผล',
   wonLabel: 'ยอดถูกรวม',
-  cancellableLabel: 'โพยที่ยกเลิกได้',
+  memberCountLabel: 'สมาชิกที่ซื้อแทน',
   totalWonHint: 'รวมยอดที่ถูกรางวัลแล้ว',
-  cancellableHint: 'ยกเลิกได้เฉพาะโพยที่ยังรอผล',
-  filterTitle: 'กรองตามงวด',
-  filterHint: 'เลือกงวดที่ต้องการเพื่อดูโพยแบบรวมเลขตามเลขอ้างอิงเดียวกัน',
+  memberCountHint: 'จำนวนสมาชิกที่มีโพยตามตัวกรองนี้',
   clearFilter: 'ล้างงวด',
+  memberFilter: 'กำลังดูประวัติย้อนหลัง',
+  clearMemberFilter: 'ดูทุกสมาชิก',
+  searchPlaceholder: 'ค้นหาสมาชิก เลขโพย ตลาด งวด หรือเลขที่แทง',
+  clearSearch: 'ล้างคำค้น',
+  sortPlaceholder: 'เรียงตาม',
+  latestSort: 'ล่าสุด',
+  highestStakeSort: 'ยอดเยอะที่สุด',
+  lowestStakeSort: 'ยอดต่ำที่สุด',
+  resultPlaceholder: 'สถานะโพย',
+  allResults: 'ทุกสถานะ',
+  pendingOnly: 'รอผล',
+  wonOnly: 'ถูกรางวัล',
+  lostOnly: 'ไม่ถูกรางวัล',
   loadError: 'โหลดรายการโพยไม่สำเร็จ',
-  cancelSuccess: 'ยกเลิกโพยสำเร็จ',
-  cancelError: 'ยกเลิกโพยไม่สำเร็จ',
   slipLabel: 'เลขอ้างอิง',
   totalStake: 'ยอดแทงรวมโพย',
   totalWon: 'ยอดถูกรวมโพย',
   marketRound: 'ตลาด / งวด',
   placedFor: 'ซื้อแทน',
   itemCount: (value) => `${value} รายการ`,
-  cancelAction: 'ยกเลิกโพย',
-  cancelling: 'กำลังยกเลิก...',
   copyImageAction: 'คัดลอกโพยเป็นรูป',
   copyingImageAction: 'กำลังคัดลอก...',
   copyImageSuccess: 'คัดลอกโพยเป็นรูปแล้ว',
   createImageSuccess: 'สร้างไฟล์รูปโพยแล้ว',
   copyImageError: 'คัดลอกโพยเป็นรูปไม่สำเร็จ',
-  openFootnote: 'โพยนี้ยังเปิดอยู่และยกเลิกได้',
+  openFootnote: 'โพยนี้ยังรอผลอยู่',
+  adminOnlyFootnote: 'ยกเลิกโพยได้โดยแอดมินเท่านั้น',
   closedFootnote: 'โพยนี้ปิดการยกเลิกแล้ว',
   empty: 'ยังไม่มีข้อมูลโพยในงวดที่เลือก',
   unknownMember: 'ไม่ระบุสมาชิก',
@@ -108,18 +118,23 @@ const groupBetsBySlip = (bets = []) => {
       displayGroups: buildSlipDisplayGroups(group.items),
       memo: group.memo || 'ไม่มีบันทึกช่วยจำ',
       result: group.hasPending ? 'pending' : group.hasWon ? 'won' : 'lost',
-      canCancel: group.hasPending && !!group.slipId,
+      canCancel: false,
       itemCount: group.items.length
     }))
     .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
 };
 
 const AgentBets = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roundDate, setRoundDate] = useState('');
-  const [cancellingSlipId, setCancellingSlipId] = useState('');
   const [copyingSlipId, setCopyingSlipId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [resultFilter, setResultFilter] = useState('');
+  const [sortBy, setSortBy] = useState('recent');
+  const memberId = searchParams.get('memberId') || '';
+  const memberName = searchParams.get('memberName') || '';
 
   const load = async () => {
     try {
@@ -138,22 +153,6 @@ const AgentBets = () => {
   useEffect(() => {
     load();
   }, [roundDate]);
-
-  const handleCancelSlip = async (slipId) => {
-    if (!slipId) return;
-    setCancellingSlipId(slipId);
-
-    try {
-      await cancelAgentBettingSlip(slipId);
-      toast.success(ui.cancelSuccess);
-      await load();
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || ui.cancelError);
-    } finally {
-      setCancellingSlipId('');
-    }
-  };
 
   const handleCopySlipImage = async (group) => {
     if (!group) return;
@@ -182,15 +181,63 @@ const AgentBets = () => {
   };
 
   const slipGroups = useMemo(() => groupBetsBySlip(bets), [bets]);
+  const visibleSlipGroups = useMemo(() => {
+    if (!memberId) return slipGroups;
+    return slipGroups.filter((group) => getCustomerId(group.customer) === memberId);
+  }, [memberId, slipGroups]);
+  const activeMemberName = useMemo(
+    () => visibleSlipGroups[0]?.customer?.name || memberName,
+    [memberName, visibleSlipGroups]
+  );
+  const searchedSlipGroups = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) return visibleSlipGroups;
+
+    return visibleSlipGroups.filter((group) => {
+      const searchable = [
+        group.customer?.name,
+        group.customer?.username,
+        group.slipNumber,
+        group.slipId,
+        group.marketName,
+        group.roundDate,
+        group.roundLabel,
+        group.memo,
+        ...(group.items || []).flatMap((item) => [item.number, item.betType])
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchable.includes(keyword);
+    });
+  }, [searchTerm, visibleSlipGroups]);
+  const filteredSlipGroups = useMemo(() => {
+    if (!resultFilter) return searchedSlipGroups;
+    return searchedSlipGroups.filter((group) => group.result === resultFilter);
+  }, [resultFilter, searchedSlipGroups]);
+  const displaySlipGroups = useMemo(() => {
+    const groups = [...filteredSlipGroups];
+
+    if (sortBy === 'stake_desc') {
+      return groups.sort((left, right) => Number(right.totalStake || 0) - Number(left.totalStake || 0));
+    }
+
+    if (sortBy === 'stake_asc') {
+      return groups.sort((left, right) => Number(left.totalStake || 0) - Number(right.totalStake || 0));
+    }
+
+    return groups.sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
+  }, [filteredSlipGroups, sortBy]);
 
   const summary = useMemo(
     () => ({
-      totalStake: slipGroups.reduce((sum, group) => sum + Number(group.totalStake || 0), 0),
-      pendingSlips: slipGroups.filter((group) => group.result === 'pending').length,
-      totalWon: slipGroups.reduce((sum, group) => sum + Number(group.totalWon || 0), 0),
-      cancellableSlips: slipGroups.filter((group) => group.canCancel).length
+      totalStake: filteredSlipGroups.reduce((sum, group) => sum + Number(group.totalStake || 0), 0),
+      pendingSlips: filteredSlipGroups.filter((group) => group.result === 'pending').length,
+      totalWon: filteredSlipGroups.reduce((sum, group) => sum + Number(group.totalWon || 0), 0),
+      memberCount: new Set(filteredSlipGroups.map((group) => getCustomerId(group.customer)).filter(Boolean)).size
     }),
-    [slipGroups]
+    [filteredSlipGroups]
   );
 
   if (loading) return <PageSkeleton statCount={4} rows={4} sidebar={false} />;
@@ -205,9 +252,9 @@ const AgentBets = () => {
         </div>
 
         <div className="ops-hero-side">
-          <span>{ui.roundLabel}</span>
-          <strong>{roundDate || ui.allRounds}</strong>
-          <small>{ui.count(slipGroups.length)}</small>
+          <span>{memberId ? ui.memberFilter : ui.roundLabel}</span>
+          <strong>{memberId ? activeMemberName || memberId : roundDate || ui.allRounds}</strong>
+          <small>{ui.count(displaySlipGroups.length)}</small>
         </div>
       </section>
 
@@ -216,7 +263,7 @@ const AgentBets = () => {
           <span className="ops-icon-badge"><FiDollarSign /></span>
           <span>{ui.stakeLabel}</span>
           <strong>{money(summary.totalStake)}</strong>
-          <small>{ui.count(slipGroups.length)}</small>
+          <small>{ui.count(displaySlipGroups.length)}</small>
         </article>
 
         <article className="ops-overview-card">
@@ -235,20 +282,74 @@ const AgentBets = () => {
 
         <article className="ops-overview-card">
           <span className="ops-icon-badge"><FiLayers /></span>
-          <span>{ui.cancellableLabel}</span>
-          <strong>{money(summary.cancellableSlips)}</strong>
-          <small>{ui.cancellableHint}</small>
+          <span>{ui.memberCountLabel}</span>
+          <strong>{money(summary.memberCount)}</strong>
+          <small>{ui.memberCountHint}</small>
         </article>
       </section>
 
       <section className="card ops-section ag-bets-filter">
         <div className="ops-toolbar ag-bets-toolbar">
-          <div>
-            <div className="ui-eyebrow">{ui.filterTitle}</div>
-            <div className="ops-table-note">{ui.filterHint}</div>
-          </div>
-
           <div className="ag-bets-toolbar-controls">
+            <label className="ag-bets-search-field">
+              <FiSearch />
+              <input
+                type="search"
+                className="form-input"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder={ui.searchPlaceholder}
+              />
+            </label>
+
+            <label className="ag-bets-select-field">
+              <select
+                className="form-input"
+                value={resultFilter}
+                onChange={(event) => setResultFilter(event.target.value)}
+              >
+                <option value="">{ui.allResults}</option>
+                <option value="pending">{ui.pendingOnly}</option>
+                <option value="won">{ui.wonOnly}</option>
+                <option value="lost">{ui.lostOnly}</option>
+              </select>
+            </label>
+
+            <label className="ag-bets-select-field">
+              <select
+                className="form-input"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+              >
+                <option value="recent">{ui.latestSort}</option>
+                <option value="stake_desc">{ui.highestStakeSort}</option>
+                <option value="stake_asc">{ui.lowestStakeSort}</option>
+              </select>
+            </label>
+
+            {memberId ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const nextParams = new URLSearchParams(searchParams);
+                  nextParams.delete('memberId');
+                  nextParams.delete('memberName');
+                  setSearchParams(nextParams);
+                }}
+              >
+                <FiRotateCcw />
+                {ui.clearMemberFilter}
+              </button>
+            ) : null}
+
+            {searchTerm ? (
+              <button type="button" className="btn btn-secondary" onClick={() => setSearchTerm('')}>
+                <FiRotateCcw />
+                {ui.clearSearch}
+              </button>
+            ) : null}
+
             <label className="ag-bets-date-field">
               <FiCalendar />
               <input
@@ -270,13 +371,13 @@ const AgentBets = () => {
       </section>
 
       <section className="ag-bets-list">
-        {slipGroups.length === 0 ? (
+        {displaySlipGroups.length === 0 ? (
           <div className="card ops-section">
             <div className="empty-state">
               <div className="empty-state-text">{ui.empty}</div>
             </div>
           </div>
-        ) : slipGroups.map((group) => (
+        ) : displaySlipGroups.map((group) => (
           <article key={group.key} className={`ag-bet-card ag-bet-card-${group.result}`}>
             <div className="ag-bet-card-top">
               <div className="ag-bet-card-heading">
@@ -316,7 +417,7 @@ const AgentBets = () => {
 
             <div className="ag-bet-card-bottom">
               <div className="ag-bet-card-footnote">
-                {group.canCancel ? ui.openFootnote : ui.closedFootnote}
+                {group.result === 'pending' ? `${ui.openFootnote} • ${ui.adminOnlyFootnote}` : ui.closedFootnote}
               </div>
 
               <div className="ag-bet-card-actions">
@@ -329,18 +430,6 @@ const AgentBets = () => {
                   <FiCopy />
                   {copyingSlipId === (group.slipId || group.key) ? ui.copyingImageAction : ui.copyImageAction}
                 </button>
-
-                {group.canCancel ? (
-                  <button
-                    type="button"
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleCancelSlip(group.slipId)}
-                    disabled={cancellingSlipId === group.slipId}
-                  >
-                    {cancellingSlipId === group.slipId ? <FiRefreshCw className="spin-animation" /> : <FiRotateCcw />}
-                    {cancellingSlipId === group.slipId ? ui.cancelling : ui.cancelAction}
-                  </button>
-                ) : null}
               </div>
             </div>
           </article>
@@ -364,7 +453,10 @@ const AgentBets = () => {
         }
 
         .ag-bets-toolbar {
-          justify-content: space-between;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: nowrap;
         }
 
         .ag-bets-toolbar-controls {
@@ -372,8 +464,12 @@ const AgentBets = () => {
           flex-wrap: wrap;
           gap: 10px;
           align-items: center;
+          justify-content: flex-end;
+          flex: 1 1 auto;
         }
 
+        .ag-bets-search-field,
+        .ag-bets-select-field,
         .ag-bets-date-field {
           min-width: 220px;
           display: inline-flex;
@@ -386,6 +482,18 @@ const AgentBets = () => {
           color: var(--text-muted);
         }
 
+        .ag-bets-search-field {
+          min-width: min(420px, 100%);
+          flex: 1 1 320px;
+        }
+
+        .ag-bets-select-field {
+          flex: 0 1 220px;
+          padding-right: 10px;
+        }
+
+        .ag-bets-search-field .form-input,
+        .ag-bets-select-field .form-input,
         .ag-bets-date-field .form-input {
           border: none;
           background: transparent;
@@ -394,8 +502,15 @@ const AgentBets = () => {
           padding: 0;
         }
 
+        .ag-bets-search-field .form-input:focus,
+        .ag-bets-select-field .form-input:focus,
         .ag-bets-date-field .form-input:focus {
           box-shadow: none;
+        }
+
+        .ag-bets-select-field .form-input {
+          width: 100%;
+          cursor: pointer;
         }
 
         .ag-bet-card {
@@ -585,8 +700,11 @@ const AgentBets = () => {
         }
 
         @media (max-width: 720px) {
+          .ag-bets-search-field,
+          .ag-bets-select-field,
           .ag-bets-date-field {
             width: 100%;
+            min-width: 0;
           }
 
           .ag-bets-toolbar-controls .btn {

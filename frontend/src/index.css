@@ -1446,27 +1446,6 @@ input, select, textarea {
   margin-top: 8px;
 }
 
-.operator-working-slip-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 0;
-}
-
-.operator-working-slip-stats > div {
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(220, 38, 38, 0.12);
-  background: rgba(255, 255, 255, 0.86);
-}
-
-.operator-working-slip-stats strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 1.02rem;
-  line-height: 1.2;
-}
-
 .operator-fast-chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -1921,7 +1900,6 @@ input, select, textarea {
   .operator-preview-summary,
   .operator-fast-entry-row,
   .operator-fast-grid,
-  .operator-working-slip-stats,
   .operator-grid-entry-grid,
   .operator-grid-bulk {
     grid-template-columns: 1fr;

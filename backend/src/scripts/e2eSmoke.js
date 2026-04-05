@@ -769,9 +769,13 @@ const main = async () => {
       summary.checks.push('agent-reports-pending');
 
       const cancelSlipResponse = await agentClient.post(`/agent/betting/slips/${slipId}/cancel`);
-      expectStatus(cancelSlipResponse, 200, 'Cancel slip');
-      assert(cancelSlipResponse.data.status === 'cancelled', 'Slip status did not change to cancelled');
-      summary.checks.push('agent-cancel-member-slip');
+      expectStatus(cancelSlipResponse, 403, 'Agent cancel slip blocked');
+      summary.checks.push('agent-cancel-member-slip-blocked');
+
+      const adminCancelSlipResponse = await adminClient.post(`/admin/betting/slips/${slipId}/cancel`);
+      expectStatus(adminCancelSlipResponse, 200, 'Admin cancel slip');
+      assert(adminCancelSlipResponse.data.status === 'cancelled', 'Slip status did not change to cancelled');
+      summary.checks.push('admin-cancel-member-slip');
 
       const reportAfterCancel = await agentClient.get('/agent/reports', {
         params: {

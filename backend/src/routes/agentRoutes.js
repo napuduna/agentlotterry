@@ -14,8 +14,7 @@ const {
 } = require('../services/analyticsService');
 const {
   previewSlip,
-  createSlip,
-  cancelSlipByActor
+  createSlip
 } = require('../services/betSlipService');
 const { getCatalogOverview } = require('../services/catalogService');
 const {
@@ -212,21 +211,7 @@ router.post('/betting/slips', async (req, res) => {
 
 // POST /api/agent/betting/slips/:slipId/cancel
 router.post('/betting/slips/:slipId/cancel', async (req, res) => {
-  try {
-    const slip = await cancelSlipByActor({
-      actorUser: req.user,
-      slipId: req.params.slipId
-    });
-
-    await createAuditLog(req.user._id, 'AGENT_CANCEL_MEMBER_SLIP', slip.id, {
-      slipNumber: slip.slipNumber,
-      customerId: slip.customerId
-    });
-
-    res.json(slip);
-  } catch (error) {
-    res.status(400).json({ message: error.message || 'Failed to cancel slip' });
-  }
+  res.status(403).json({ message: 'Only admin can cancel slip' });
 });
 
 // GET /api/agent/betting/items/recent

@@ -1,13 +1,70 @@
 import { buildSlipDisplayGroups } from './slipGrouping';
 
-const CANVAS_WIDTH = 1320;
-const PADDING = 56;
-const BRAND_RED = '#dc2626';
-const BRAND_DARK = '#7f1d1d';
-const TEXT_DARK = '#0f172a';
-const TEXT_MUTED = '#64748b';
-const BORDER = '#e2e8f0';
-const PANEL = '#fff7f7';
+const REM = 16;
+
+const CANVAS_WIDTH = 1280;
+const FRAME_PADDING = 20;
+const MODAL_WIDTH = CANVAS_WIDTH - (FRAME_PADDING * 2);
+const MODAL_PADDING_X = 14;
+const MODAL_PADDING_TOP = 12;
+const MODAL_PADDING_BOTTOM = 14;
+const SECTION_GAP = 8;
+
+const COLORS = {
+  canvas: '#fff7f7',
+  modal: '#fffdfd',
+  border: 'rgba(185, 28, 28, 0.12)',
+  borderAccent: 'rgba(220, 38, 38, 0.2)',
+  borderSoft: 'rgba(220, 38, 38, 0.12)',
+  primary: '#dc2626',
+  primaryLight: '#ef4444',
+  textPrimary: '#241313',
+  textSecondary: '#7f5050',
+  textMuted: '#ad7a7a',
+  cardSurface: 'rgba(255, 253, 253, 0.96)',
+  cardTint: 'rgba(255, 245, 245, 0.96)',
+  metaTop: 'rgba(255, 253, 253, 0.96)',
+  metaBottom: 'rgba(255, 245, 245, 0.98)',
+  shadowModal: 'rgba(127, 29, 29, 0.1)',
+  shadowCard: 'rgba(127, 29, 29, 0.06)'
+};
+
+const TYPE = {
+  eyebrow: 0.78 * REM,
+  title: 1.2 * REM,
+  metaLine: 1.05 * REM,
+  metaNote: 0.84 * REM,
+  summaryLabel: 0.84 * REM,
+  summaryValue: 1.08 * REM,
+  groupFamily: 0.8 * REM,
+  groupMeta: 0.68 * REM,
+  groupTotal: 0.92 * REM,
+  numbers: 0.92 * REM,
+  noteLabel: 0.84 * REM,
+  noteText: 0.92 * REM,
+  empty: 0.92 * REM
+};
+
+const GROUP = {
+  cardPaddingX: 8,
+  cardPaddingY: 7,
+  cardGap: 6,
+  badgeWidth: 74,
+  badgeMinHeight: 46,
+  badgePaddingY: 5,
+  numbersMinHeight: 34,
+  numbersPaddingX: 9,
+  numbersPaddingY: 7,
+  numbersLineHeight: TYPE.numbers * 1.3,
+  bodyGap: 4,
+  badgeTextGap: 4
+};
+
+const NOTE = {
+  paddingX: 9,
+  paddingY: 7,
+  lineHeight: TYPE.noteText * 1.35
+};
 
 const money = (value) => Number(value || 0).toLocaleString('th-TH');
 
@@ -74,6 +131,32 @@ const drawRoundedRect = (ctx, x, y, width, height, radius, fillStyle, strokeStyl
   }
 };
 
+const drawShadowCard = (
+  ctx,
+  x,
+  y,
+  width,
+  height,
+  radius,
+  fillStyle,
+  strokeStyle,
+  { shadowColor = COLORS.shadowCard, shadowBlur = 18, shadowOffsetY = 8 } = {}
+) => {
+  ctx.save();
+  ctx.shadowColor = shadowColor;
+  ctx.shadowBlur = shadowBlur;
+  ctx.shadowOffsetY = shadowOffsetY;
+  drawRoundedRect(ctx, x, y, width, height, radius, fillStyle, strokeStyle);
+  ctx.restore();
+};
+
+const drawLinearCard = (ctx, x, y, width, height, radius, colorTop, colorBottom, strokeStyle = null) => {
+  const gradient = ctx.createLinearGradient(x, y, x, y + height);
+  gradient.addColorStop(0, colorTop);
+  gradient.addColorStop(1, colorBottom);
+  drawRoundedRect(ctx, x, y, width, height, radius, gradient, strokeStyle);
+};
+
 const downloadBlob = (blob, fileName) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -85,77 +168,67 @@ const downloadBlob = (blob, fileName) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const measureGroupedLayout = (ctx, groups = [], note = '') => {
-  const contentWidth = CANVAS_WIDTH - (PADDING * 2);
-  const sideWidth = 180;
-  const sideGap = 20;
-  const bodyWidth = contentWidth - sideWidth - sideGap - 18;
+const formatThaiDate = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '-';
 
-  const normalizedGroups = groups.map((group) => {
-    const numberLines = wrapText(ctx, group.numbersText, bodyWidth - 36);
-    const numbersHeight = Math.max(66, 24 + (numberLines.length * 28));
-    const groupHeight = Math.max(126, 44 + numbersHeight);
+  const isoMatch = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return date.toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Asia/Bangkok'
+    });
+  }
 
-    return {
-      ...group,
-      numberLines,
-      numbersHeight,
-      groupHeight
-    };
-  });
+  const slashMatch = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (slashMatch) {
+    const [, day, month, yearRaw] = slashMatch;
+    const year = Number(yearRaw.length === 2 ? `20${yearRaw}` : yearRaw);
+    const date = new Date(year, Number(month) - 1, Number(day));
+    return date.toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Asia/Bangkok'
+    });
+  }
 
-  const noteLines = note ? wrapText(ctx, note, contentWidth - 36) : [];
-  const noteHeight = note ? Math.max(88, 40 + (noteLines.length * 24)) : 0;
+  return raw.replace(/^งวด:\s*/i, '').replace(/^งวด\s*/i, '').trim();
+};
 
-  return {
-    contentWidth,
-    sideWidth,
-    sideGap,
-    bodyWidth,
-    normalizedGroups,
-    noteLines,
-    noteHeight
-  };
+const normalizeRoundLabel = (marketName, roundLabel) => {
+  const market = String(marketName || '').trim();
+  const round = String(roundLabel || '').trim();
+
+  if (!round) return '-';
+  if (!market) return round;
+
+  const escapedMarket = market.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return round.replace(new RegExp(`^${escapedMarket}\\s*[•|]\\s*`), '').trim() || round;
 };
 
 const buildPreviewImagePayload = ({
   preview,
   selectedMember,
   selectedLottery,
-  selectedRound,
-  selectedRateProfile,
-  actorLabel,
-  operatorName
-}) => {
-  const createdAtLabel = new Date().toLocaleString('th-TH', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  });
+  selectedRound
+}) => ({
+  eyebrow: 'สรุปโพยดิจิทัล',
+  title: 'ตรวจสอบก่อนบันทึกโพย',
+  memberName: preview?.member?.name || selectedMember?.name || '-',
+  marketName: selectedLottery?.name || preview?.lottery?.name || '-',
+  roundLabel: formatThaiDate(selectedRound?.title || preview?.round?.title || selectedRound?.code || preview?.round?.code || '-'),
+  totalAmount: Number(preview?.summary?.totalAmount || 0),
+  groups: buildSlipDisplayGroups(preview?.items || []),
+  note: preview?.memo || '',
+  showEmptyNote: false
+});
 
-  return {
-    title: 'สำเนาโพย',
-    subtitle: 'คัดลอกจากหน้าตรวจสอบโพยก่อนส่งรายการซื้อ',
-    headerMeta: [
-      ['สมาชิก', preview?.member?.name || selectedMember?.name || '-'],
-      ['ผู้ทำรายการ', `${operatorName || '-'} • ${actorLabel || '-'}`],
-      ['ตลาด', selectedLottery?.name || '-'],
-      ['งวด', selectedRound?.title || selectedRound?.code || '-'],
-      ['เรท', selectedRateProfile?.name || 'เรทกลาง'],
-      ['สร้างภาพเมื่อ', createdAtLabel]
-    ],
-    totalAmount: Number(preview?.summary?.totalAmount || 0),
-    groups: buildSlipDisplayGroups(preview?.items || []),
-    note: preview?.memo || ''
-  };
-};
-
-const buildSavedSlipImagePayload = ({ slip, actorLabel }) => {
-  const createdAtLabel = new Date(
-    slip?.createdAt || slip?.items?.[0]?.createdAt || Date.now()
-  ).toLocaleString('th-TH', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  });
+const buildSavedSlipImagePayload = ({ slip }) => {
   const groups = slip?.displayGroups?.length ? slip.displayGroups : buildSlipDisplayGroups(slip?.items || []);
   const totalAmount =
     Number(slip?.totalAmount) ||
@@ -163,34 +236,101 @@ const buildSavedSlipImagePayload = ({ slip, actorLabel }) => {
     groups.reduce((sum, group) => sum + Number(group.totalAmount || 0), 0);
 
   return {
-    title: 'สำเนาโพย',
-    subtitle: 'คัดลอกจากรายการโพยที่ถูกส่งแล้ว',
-    headerMeta: [
-      ['สมาชิก', slip?.customer?.name || '-'],
-      ['ผู้ทำรายการ', actorLabel || '-'],
-      ['ตลาด', slip?.marketName || '-'],
-      ['งวด', slip?.roundLabel || '-'],
-      ['เลขอ้างอิง', slip?.slipNumber || slip?.slipId || '-'],
-      ['สร้างภาพเมื่อ', createdAtLabel]
-    ],
+    eyebrow: 'สรุปโพยดิจิทัล',
+    title: 'ตรวจสอบก่อนบันทึกโพย',
+    memberName: slip?.customer?.name || '-',
+    marketName: slip?.marketName || '-',
+    roundLabel: formatThaiDate(normalizeRoundLabel(slip?.marketName, slip?.roundLabel || slip?.roundDate || '-')),
     totalAmount,
     groups,
-    note: slip?.memo || ''
+    note: slip?.memo || '',
+    showEmptyNote: true
   };
 };
 
-const renderGroupedSlipImage = ({ title, subtitle, headerMeta, totalAmount, groups, note }) => {
-  const safeGroups = groups?.length ? groups : [];
-  const ratio = window.devicePixelRatio > 1 ? 2 : 1;
+const measureImageLayout = (ctx, payload) => {
+  const contentWidth = MODAL_WIDTH - (MODAL_PADDING_X * 2);
+  const groupBodyWidth =
+    contentWidth -
+    (GROUP.cardPaddingX * 2) -
+    GROUP.badgeWidth -
+    GROUP.cardGap;
 
+  ctx.font = `700 ${TYPE.numbers}px sans-serif`;
+  const groups = (payload.groups || []).map((group) => {
+    const numberLines = wrapText(
+      ctx,
+      group.numbersText,
+      groupBodyWidth - (GROUP.numbersPaddingX * 2)
+    );
+    const numbersHeight = Math.max(
+      GROUP.numbersMinHeight,
+      (GROUP.numbersPaddingY * 2) + (numberLines.length * GROUP.numbersLineHeight)
+    );
+    const bodyHeight = Math.ceil(TYPE.groupTotal * 1.2) + GROUP.bodyGap + numbersHeight;
+    const contentHeight = Math.max(GROUP.badgeMinHeight, bodyHeight);
+    const cardHeight = (GROUP.cardPaddingY * 2) + contentHeight;
+
+    return {
+      ...group,
+      numberLines,
+      cardHeight
+    };
+  });
+
+  const showNote = payload.showEmptyNote || Boolean(String(payload.note || '').trim());
+  let noteCardHeight = 0;
+  let noteLines = [];
+
+  if (showNote) {
+    ctx.font = `700 ${TYPE.noteText}px sans-serif`;
+    noteLines = wrapText(ctx, payload.note || 'ไม่มีบันทึกช่วยจำ', contentWidth - (NOTE.paddingX * 2));
+    noteCardHeight = Math.max(
+      56,
+      34 + (NOTE.paddingY * 2) + (noteLines.length * NOTE.lineHeight)
+    );
+  }
+
+  const headerHeight = 52;
+  const metaCardHeight = 108;
+  const summaryCardHeight = 68;
+  const emptyCardHeight = 72;
+  const groupsHeight = groups.length
+    ? groups.reduce((sum, group) => sum + group.cardHeight, 0) + ((groups.length - 1) * 6)
+    : emptyCardHeight;
+
+  const modalHeight =
+    MODAL_PADDING_TOP +
+    headerHeight +
+    14 +
+    metaCardHeight +
+    SECTION_GAP +
+    summaryCardHeight +
+    10 +
+    groupsHeight +
+    (showNote ? 8 + noteCardHeight : 0) +
+    MODAL_PADDING_BOTTOM;
+
+  return {
+    contentWidth,
+    groups,
+    noteLines,
+    noteCardHeight,
+    showNote,
+    headerHeight,
+    metaCardHeight,
+    summaryCardHeight,
+    emptyCardHeight,
+    modalHeight
+  };
+};
+
+const renderGroupedSlipImage = (payload) => {
+  const ratio = window.devicePixelRatio > 1 ? 2 : 1;
   const measureCanvas = document.createElement('canvas');
   const measureCtx = measureCanvas.getContext('2d');
-  measureCtx.font = '700 20px sans-serif';
-  const layout = measureGroupedLayout(measureCtx, safeGroups, note);
-  const groupsHeight = layout.normalizedGroups.length
-    ? layout.normalizedGroups.reduce((sum, group) => sum + group.groupHeight + 18, 0) - 18
-    : 88;
-  const canvasHeight = 420 + (headerMeta.length * 38) + 112 + groupsHeight + layout.noteHeight;
+  const layout = measureImageLayout(measureCtx, payload);
+  const canvasHeight = layout.modalHeight + (FRAME_PADDING * 2);
 
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_WIDTH * ratio;
@@ -202,95 +342,171 @@ const renderGroupedSlipImage = ({ title, subtitle, headerMeta, totalAmount, grou
   ctx.scale(ratio, ratio);
   ctx.imageSmoothingEnabled = true;
 
-  const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 260);
-  gradient.addColorStop(0, BRAND_RED);
-  gradient.addColorStop(1, BRAND_DARK);
-
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = COLORS.canvas;
   ctx.fillRect(0, 0, CANVAS_WIDTH, canvasHeight);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, CANVAS_WIDTH, 190);
 
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '700 22px sans-serif';
-  ctx.fillText('Agent Lottery', PADDING, 62);
-  ctx.font = '800 42px sans-serif';
-  ctx.fillText(title, PADDING, 116);
-  ctx.font = '500 18px sans-serif';
-  ctx.fillText(subtitle, PADDING, 152);
+  const modalX = FRAME_PADDING;
+  const modalY = FRAME_PADDING;
+  drawShadowCard(
+    ctx,
+    modalX,
+    modalY,
+    MODAL_WIDTH,
+    layout.modalHeight,
+    20,
+    COLORS.modal,
+    COLORS.border,
+    { shadowColor: COLORS.shadowModal, shadowBlur: 26, shadowOffsetY: 10 }
+  );
 
-  let y = 220;
-  drawRoundedRect(ctx, PADDING, y, layout.contentWidth, 48 + (headerMeta.length * 38), 24, '#ffffff', BORDER);
-  y += 34;
+  const contentX = modalX + MODAL_PADDING_X;
+  let y = modalY + MODAL_PADDING_TOP;
 
-  headerMeta.forEach(([label, value]) => {
-    ctx.fillStyle = TEXT_MUTED;
-    ctx.font = '700 14px sans-serif';
-    ctx.fillText(label, PADDING + 20, y);
-    ctx.fillStyle = TEXT_DARK;
-    ctx.font = '600 18px sans-serif';
-    ctx.fillText(value || '-', PADDING + 220, y);
-    y += 38;
-  });
+  ctx.textAlign = 'left';
+  ctx.fillStyle = COLORS.primaryLight;
+  ctx.font = `700 ${TYPE.eyebrow}px sans-serif`;
+  ctx.fillText(payload.eyebrow, contentX, y + 13);
 
-  y += 14;
-  const totalCardWidth = 340;
-  const totalCardX = PADDING + ((layout.contentWidth - totalCardWidth) / 2);
-  drawRoundedRect(ctx, totalCardX, y, totalCardWidth, 96, 22, PANEL, '#fecaca');
-  ctx.fillStyle = TEXT_MUTED;
-  ctx.font = '700 14px sans-serif';
-  ctx.fillText('ยอดรวม', totalCardX + 20, y + 34);
-  ctx.fillStyle = TEXT_DARK;
-  ctx.font = '800 28px sans-serif';
-  ctx.fillText(`${money(totalAmount)} บาท`, totalCardX + 20, y + 68);
+  ctx.fillStyle = COLORS.textPrimary;
+  ctx.font = `700 ${TYPE.title}px sans-serif`;
+  ctx.fillText(payload.title, contentX, y + 38);
 
-  y += 128;
+  y += layout.headerHeight + 14;
 
-  if (!layout.normalizedGroups.length) {
-    drawRoundedRect(ctx, PADDING, y, layout.contentWidth, 72, 18, '#ffffff', BORDER);
-    ctx.fillStyle = TEXT_MUTED;
-    ctx.font = '600 18px sans-serif';
-    ctx.fillText('ยังไม่มีรายการในโพยนี้', PADDING + 24, y + 42);
-    y += 90;
+  drawShadowCard(ctx, contentX, y, layout.contentWidth, layout.metaCardHeight, 16, COLORS.metaTop, COLORS.borderAccent);
+  drawLinearCard(ctx, contentX, y, layout.contentWidth, layout.metaCardHeight, 16, COLORS.metaTop, COLORS.metaBottom, COLORS.borderAccent);
+
+  ctx.fillStyle = COLORS.textPrimary;
+  ctx.font = `700 ${TYPE.metaLine}px sans-serif`;
+  ctx.fillText(`สมาชิก: ${payload.memberName}`, contentX + 16, y + 28);
+
+  ctx.fillStyle = COLORS.textPrimary;
+  ctx.font = `700 ${TYPE.metaLine}px sans-serif`;
+  ctx.fillText(`ตลาด: ${payload.marketName}`, contentX + 16, y + 58);
+  ctx.fillText(`งวด: ${payload.roundLabel}`, contentX + 16, y + 88);
+
+  y += layout.metaCardHeight + SECTION_GAP;
+
+  drawShadowCard(ctx, contentX, y, layout.contentWidth, layout.summaryCardHeight, 16, COLORS.cardSurface, COLORS.border);
+  const summaryColWidth = layout.contentWidth / 2;
+
+  ctx.fillStyle = COLORS.textMuted;
+  ctx.font = `600 ${TYPE.summaryLabel}px sans-serif`;
+  ctx.fillText('สมาชิก', contentX + 18, y + 22);
+  ctx.fillText('ยอดรวม', contentX + summaryColWidth + 18, y + 22);
+
+  ctx.fillStyle = COLORS.textPrimary;
+  ctx.font = `700 ${TYPE.summaryValue}px sans-serif`;
+  ctx.fillText(payload.memberName, contentX + 18, y + 48);
+  ctx.fillText(`${money(payload.totalAmount)} บาท`, contentX + summaryColWidth + 18, y + 48);
+
+  y += layout.summaryCardHeight + 10;
+
+  if (!layout.groups.length) {
+    drawShadowCard(ctx, contentX, y, layout.contentWidth, layout.emptyCardHeight, 16, COLORS.cardSurface, COLORS.border);
+    ctx.fillStyle = COLORS.textMuted;
+    ctx.font = `600 ${TYPE.empty}px sans-serif`;
+    ctx.fillText('ยังไม่มีรายการในโพยนี้', contentX + 16, y + 42);
+    y += layout.emptyCardHeight;
   } else {
-    layout.normalizedGroups.forEach((group) => {
-      drawRoundedRect(ctx, PADDING, y, layout.contentWidth, group.groupHeight, 22, '#ffffff', BORDER);
-      drawRoundedRect(ctx, PADDING + 18, y + 16, layout.sideWidth, group.groupHeight - 32, 18, '#fff5f5', '#fecaca');
+    layout.groups.forEach((group, index) => {
+      const cardY = y;
+      drawShadowCard(ctx, contentX, cardY, layout.contentWidth, group.cardHeight, 16, COLORS.cardSurface, COLORS.border);
 
-      ctx.fillStyle = BRAND_RED;
+      const badgeX = contentX + GROUP.cardPaddingX;
+      const maxBadgeHeight = group.cardHeight - (GROUP.cardPaddingY * 2);
+      const badgeTextHeight =
+        TYPE.groupFamily +
+        GROUP.badgeTextGap +
+        TYPE.groupMeta +
+        GROUP.badgeTextGap +
+        TYPE.groupMeta;
+      const badgeHeight = Math.max(
+        GROUP.badgeMinHeight,
+        Math.min(maxBadgeHeight, badgeTextHeight + (GROUP.badgePaddingY * 2) + 10)
+      );
+      const badgeY = cardY + ((group.cardHeight - badgeHeight) / 2);
+      drawRoundedRect(
+        ctx,
+        badgeX,
+        badgeY,
+        GROUP.badgeWidth,
+        badgeHeight,
+        10,
+        COLORS.cardTint,
+        COLORS.borderSoft
+      );
+
+      ctx.save();
       ctx.textAlign = 'center';
-      ctx.font = '800 24px sans-serif';
-      ctx.fillText(group.familyLabel, PADDING + 18 + (layout.sideWidth / 2), y + 54);
-      ctx.font = '700 17px sans-serif';
-      ctx.fillText(group.comboLabel, PADDING + 18 + (layout.sideWidth / 2), y + 84);
-      ctx.fillText(group.amountLabel, PADDING + 18 + (layout.sideWidth / 2), y + 112);
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = COLORS.primary;
+      const badgeTextStartY = badgeY + ((badgeHeight - badgeTextHeight) / 2);
+      ctx.font = `800 ${TYPE.groupFamily}px sans-serif`;
+      ctx.fillText(group.familyLabel, badgeX + (GROUP.badgeWidth / 2), badgeTextStartY);
+      ctx.font = `700 ${TYPE.groupMeta}px sans-serif`;
+      ctx.fillText(
+        group.comboLabel,
+        badgeX + (GROUP.badgeWidth / 2),
+        badgeTextStartY + TYPE.groupFamily + GROUP.badgeTextGap
+      );
+      ctx.fillText(
+        group.amountLabel,
+        badgeX + (GROUP.badgeWidth / 2),
+        badgeTextStartY + TYPE.groupFamily + TYPE.groupMeta + (GROUP.badgeTextGap * 2)
+      );
+      ctx.restore();
 
-      ctx.textAlign = 'right';
-      ctx.fillStyle = TEXT_DARK;
-      ctx.font = '800 24px sans-serif';
-      ctx.fillText(`${money(group.totalAmount)} บาท`, CANVAS_WIDTH - PADDING - 26, y + 42);
+      const bodyX = badgeX + GROUP.badgeWidth + GROUP.cardGap;
+      const bodyWidth = layout.contentWidth - (GROUP.cardPaddingX * 2) - GROUP.badgeWidth - GROUP.cardGap;
 
-      drawRoundedRect(ctx, PADDING + layout.sideWidth + layout.sideGap, y + 54, layout.bodyWidth, group.numbersHeight, 18, '#fffdfd', '#fecaca');
-      ctx.fillStyle = TEXT_DARK;
       ctx.textAlign = 'left';
-      ctx.font = '700 20px sans-serif';
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = `700 ${TYPE.groupTotal}px sans-serif`;
+      ctx.fillText(`${money(group.totalAmount)} บาท`, bodyX, badgeY + 18);
+
+      const numbersBoxY = badgeY + 24;
+      const numbersBoxHeight = group.cardHeight - (GROUP.cardPaddingY * 2) - 24;
+      drawRoundedRect(
+        ctx,
+        bodyX,
+        numbersBoxY,
+        bodyWidth,
+        numbersBoxHeight,
+        12,
+        COLORS.cardSurface,
+        COLORS.borderSoft
+      );
+
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = `700 ${TYPE.numbers}px sans-serif`;
       group.numberLines.forEach((line, lineIndex) => {
-        ctx.fillText(line, PADDING + layout.sideWidth + layout.sideGap + 18, y + 90 + (lineIndex * 28));
+        ctx.fillText(
+          line,
+          bodyX + GROUP.numbersPaddingX,
+          numbersBoxY + GROUP.numbersPaddingY + TYPE.numbers + (lineIndex * GROUP.numbersLineHeight)
+        );
       });
 
-      y += group.groupHeight + 18;
+      y += group.cardHeight + (index < layout.groups.length - 1 ? 6 : 0);
     });
   }
 
-  if (layout.noteHeight) {
-    drawRoundedRect(ctx, PADDING, y, layout.contentWidth, layout.noteHeight, 18, '#fff7ed', '#fed7aa');
-    ctx.fillStyle = TEXT_MUTED;
-    ctx.font = '600 15px sans-serif';
-    ctx.fillText('บันทึกช่วยจำ', PADDING + 18, y + 24);
-    ctx.fillStyle = TEXT_DARK;
-    ctx.font = '600 18px sans-serif';
+  if (layout.showNote) {
+    y += 8;
+    drawShadowCard(ctx, contentX, y, layout.contentWidth, layout.noteCardHeight, 16, COLORS.cardSurface, COLORS.borderSoft);
+    ctx.fillStyle = COLORS.textMuted;
+    ctx.font = `600 ${TYPE.noteLabel}px sans-serif`;
+    ctx.fillText('บันทึกช่วยจำ', contentX + NOTE.paddingX, y + 22);
+
+    ctx.fillStyle = COLORS.textPrimary;
+    ctx.font = `700 ${TYPE.noteText}px sans-serif`;
     layout.noteLines.forEach((line, lineIndex) => {
-      ctx.fillText(line, PADDING + 18, y + 54 + (lineIndex * 24));
+      ctx.fillText(
+        line,
+        contentX + NOTE.paddingX,
+        y + 22 + NOTE.paddingY + TYPE.noteText + (lineIndex * NOTE.lineHeight)
+      );
     });
   }
 

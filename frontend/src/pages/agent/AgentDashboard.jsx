@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiBell, FiClock, FiDollarSign, FiEye, FiTrendingUp, FiUsers, FiWifi } from 'react-icons/fi';
+import { FiBell, FiClock, FiDollarSign, FiEye, FiUsers } from 'react-icons/fi';
 import GroupedSlipSummary from '../../components/GroupedSlipSummary';
 import PageSkeleton from '../../components/PageSkeleton';
 import SlipPreviewModal from '../../components/SlipPreviewModal';
@@ -94,12 +94,6 @@ const AgentDashboard = () => {
         hint: agentCopy.dashboard.statCards.members.hint(stats.activeCustomers || 0)
       },
       {
-        icon: FiWifi,
-        value: stats.onlineCustomers || 0,
-        label: agentCopy.dashboard.statCards.onlineNow.label,
-        hint: agentCopy.dashboard.statCards.onlineNow.hint
-      },
-      {
         icon: FiClock,
         value: stats.pendingBets || 0,
         label: agentCopy.dashboard.statCards.pendingItems.label,
@@ -116,12 +110,6 @@ const AgentDashboard = () => {
         value: money(stats.totalCreditBalance),
         label: agentCopy.dashboard.statCards.memberCredit.label,
         hint: agentCopy.dashboard.statCards.memberCredit.hint
-      },
-      {
-        icon: FiTrendingUp,
-        value: `${Number(stats.averageStockPercent || 0).toFixed(1)}%`,
-        label: agentCopy.dashboard.statCards.averageStock.label,
-        hint: agentCopy.dashboard.statCards.averageStock.hint
       }
     ],
     [stats]
@@ -148,7 +136,7 @@ const AgentDashboard = () => {
     }
   };
 
-  if (loading) return <PageSkeleton statCount={6} rows={6} sidebar compactSidebar />;
+  if (loading) return <PageSkeleton statCount={4} rows={6} sidebar compactSidebar />;
 
   return (
     <div className="ops-page agent-dash-page animate-fade-in">
@@ -166,14 +154,7 @@ const AgentDashboard = () => {
             <small>{agentCopy.dashboard.totalWonFromSales(money(stats.totalWon), money(stats.totalAmount))}</small>
           </div>
 
-          <div className="hero-mini-card">
-            <div className="hero-mini-icon"><FiWifi /></div>
-            <span>{agentCopy.dashboard.onlineMembers}</span>
-            <strong>{stats.onlineCustomers || 0}</strong>
-            <small>{agentCopy.dashboard.onlineMembersHint}</small>
-          </div>
-
-          <div className="hero-mini-card">
+          <div className="hero-mini-card hero-mini-card-wide">
             <div className="hero-mini-icon"><FiBell /></div>
             <span>{agentCopy.dashboard.unreadNotices}</span>
             <strong>{unreadAnnouncements}</strong>
@@ -453,6 +434,10 @@ const AgentDashboard = () => {
           flex-direction: column;
           gap: 6px;
           box-shadow: var(--shadow-sm);
+        }
+
+        .hero-mini-card-wide {
+          grid-column: 1 / -1;
         }
 
         .hero-mini-card strong {
