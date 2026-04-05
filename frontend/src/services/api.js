@@ -45,6 +45,7 @@ export const getAdminCustomers = (agentId) => api.get(`/admin/customers${agentId
 export const createAdminCustomer = (data) => api.post('/admin/customers', data);
 export const updateAdminCustomer = (id, data) => api.put(`/admin/customers/${id}`, data);
 export const deleteAdminCustomer = (id) => api.delete(`/admin/customers/${id}`);
+export const getAdminBets = (params) => api.get('/admin/bets', { params });
 export const getAdminReports = (params) => api.get('/admin/reports', { params });
 export const searchAdminBettingMembers = (params) => api.get('/admin/betting/members/search', { params });
 export const getAdminBettingMemberContext = (memberId) => api.get(`/admin/betting/members/${memberId}/context`);

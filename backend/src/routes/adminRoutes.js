@@ -7,7 +7,8 @@ const {
   getBetTotals,
   getRecentBetItems,
   getTotalsGroupedByField,
-  getAgentReportRows
+  getAgentReportRows,
+  listAgentBetItems
 } = require('../services/analyticsService');
 const { registerBettingRoutes } = require('./helpers/registerBettingRoutes');
 
@@ -314,6 +315,24 @@ router.get('/reports', async (req, res) => {
     res.json(report);
   } catch (error) {
     console.error('Report error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/admin/bets
+router.get('/bets', async (req, res) => {
+  try {
+    const { roundDate, customerId, marketId, agentId } = req.query;
+    const bets = await listAgentBetItems({
+      roundDate,
+      customerId,
+      marketId,
+      agentId
+    });
+
+    res.json(bets);
+  } catch (error) {
+    console.error('Admin bets error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

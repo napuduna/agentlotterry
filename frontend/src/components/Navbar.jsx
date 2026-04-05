@@ -20,6 +20,7 @@ const menuItems = {
     { path: '/admin/betting', label: 'ซื้อแทน', icon: <FiDollarSign /> },
     { path: '/admin/agents', label: 'เอเย่นต์', icon: <FiUsers /> },
     { path: '/admin/customers', label: 'สมาชิก', icon: <FiUser /> },
+    { path: '/admin/bets', label: 'โพย', icon: <FiList /> },
     { path: '/admin/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
     { path: '/admin/reports', label: 'รายงาน', icon: <FiFileText /> }
   ],

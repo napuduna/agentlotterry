@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AgentManagement from './pages/admin/AgentManagement';
 import CustomerManagement from './pages/admin/CustomerManagement';
+import AdminBets from './pages/admin/AdminBets';
 import AdminReports from './pages/admin/AdminReports';
 import AdminLottery from './pages/admin/AdminLottery';
 import AgentDashboard from './pages/agent/AgentDashboard';
@@ -82,6 +83,11 @@ function App() {
             <Route path="/admin/customers" element={
               <ProtectedRoute roles={['admin']}>
                 <AppLayout><CustomerManagement /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/bets" element={
+              <ProtectedRoute roles={['admin']}>
+                <AppLayout><AdminBets /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/lottery" element={

@@ -295,6 +295,7 @@ export const adminCopy = {
       status: 'สถานะ',
       actions: 'การจัดการ',
     },
+    viewHistory: 'ดูประวัติย้อนหลัง',
     edit: 'แก้ไข',
     deactivate: 'ปิดใช้งาน',
     assignmentEyebrow: 'การมอบหมายดูแล',
