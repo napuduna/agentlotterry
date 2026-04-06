@@ -95,7 +95,7 @@ export const operatorBettingCopy = {
     copyTextLoading: 'กำลังคัดลอกข้อความ...',
     copySlipImageLoading: 'กำลังคัดลอกโพยเป็นรูป...',
     submitSlip: 'สั่งซื้อ',
-    submitSlipNow: 'รีวิวและบันทึกโพย',
+    submitSlipNow: 'บันทึก',
     previewPreparing: 'กำลังเตรียมสรุปโพย...',
     saveSlipLoading: 'กำลังบันทึกโพย...',
     saveSlipAction: 'บันทึกโพย',

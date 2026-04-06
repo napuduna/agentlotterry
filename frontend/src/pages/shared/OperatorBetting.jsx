@@ -1498,16 +1498,24 @@ const OperatorBetting = () => {
     toast.success(copyMessages.recentItemApplied);
   };
 
-  const applyFastGeneratedNumbers = (numbers, successMessage, { nextFamily = fastFamily, nextTab = null } = {}) => {
+  const applyFastGeneratedNumbers = (
+    numbers,
+    successMessage,
+    { nextFamily = fastFamily, nextTab = null, appendToCurrent = false } = {}
+  ) => {
     if (!numbers.length) {
       toast.error('กรุณากรอกเลขก่อนใช้สูตรนี้');
       return;
     }
 
+    const nextNumbers = appendToCurrent
+      ? dedupeOrderedNumbers([...activeFastNumbers, ...numbers])
+      : numbers;
+
     setMode('fast');
     setFastFamily(nextFamily);
     setFastTab(nextTab || nextFamily);
-    setHelperFastNumbers(numbers);
+    setHelperFastNumbers(nextNumbers);
     setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
@@ -1547,7 +1555,10 @@ const OperatorBetting = () => {
 
   const applyTongHelper = () => {
     const numbers = buildDraftTongNumbers();
-    applyFastGeneratedNumbers(numbers, `สร้างเลขตอง ${numbers.length} รายการแล้ว`, { nextFamily: '3' });
+    applyFastGeneratedNumbers(numbers, `สร้างเลขตอง ${numbers.length} รายการแล้ว`, {
+      nextFamily: '3',
+      appendToCurrent: true
+    });
   };
 
   const applySpecialSetHelper = () => {
@@ -1555,7 +1566,9 @@ const OperatorBetting = () => {
 
     const numbers = buildDraftDoubleSet(Number(fastFamily));
     const helperLabel = fastFamily === '3' ? 'เลขหาบ' : 'เลขเบิ้ล';
-    applyFastGeneratedNumbers(numbers, `สร้าง${helperLabel} ${numbers.length} รายการแล้ว`);
+    applyFastGeneratedNumbers(numbers, `สร้าง${helperLabel} ${numbers.length} รายการแล้ว`, {
+      appendToCurrent: true
+    });
   };
 
   const applyRecentSlipGroup = (group) => {
@@ -2477,9 +2490,6 @@ const OperatorBetting = () => {
                 <div className="operator-helper-row compact operator-staged-actions">
                   <button type="button" className="btn btn-secondary btn-sm" onClick={handleSaveDraftEntry} disabled={!selectedMember || !hasDraftItems}>
                     <FiFileText /> {copyText.saveForLater}
-                  </button>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={handleOpenPreviewDialog} disabled={previewing || !selectedMember || !hasPendingSlip}>
-                    {previewing ? <FiRefreshCw className="spin-animation" /> : <FiCheckCircle />} {copyText.summarizeSlip}
                   </button>
                 </div>
                 <div className="bet-note" style={{ marginTop: 16 }}><FiAlertCircle /><span>{copyText.validationNote}</span></div>
