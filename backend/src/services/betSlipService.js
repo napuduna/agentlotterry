@@ -22,7 +22,8 @@ const DIGIT_LENGTHS = {
   '2bottom': 2,
   '2tod': 2,
   'run_top': 1,
-  'run_bottom': 1
+  'run_bottom': 1,
+  'lao_set4': 4
 };
 
 const makeSlipNumber = () => {
@@ -41,6 +42,10 @@ const buildDoubleSet = (digits) => {
 
   if (digits === 2) {
     return Array.from({ length: 10 }, (_, index) => `${index}${index}`);
+  }
+
+  if (digits !== 3) {
+    return [];
   }
 
   const numbers = new Set();

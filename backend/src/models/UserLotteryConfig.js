@@ -81,7 +81,8 @@ const userLotteryConfigSchema = new mongoose.Schema({
     '2bottom': { type: Number, default: 0, min: 0 },
     '2tod': { type: Number, default: 0, min: 0 },
     'run_top': { type: Number, default: 0, min: 0 },
-    'run_bottom': { type: Number, default: 0, min: 0 }
+    'run_bottom': { type: Number, default: 0, min: 0 },
+    'lao_set4': { type: Number, default: 0, min: 0 }
   },
   keepMode: {
     type: String,

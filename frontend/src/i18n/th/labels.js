@@ -6,7 +6,8 @@ const betTypeLabels = {
   '2bottom': '2 ตัวล่าง',
   '2tod': '2 ตัวโต๊ด',
   'run_top': 'วิ่งบน',
-  'run_bottom': 'วิ่งล่าง'
+  'run_bottom': 'วิ่งล่าง',
+  'lao_set4': 'หวยชุดลาว 4 ตัว'
 };
 
 const roundStatusLabels = {

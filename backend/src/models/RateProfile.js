@@ -30,7 +30,8 @@ const rateProfileSchema = new mongoose.Schema({
     '2bottom': { type: Number, default: DEFAULT_GLOBAL_RATES['2bottom'] },
     '2tod': { type: Number, default: DEFAULT_GLOBAL_RATES['2tod'] },
     'run_top': { type: Number, default: DEFAULT_GLOBAL_RATES['run_top'] },
-    'run_bottom': { type: Number, default: DEFAULT_GLOBAL_RATES['run_bottom'] }
+    'run_bottom': { type: Number, default: DEFAULT_GLOBAL_RATES['run_bottom'] },
+    'lao_set4': { type: Number, default: DEFAULT_GLOBAL_RATES['lao_set4'] }
   },
   commissions: {
     '3top': { type: Number, default: 0 },
@@ -40,7 +41,8 @@ const rateProfileSchema = new mongoose.Schema({
     '2bottom': { type: Number, default: 0 },
     '2tod': { type: Number, default: 0 },
     'run_top': { type: Number, default: 0 },
-    'run_bottom': { type: Number, default: 0 }
+    'run_bottom': { type: Number, default: 0 },
+    'lao_set4': { type: Number, default: 0 }
   },
   isActive: {
     type: Boolean,

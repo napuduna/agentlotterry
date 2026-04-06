@@ -22,7 +22,8 @@ export const operatorBettingCopy = {
   fastFamilyOptions: [
     { value: '2', label: '2 ตัว' },
     { value: '3', label: '3 ตัว' },
-    { value: 'run', label: 'วิ่ง' }
+    { value: 'run', label: 'วิ่ง' },
+    { value: 'lao_set', label: 'หวยชุดลาว' }
   ],
   digitModeOptions: [
     { value: '2', label: '2 ตัว / 3 ช่อง' },

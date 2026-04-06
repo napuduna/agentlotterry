@@ -69,7 +69,22 @@ const normalizeEnabledBetTypes = (value, supportedBetTypes) => {
   }
 
   const nextTypes = supportedBetTypes.filter((betType) => value.includes(betType));
-  return nextTypes.length ? nextTypes : supportedBetTypes;
+  if (!nextTypes.length) {
+    return supportedBetTypes;
+  }
+
+  // Backfill newly introduced Lao set betting for legacy configs that previously
+  // mirrored the full Lao market support list before `lao_set4` existed.
+  if (supportedBetTypes.includes('lao_set4') && !nextTypes.includes('lao_set4')) {
+    const legacySupportedTypes = supportedBetTypes.filter((betType) => betType !== 'lao_set4');
+    const matchesLegacyDefault = legacySupportedTypes.every((betType) => nextTypes.includes(betType));
+
+    if (matchesLegacyDefault) {
+      return [...nextTypes, 'lao_set4'];
+    }
+  }
+
+  return nextTypes;
 };
 
 const pickRateProfileId = ({ lottery, member, existingConfig, inputConfig }) => {

@@ -1,4 +1,6 @@
 const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('./betting');
+const STANDARD_BET_TYPES = BET_TYPES.filter((betType) => betType !== 'lao_set4');
+const LAO_BET_TYPES = [...STANDARD_BET_TYPES, 'lao_set4'];
 
 const DEFAULT_RATE_TIERS = [
   {
@@ -17,7 +19,8 @@ const DEFAULT_RATE_TIERS = [
       '2bottom': 0,
       '2tod': 0,
       'run_top': 0,
-      'run_bottom': 0
+      'run_bottom': 0,
+      'lao_set4': 0
     }
   }
 ];
@@ -72,7 +75,7 @@ const LOTTERY_TYPES = [
       drawHour: 16,
       drawMinute: 0
     },
-    supportedBetTypes: BET_TYPES,
+    supportedBetTypes: STANDARD_BET_TYPES,
     resultSource: 'legacy'
   },
   {
@@ -110,7 +113,7 @@ const LOTTERY_TYPES = [
       drawHour: 16,
       drawMinute: 20
     },
-    supportedBetTypes: BET_TYPES,
+    supportedBetTypes: STANDARD_BET_TYPES,
     resultSource: 'manual'
   },
   {
@@ -129,7 +132,7 @@ const LOTTERY_TYPES = [
       drawHour: 20,
       drawMinute: 30
     },
-    supportedBetTypes: BET_TYPES,
+    supportedBetTypes: LAO_BET_TYPES,
     resultSource: 'manual'
   },
   {
@@ -148,7 +151,7 @@ const LOTTERY_TYPES = [
       drawHour: 23,
       drawMinute: 5
     },
-    supportedBetTypes: BET_TYPES,
+    supportedBetTypes: STANDARD_BET_TYPES,
     resultSource: 'manual'
   },
   {

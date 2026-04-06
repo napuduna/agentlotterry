@@ -10,6 +10,8 @@ import { formatMoney as money } from '../../utils/formatters';
 
 const quickAmountOptions = ['10', '20', '50', '100'];
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
+const LAO_SET_BET_TYPE = 'lao_set4';
+const LAO_SET_AMOUNT = '120';
 
 const CustomerBet = () => {
   const copy = memberCopy.bet;
@@ -75,6 +77,13 @@ const CustomerBet = () => {
     setPreview(null);
   }, [selectedLottery?.id, selectedRound?.id, selectedRateProfile?.id, activeBetType, defaultAmount, rawInput, reverse, includeDoubleSet]);
 
+  useEffect(() => {
+    if (activeBetType !== LAO_SET_BET_TYPE) return;
+    setDefaultAmount(LAO_SET_AMOUNT);
+    setReverse(false);
+    setIncludeDoubleSet(false);
+  }, [activeBetType]);
+
   const selectedRoundMeta = useMemo(
     () => rounds.find((round) => round.id === selectedRound?.id) || selectedRound || null,
     [rounds, selectedRound]
@@ -101,7 +110,7 @@ const CustomerBet = () => {
     roundId: selectedRoundMeta?.id,
     rateProfileId: selectedRateProfile?.id,
     betType: activeBetType,
-    defaultAmount: Number(defaultAmount || 0),
+    defaultAmount: Number(activeBetType === LAO_SET_BET_TYPE ? LAO_SET_AMOUNT : defaultAmount || 0),
     rawInput,
     reverse,
     includeDoubleSet,
@@ -139,7 +148,7 @@ const CustomerBet = () => {
       toast.success(action === 'draft' ? copy.draftSaved(res.data.slipNumber) : copy.submitted(res.data.slipNumber));
       setRawInput('');
       setMemo('');
-      setDefaultAmount('');
+      setDefaultAmount(activeBetType === LAO_SET_BET_TYPE ? LAO_SET_AMOUNT : '');
       setReverse(false);
       setIncludeDoubleSet(false);
       setPreview(null);
@@ -154,7 +163,7 @@ const CustomerBet = () => {
   const clearComposer = () => {
     setRawInput('');
     setMemo('');
-    setDefaultAmount('');
+    setDefaultAmount(activeBetType === LAO_SET_BET_TYPE ? LAO_SET_AMOUNT : '');
     setReverse(false);
     setIncludeDoubleSet(false);
     setPreview(null);
@@ -218,7 +227,7 @@ const CustomerBet = () => {
             {(selectedLottery?.supportedBetTypes || []).map((betType) => (
               <button key={betType} type="button" className={`bet-type-tab ${activeBetType === betType ? 'active' : ''}`} onClick={() => setActiveBetType(betType)}>
                 <span className="bet-type-tab-label">{getBetTypeLabel(betType)}</span>
-                <span className="bet-type-tab-rate">x{selectedRateProfile?.rates?.[betType] || 0}</span>
+                <span className="bet-type-tab-rate">x{selectedRateProfile?.rates?.[betType] || (betType === LAO_SET_BET_TYPE ? 1 : 0)}</span>
               </button>
             ))}
           </div>
@@ -235,26 +244,32 @@ const CustomerBet = () => {
             </label>
           </div>
 
-          <div className="bet-amount-presets">
-            {quickAmountOptions.map((amount) => (
-              <button
-                key={amount}
-                type="button"
-                className={`preset-chip ${defaultAmount === amount ? 'active' : ''}`}
-                onClick={() => applyQuickAmount(amount)}
-              >
-                {amount} {copy.presetsSuffix}
-              </button>
-            ))}
-          </div>
+          {activeBetType !== LAO_SET_BET_TYPE ? (
+            <div className="bet-amount-presets">
+              {quickAmountOptions.map((amount) => (
+                <button
+                  key={amount}
+                  type="button"
+                  className={`preset-chip ${defaultAmount === amount ? 'active' : ''}`}
+                  onClick={() => applyQuickAmount(amount)}
+                >
+                  {amount} {copy.presetsSuffix}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="bet-helper-row">
-            <button type="button" className={`helper-btn ${reverse ? 'active' : ''}`} onClick={() => setReverse((value) => !value)}>
-              <FiShuffle /> {copy.reverse}
-            </button>
-            <button type="button" className={`helper-btn ${includeDoubleSet ? 'active' : ''}`} onClick={() => setIncludeDoubleSet((value) => !value)}>
-              <FiStar /> {helperLabel}
-            </button>
+            {activeBetType !== LAO_SET_BET_TYPE ? (
+              <>
+                <button type="button" className={`helper-btn ${reverse ? 'active' : ''}`} onClick={() => setReverse((value) => !value)}>
+                  <FiShuffle /> {copy.reverse}
+                </button>
+                <button type="button" className={`helper-btn ${includeDoubleSet ? 'active' : ''}`} onClick={() => setIncludeDoubleSet((value) => !value)}>
+                  <FiStar /> {helperLabel}
+                </button>
+              </>
+            ) : null}
             <button type="button" className="helper-btn" onClick={clearComposer}>
               <FiRotateCcw /> {copy.clearAll}
             </button>

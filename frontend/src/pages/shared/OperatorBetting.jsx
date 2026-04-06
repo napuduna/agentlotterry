@@ -54,11 +54,25 @@ const doubleSetCounts = {
   2: 10,
   3: 270
 };
+const LAO_SET_BET_TYPE = 'lao_set4';
+const LAO_SET_AMOUNT = '120';
+const fallbackFastRates = {
+  '3top': 1000,
+  '3bottom': 450,
+  '3tod': 150,
+  '2top': 100,
+  '2bottom': 100,
+  '2tod': 100,
+  'run_top': 3.5,
+  'run_bottom': 4.5,
+  [LAO_SET_BET_TYPE]: 1
+};
 
 const buildInitialFastAmounts = () => ({
   top: '',
   bottom: '',
-  tod: ''
+  tod: '',
+  set: LAO_SET_AMOUNT
 });
 
 const fastFamilyOptions = [
@@ -89,6 +103,15 @@ const fastFamilyOptions = [
     columns: [
       { key: 'top', betType: 'run_top' },
       { key: 'bottom', betType: 'run_bottom' }
+    ]
+  },
+  {
+    value: 'lao_set',
+    label: 'หวยชุดลาว',
+    digits: 4,
+    fixedAmount: Number(LAO_SET_AMOUNT),
+    columns: [
+      { key: 'set', betType: LAO_SET_BET_TYPE }
     ]
   }
 ];
@@ -137,6 +160,35 @@ const digitModeOptions = [
 const copyText = operatorBettingCopy.common;
 const copyMessages = operatorBettingCopy.messages;
 const previewCopy = operatorBettingCopy.previewModal;
+
+const getFastFamilyFromBetType = (betType = '') => {
+  if (betType === LAO_SET_BET_TYPE) return 'lao_set';
+  if (betType.startsWith('3')) return '3';
+  if (betType.startsWith('2')) return '2';
+  return 'run';
+};
+
+const buildFastAmountsForBetType = (betType = '', amount = '') => {
+  const nextAmounts = buildInitialFastAmounts();
+
+  if (betType === LAO_SET_BET_TYPE) {
+    nextAmounts.set = LAO_SET_AMOUNT;
+    return nextAmounts;
+  }
+
+  if (betType.endsWith('top')) nextAmounts.top = String(amount || '');
+  if (betType.endsWith('bottom')) nextAmounts.bottom = String(amount || '');
+  if (betType.endsWith('tod')) nextAmounts.tod = String(amount || '');
+  return nextAmounts;
+};
+
+const getFastColumnAmount = (config, column, amounts = {}) => {
+  if (config.fixedAmount && column.key === 'set') {
+    return Number(config.fixedAmount || 0);
+  }
+
+  return Number(amounts?.[column.key] || 0);
+};
 
 fastFamilyOptions.forEach((option) => {
   const nextOption = operatorBettingCopy.fastFamilyOptions.find((item) => item.value === option.value);
@@ -251,7 +303,27 @@ const getFastFamilyConfig = (fastFamily) => {
     return { ...matched, label: 'วิ่ง' };
   }
 
+  if (fastFamily === 'lao_set') {
+    return { ...matched, label: 'หวยชุดลาว' };
+  }
+
   return matched;
+};
+
+const splitDigitTokenBySize = (token, digits) => {
+  const raw = normalizeDigits(token);
+  if (!raw) return [];
+
+  if (digits === 1) {
+    return raw.split('');
+  }
+
+  const chunks = [];
+  for (let index = 0; index + digits <= raw.length; index += digits) {
+    chunks.push(raw.slice(index, index + digits));
+  }
+
+  return chunks;
 };
 
 const extractFastNumbersByDigits = (rawInput, digits) => {
@@ -268,7 +340,16 @@ const extractFastNumbersByDigits = (rawInput, digits) => {
     )
     .filter(Boolean)
     .forEach((line) => {
-      (line.match(/\d+/g) || [])
+      const tokens = line.match(/\d+/g) || [];
+
+      tokens
+        .flatMap((token) =>
+          digits === 1 || tokens.length === 1
+            ? splitDigitTokenBySize(token, digits)
+            : token.length === digits
+              ? [token]
+              : []
+        )
         .filter((token) => token.length === digits)
         .forEach((token) => numbers.push(token));
     });
@@ -303,17 +384,15 @@ const getFastDraftSummary = ({
     supportedBetTypes,
     closedBetTypes
   });
-  const pricedColumns = config.columns.filter(
-    (column) => enabledColumns[column.key] && Number(fastAmounts?.[column.key] || 0) > 0
-  ).length;
+  const pricedColumns = config.columns.filter((column) => enabledColumns[column.key] && getFastColumnAmount(config, column, fastAmounts) > 0).length;
   const activeAmounts = config.columns
-    .filter((column) => enabledColumns[column.key] && Number(fastAmounts?.[column.key] || 0) > 0)
-    .map((column) => `${getBetTypeLabel(column.betType)} ${money(fastAmounts?.[column.key] || 0)}`);
+    .filter((column) => enabledColumns[column.key] && getFastColumnAmount(config, column, fastAmounts) > 0)
+    .map((column) => `${getBetTypeLabel(column.betType)} ${money(getFastColumnAmount(config, column, fastAmounts))}`);
 
   return {
     parsedCount: parsedCandidates.length,
     selectedCount: activeNumbers.length,
-    helperCount: includeDoubleSet ? doubleSetCounts[config.digits] || 0 : 0,
+    helperCount: includeDoubleSet && config.digits > 1 ? doubleSetCounts[config.digits] || 0 : 0,
     reverseEnabled: Boolean(reverse),
     pricedColumns,
     activeAmountSummary: activeAmounts.join(' • ') || 'ยังไม่ใส่ยอด'
@@ -351,12 +430,6 @@ const extractUniqueDigits = (numbers) => {
 
   return digits;
 };
-
-const extractFastLineNumbers = (rawInput) =>
-  String(rawInput || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim().match(/^(\d+)/)?.[1] || '')
-    .filter(Boolean);
 
 const buildFilledGridRows = (entries) => {
   const rows = entries.map((entry) => ({
@@ -443,7 +516,12 @@ const buildReusableRecentSlipDraft = (items) => {
     return {
       mode: 'fast',
       betType,
-      defaultAmount: uniqueAmounts.length === 1 ? String(uniqueAmounts[0]) : '',
+      defaultAmount:
+        betType === LAO_SET_BET_TYPE
+          ? LAO_SET_AMOUNT
+          : uniqueAmounts.length === 1
+            ? String(uniqueAmounts[0])
+            : '',
       rawInput:
         uniqueAmounts.length === 1
           ? items.map((item) => item.number).join('\n')
@@ -508,6 +586,10 @@ const buildDraftDoubleSet = (digits) => {
     return Array.from({ length: 10 }, (_, index) => `${index}${index}`);
   }
 
+  if (digits !== 3) {
+    return [];
+  }
+
   const numbers = new Set();
   for (let repeatedDigit = 0; repeatedDigit <= 9; repeatedDigit += 1) {
     for (let oddDigit = 0; oddDigit <= 9; oddDigit += 1) {
@@ -538,6 +620,45 @@ const buildDraftPermutations = (digits) => {
   walk('', String(digits || ''));
   return [...values];
 };
+
+const extractFastSeedDigits = (rawInput) => extractUniqueDigits([String(rawInput || '').replace(/\D/g, '')]);
+
+const buildDraftWinNumbers = (seedDigits = [], digits) => {
+  const source = dedupeOrderedNumbers(seedDigits).slice(0, 10);
+  if (source.length < digits) return [];
+
+  const values = [];
+  const walk = (prefix, remaining) => {
+    if (prefix.length === digits) {
+      values.push(prefix.join(''));
+      return;
+    }
+
+    remaining.forEach((digit, index) => {
+      const nextRemaining = remaining.filter((_, remainingIndex) => remainingIndex !== index);
+      walk([...prefix, digit], nextRemaining);
+    });
+  };
+
+  walk([], source);
+  return dedupeOrderedNumbers(values);
+};
+
+const buildDraftRoodNumbers = (seedDigits = []) => {
+  const values = [];
+
+  dedupeOrderedNumbers(seedDigits).forEach((seedDigit) => {
+    for (let digit = 0; digit <= 9; digit += 1) {
+      values.push(`${seedDigit}${digit}`);
+      values.push(`${digit}${seedDigit}`);
+    }
+  });
+
+  return dedupeOrderedNumbers(values);
+};
+
+const buildDraftTongNumbers = () =>
+  Array.from({ length: 10 }, (_, index) => `${index}${index}${index}`);
 
 const expandFastDraftNumbers = (number, betType, reverse) => {
   if (!reverse) return [number];
@@ -582,9 +703,11 @@ const buildFastWorkingNumbers = ({
   includeDoubleSet
 }) => {
   const config = getFastFamilyConfig(fastFamily);
-  const sourceNumbers = Array.isArray(numbers)
-    ? dedupeOrderedNumbers(numbers.filter((number) => normalizeDigits(number).length === config.digits))
-    : extractFastNumbersByDigits(rawInput, config.digits);
+  if (Array.isArray(numbers)) {
+    return dedupeOrderedNumbers(numbers.filter((number) => normalizeDigits(number).length === config.digits));
+  }
+
+  const sourceNumbers = extractFastNumbersByDigits(rawInput, config.digits);
   const previewBetType = config.columns[0]?.betType || '';
   const workingNumbers = [];
 
@@ -596,7 +719,7 @@ const buildFastWorkingNumbers = ({
     });
   });
 
-  if (includeDoubleSet) {
+  if (includeDoubleSet && config.digits > 1) {
     buildDraftDoubleSet(config.digits).forEach((number) => workingNumbers.push(number));
   }
 
@@ -634,8 +757,8 @@ const buildFastDraftItems = ({
 
   const appendNumberItems = (number) => {
     config.columns.forEach((column) => {
-      const amount = Number(amounts?.[column.key] || 0);
-      const payRate = Number(rates?.[column.betType] || 0);
+      const amount = getFastColumnAmount(config, column, amounts);
+      const payRate = Number(rates?.[column.betType] ?? fallbackFastRates[column.betType] ?? 0);
       if (!enabledColumns[column.key] || amount <= 0 || payRate <= 0) return;
 
       const expandedNumbers = shouldExpandInline ? expandFastDraftNumbers(number, column.betType, reverse) : [number];
@@ -656,7 +779,7 @@ const buildFastDraftItems = ({
     appendNumberItems(number);
   });
 
-  if (includeDoubleSet && shouldExpandInline) {
+  if (includeDoubleSet && shouldExpandInline && config.digits > 1) {
     buildDraftDoubleSet(config.digits).forEach((number) => {
       appendNumberItems(number);
     });
@@ -687,6 +810,7 @@ const OperatorBetting = () => {
   const [digitMode, setDigitMode] = useState('2');
   const [fastAmounts, setFastAmounts] = useState(buildInitialFastAmounts);
   const [rawInput, setRawInput] = useState('');
+  const [helperFastNumbers, setHelperFastNumbers] = useState([]);
   const [excludedFastNumbers, setExcludedFastNumbers] = useState([]);
   const [reverse, setReverse] = useState(false);
   const [includeDoubleSet, setIncludeDoubleSet] = useState(false);
@@ -764,10 +888,11 @@ const OperatorBetting = () => {
     return buildFastWorkingNumbers({
       fastFamily,
       rawInput,
+      numbers: helperFastNumbers.length ? helperFastNumbers : undefined,
       reverse,
       includeDoubleSet
     });
-  }, [fastFamily, includeDoubleSet, mode, rawInput, reverse]);
+  }, [fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse]);
   const activeFastNumbers = useMemo(
     () => parsedFastCandidates.filter((number) => !excludedFastNumbers.includes(number)),
     [excludedFastNumbers, parsedFastCandidates]
@@ -804,7 +929,7 @@ const OperatorBetting = () => {
       supportedBetTypes: selectedLottery?.supportedBetTypes || [],
       closedBetTypes: roundClosedBetTypes
     });
-  }, [activeFastNumbers, fastAmounts, fastFamily, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
+  }, [activeFastNumbers, fastAmounts, fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
   const fastDraftGroups = useMemo(() => buildSlipDisplayGroups(fastDraftItems), [fastDraftItems]);
   const gridDraftItems = useMemo(() => {
     if (mode !== 'grid') return [];
@@ -906,6 +1031,7 @@ const OperatorBetting = () => {
     setPreviewDialogOpen(false);
     setFastAmounts(buildInitialFastAmounts);
     setRawInput('');
+    setHelperFastNumbers([]);
     setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
@@ -1000,6 +1126,7 @@ const OperatorBetting = () => {
       fastFamily,
       fastAmounts: { ...fastAmounts },
       rawInput,
+      helperFastNumbers: [...helperFastNumbers],
       excludedFastNumbers: [...excludedFastNumbers],
       reverse,
       includeDoubleSet,
@@ -1018,6 +1145,7 @@ const OperatorBetting = () => {
       setGridBulkAmounts(source.gridBulkAmounts || { top: '', bottom: '', tod: '' });
       setFastAmounts(buildInitialFastAmounts);
       setRawInput('');
+      setHelperFastNumbers([]);
       setReverse(false);
       setIncludeDoubleSet(false);
       setMemo(source.memo || '');
@@ -1026,8 +1154,9 @@ const OperatorBetting = () => {
 
     setMode('fast');
     setFastFamily(source?.fastFamily || '2');
-    setFastAmounts(source?.fastAmounts || buildInitialFastAmounts());
+    setFastAmounts({ ...buildInitialFastAmounts(), ...(source?.fastAmounts || {}) });
     setRawInput(source?.rawInput || '');
+    setHelperFastNumbers(source?.helperFastNumbers || []);
     setExcludedFastNumbers(source?.excludedFastNumbers || []);
     setReverse(Boolean(source?.reverse));
     setIncludeDoubleSet(Boolean(source?.includeDoubleSet));
@@ -1296,13 +1425,10 @@ const OperatorBetting = () => {
 
   const applyRecentItem = (item) => {
     setMode('fast');
-    setFastFamily(item.betType?.startsWith('3') ? '3' : item.betType?.startsWith('2') ? '2' : 'run');
-    setFastAmounts({
-      top: item.betType?.endsWith('top') ? String(item.amount || '') : '',
-      bottom: item.betType?.endsWith('bottom') ? String(item.amount || '') : '',
-      tod: item.betType?.endsWith('tod') ? String(item.amount || '') : ''
-    });
+    setFastFamily(getFastFamilyFromBetType(item.betType || ''));
+    setFastAmounts(buildFastAmountsForBetType(item.betType || '', item.amount));
     setRawInput(String(item.number || ''));
+    setHelperFastNumbers([]);
     setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
@@ -1310,38 +1436,60 @@ const OperatorBetting = () => {
     toast.success(copyMessages.recentItemApplied);
   };
 
-  const applyRunHelper = (targetBetType) => {
-    if (!selectedLottery?.supportedBetTypes?.includes(targetBetType)) {
-      toast.error(copyMessages.unsupportedBetType(getBetTypeLabel(targetBetType)));
-      return;
-    }
-
-    if (roundClosedBetTypes.includes(targetBetType)) {
-      toast.error(copyMessages.roundClosedBetType(getBetTypeLabel(targetBetType)));
-      return;
-    }
-
-    const sourceNumbers =
-      mode === 'grid'
-        ? gridRows.map((row) => row.number)
-        : activeFastNumbers.length
-          ? activeFastNumbers
-          : extractFastLineNumbers(rawInput);
-    const uniqueDigits = extractUniqueDigits(sourceNumbers);
-
-    if (!uniqueDigits.length) {
-      toast.error(copyMessages.needNumbersForRunHelper);
+  const applyFastGeneratedNumbers = (numbers, successMessage, { nextFamily = fastFamily } = {}) => {
+    if (!numbers.length) {
+      toast.error('กรุณากรอกเลขก่อนใช้สูตรนี้');
       return;
     }
 
     setMode('fast');
-    setFastFamily(targetBetType.startsWith('3') ? '3' : targetBetType.startsWith('2') ? '2' : 'run');
-    setRawInput(uniqueDigits.join('\n'));
+    setFastFamily(nextFamily);
+    setHelperFastNumbers(numbers);
     setExcludedFastNumbers([]);
     setReverse(false);
     setIncludeDoubleSet(false);
     setPreview(null);
-    toast.success(copyMessages.runHelperApplied(getBetTypeLabel(targetBetType), uniqueDigits.length));
+    toast.success(successMessage);
+    window.requestAnimationFrame(() => {
+      fastInputRef.current?.focus();
+    });
+  };
+
+  const applyWinHelper = () => {
+    const digits = Number(fastFamily || 0);
+    const seedDigits = extractFastSeedDigits(rawInput);
+
+    if (seedDigits.length < digits) {
+      toast.error(`กรุณากรอกเลขอย่างน้อย ${digits} ตัวไม่ซ้ำกันก่อนใช้สูตรวิน`);
+      return;
+    }
+
+    const numbers = buildDraftWinNumbers(seedDigits, digits);
+    applyFastGeneratedNumbers(numbers, `สร้างสูตรวิน ${numbers.length} รายการแล้ว`);
+  };
+
+  const applyRoodHelper = () => {
+    const seedDigits = extractFastSeedDigits(rawInput);
+    if (!seedDigits.length) {
+      toast.error('กรุณากรอกเลขอย่างน้อย 1 ตัวก่อนใช้สูตรรูด');
+      return;
+    }
+
+    const numbers = buildDraftRoodNumbers(seedDigits);
+    applyFastGeneratedNumbers(numbers, `สร้างเลขรูด ${numbers.length} รายการแล้ว`, { nextFamily: '2' });
+  };
+
+  const applyTongHelper = () => {
+    const numbers = buildDraftTongNumbers();
+    applyFastGeneratedNumbers(numbers, `สร้างเลขตอง ${numbers.length} รายการแล้ว`, { nextFamily: '3' });
+  };
+
+  const applySpecialSetHelper = () => {
+    if (fastFamily !== '2' && fastFamily !== '3') return;
+
+    const numbers = buildDraftDoubleSet(Number(fastFamily));
+    const helperLabel = fastFamily === '3' ? 'เลขหาบ' : 'เลขเบิ้ล';
+    applyFastGeneratedNumbers(numbers, `สร้าง${helperLabel} ${numbers.length} รายการแล้ว`);
   };
 
   const applyRecentSlipGroup = (group) => {
@@ -1358,13 +1506,10 @@ const OperatorBetting = () => {
 
     if (draft.mode === 'fast') {
       setMode('fast');
-      setFastFamily(draft.betType?.startsWith('3') ? '3' : draft.betType?.startsWith('2') ? '2' : 'run');
-      setFastAmounts({
-        top: draft.betType?.endsWith('top') ? draft.defaultAmount : '',
-        bottom: draft.betType?.endsWith('bottom') ? draft.defaultAmount : '',
-        tod: draft.betType?.endsWith('tod') ? draft.defaultAmount : ''
-      });
+      setFastFamily(getFastFamilyFromBetType(draft.betType || ''));
+      setFastAmounts(buildFastAmountsForBetType(draft.betType || '', draft.defaultAmount));
       setRawInput(draft.rawInput);
+      setHelperFastNumbers([]);
       setGridRows(buildInitialGridRows);
       setGridBulkAmounts({ top: '', bottom: '', tod: '' });
     } else {
@@ -1374,6 +1519,7 @@ const OperatorBetting = () => {
       setGridBulkAmounts({ top: '', bottom: '', tod: '' });
       setFastAmounts(buildInitialFastAmounts);
       setRawInput('');
+      setHelperFastNumbers([]);
     }
 
     toast.success(copyMessages.recentSlipApplied(group.slipNumber));
@@ -1683,6 +1829,7 @@ const OperatorBetting = () => {
     );
     const nextFamilies = availableFamilies.length ? availableFamilies : fallbackFamilies;
     if (nextFamilies.length && !nextFamilies.some((option) => option.value === fastFamily)) {
+      setHelperFastNumbers([]);
       setFastFamily(nextFamilies[0].value);
     }
   }, [fastFamily, roundClosedBetTypes, selectedLottery]);
@@ -1699,7 +1846,7 @@ const OperatorBetting = () => {
   useEffect(() => {
     setPreview(null);
     setPreviewDialogOpen(false);
-  }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, fastFamily, digitMode, fastAmounts, rawInput, excludedFastNumbers, reverse, includeDoubleSet, memo, gridRows, savedDraftEntries]);
+  }, [selectedMember?.id, selection.lotteryId, selection.roundId, selection.rateProfileId, mode, fastFamily, digitMode, fastAmounts, rawInput, helperFastNumbers, excludedFastNumbers, reverse, includeDoubleSet, memo, gridRows, savedDraftEntries]);
 
   useEffect(() => {
     setExcludedFastNumbers((current) => current.filter((number) => parsedFastCandidates.includes(number)));
@@ -1789,6 +1936,7 @@ const OperatorBetting = () => {
     digitMode,
     fastAmounts,
     rawInput,
+    helperFastNumbers,
     excludedFastNumbers,
     reverse,
     includeDoubleSet,
@@ -1922,7 +2070,7 @@ const OperatorBetting = () => {
                     </div>
 
                     <div className="operator-rate-grid">
-                      {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>x{selectedRateProfile?.rates?.[betType] || 0}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? copyText.roundClosedStatus : copyText.roundOpenStatus}</small></div>)}
+                      {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>x{selectedRateProfile?.rates?.[betType] ?? fallbackFastRates[betType] ?? 0}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? copyText.roundClosedStatus : copyText.roundOpenStatus}</small></div>)}
                     </div>
                   </>
                 ) : null}
@@ -1942,7 +2090,17 @@ const OperatorBetting = () => {
                           key={option.value}
                           type="button"
                           className={`btn ${fastFamily === option.value ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                          onClick={() => setFastFamily(option.value)}
+                          onClick={() => {
+                            setFastFamily(option.value);
+                            setFastAmounts((current) => ({
+                              ...buildInitialFastAmounts(),
+                              ...current,
+                              ...(option.value === 'lao_set' ? { set: current?.set || LAO_SET_AMOUNT } : {})
+                            }));
+                            setHelperFastNumbers([]);
+                            setIncludeDoubleSet(false);
+                            setPreview(null);
+                          }}
                         >
                           {option.label}
                         </button>
@@ -1979,7 +2137,10 @@ const OperatorBetting = () => {
                           rows="1"
                           placeholder=""
                           value={rawInput}
-                          onChange={(event) => setRawInput(event.target.value)}
+                          onChange={(event) => {
+                            setRawInput(event.target.value);
+                            setHelperFastNumbers([]);
+                          }}
                         />
                       </div>
                       {fastFamilyConfig.columns.map((column) => {
@@ -1996,7 +2157,8 @@ const OperatorBetting = () => {
                               min="0"
                               placeholder={copyText.amountPlaceholder}
                               disabled={!enabled}
-                              value={fastAmounts[column.key]}
+                              readOnly={enabled && Boolean(fastFamilyConfig.fixedAmount && column.key === 'set')}
+                              value={fastFamilyConfig.fixedAmount && column.key === 'set' ? String(fastFamilyConfig.fixedAmount) : fastAmounts[column.key]}
                               onChange={(event) => setFastAmounts((current) => ({ ...current, [column.key]: event.target.value }))}
                             />
                           </div>
@@ -2004,20 +2166,45 @@ const OperatorBetting = () => {
                       })}
                     </div>
                     <div className="operator-helper-row compact">
-                      <button type="button" className={`btn ${reverse ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setReverse((value) => !value)}>
-                        <FiShuffle /> {copyText.reverse}
-                      </button>
-                      <button type="button" className={`btn ${includeDoubleSet ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setIncludeDoubleSet((value) => !value)}>
-                        <FiStar /> {includeDoubleSet ? copyText.doubleSet : copyText.normalSet}
-                      </button>
+                      {fastFamily !== 'run' ? (
+                        <button
+                          type="button"
+                          className={`btn ${reverse ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                          onClick={() => {
+                            setHelperFastNumbers([]);
+                            setReverse((value) => !value);
+                          }}
+                        >
+                          <FiShuffle /> {copyText.reverse}
+                        </button>
+                      ) : null}
+                      {fastFamily === '2' ? (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={applySpecialSetHelper}>
+                          <FiStar /> เลขเบิ้ล
+                        </button>
+                      ) : null}
+                      {fastFamily === '3' ? (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={applySpecialSetHelper}>
+                          <FiStar /> เลขหาบ
+                        </button>
+                      ) : null}
+                      {fastFamily === '3' ? (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={applyTongHelper}>
+                          <FiStar /> เลขตอง
+                        </button>
+                      ) : null}
+                      {fastFamily === '2' ? (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={applyRoodHelper}>
+                          <FiStar /> รูด
+                        </button>
+                      ) : null}
+                      {(fastFamily === '2' || fastFamily === '3') ? (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={applyWinHelper}>
+                          <FiStar /> วิน
+                        </button>
+                      ) : null}
                       <button type="button" className="btn btn-secondary btn-sm" onClick={clearComposer}>
                         <FiRotateCcw /> {copyText.clearAll}
-                      </button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}>
-                        {copyText.runTop}
-                      </button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_bottom')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_bottom') || roundClosedBetTypes.includes('run_bottom')}>
-                        {copyText.runBottom}
                       </button>
                     </div>
                     <div className="operator-fast-grid">
@@ -2174,8 +2361,6 @@ const OperatorBetting = () => {
                       ))}
                     </div>
                     <div className="operator-helper-row compact">
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_top')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_top') || roundClosedBetTypes.includes('run_top')}><FiStar /> {copyText.runTop}</button>
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyRunHelper('run_bottom')} disabled={!selectedLottery?.supportedBetTypes?.includes('run_bottom') || roundClosedBetTypes.includes('run_bottom')}><FiStar /> {copyText.runBottom}</button>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => setGridRows((current) => [...current, buildEmptyGridRow()])}><FiPlus /> {copyText.addRow}</button>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={clearComposer}><FiRotateCcw /> {copyText.clearAll}</button>
                     </div>

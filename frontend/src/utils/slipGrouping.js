@@ -6,7 +6,8 @@ const betTypeMeta = {
   '2bottom': { familyLabel: '2ตัว', shortLabel: 'ล่าง', order: 5 },
   '2tod': { familyLabel: '2ตัว', shortLabel: 'โต๊ด', order: 6 },
   'run_top': { familyLabel: 'วิ่ง', shortLabel: 'บน', order: 7 },
-  'run_bottom': { familyLabel: 'วิ่ง', shortLabel: 'ล่าง', order: 8 }
+  'run_bottom': { familyLabel: 'วิ่ง', shortLabel: 'ล่าง', order: 8 },
+  'lao_set4': { familyLabel: 'หวยชุดลาว', shortLabel: '4ตัว', order: 9 }
 };
 
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');

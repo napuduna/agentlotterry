@@ -23,10 +23,12 @@ const parseRoundCode = (roundCode) => {
 
 const normalizeResultPayload = (payload = {}) => {
   const firstPrize = normalizeDigits(payload.firstPrize);
+  const fourTopHits = normalizeHitArray(payload.fourTopHits || payload.fourTop || payload.full4 || (firstPrize ? [firstPrize.slice(-4)] : []));
   const threeTopHits = normalizeHitArray(payload.threeTopHits || payload.threeTop || (firstPrize ? [firstPrize.slice(-3)] : []));
   const twoTopHits = normalizeHitArray(payload.twoTopHits || payload.twoTop || (firstPrize ? [firstPrize.slice(-2)] : []));
   const twoBottomHits = normalizeHitArray(payload.twoBottomHits || payload.twoBottom);
   const threeBottomHits = normalizeHitArray(payload.threeBottomHits || payload.threeBottom);
+  const fourTop = fourTopHits[0] || '';
   const threeTop = threeTopHits[0] || '';
   const twoTop = twoTopHits[0] || '';
   const twoBottom = twoBottomHits[0] || '';
@@ -41,6 +43,8 @@ const normalizeResultPayload = (payload = {}) => {
   return {
     headline: normalizeDigits(payload.headline || firstPrize || twoBottom || threeTop),
     firstPrize,
+    fourTop,
+    fourTopHits,
     threeTop,
     twoTop,
     twoBottom,
@@ -58,6 +62,8 @@ const checkItemResult = (item, normalizedResult) => {
   const number = String(item.number || '').trim();
 
   switch (item.betType) {
+    case 'lao_set4':
+      return normalizedResult.fourTopHits.includes(number);
     case '3top':
       return normalizedResult.threeTopHits.includes(number);
     case '3bottom':
