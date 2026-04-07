@@ -19,7 +19,7 @@ import {
 
 const tabs = ['ข้อมูลทั่วไป', 'สิทธิ์หวย', 'กระเป๋า'];
 const statusOptions = ['active', 'inactive', 'suspended'];
-const betTypeKeys = ['3top', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom', 'lao_set4'];
+const betTypeKeys = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom', 'lao_set4'];
 
 const AgentMemberDetail = () => {
   const navigate = useNavigate();

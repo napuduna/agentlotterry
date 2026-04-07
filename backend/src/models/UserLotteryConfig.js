@@ -75,6 +75,7 @@ const userLotteryConfigSchema = new mongoose.Schema({
   },
   customRates: {
     '3top': { type: Number, default: 0, min: 0 },
+    '3front': { type: Number, default: 0, min: 0 },
     '3bottom': { type: Number, default: 0, min: 0 },
     '3tod': { type: Number, default: 0, min: 0 },
     '2top': { type: Number, default: 0, min: 0 },

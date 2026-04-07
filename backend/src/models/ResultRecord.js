@@ -40,10 +40,18 @@ const resultRecordSchema = new mongoose.Schema({
   twoBottomHits: [{
     type: String
   }],
+  threeFrontHits: [{
+    type: String
+  }],
   threeBottomHits: [{
     type: String
   }],
   threeTop: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  threeFront: {
     type: String,
     default: '',
     trim: true

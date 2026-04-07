@@ -1,7 +1,8 @@
-const BET_TYPES = ['3top', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom', 'lao_set4'];
+const BET_TYPES = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom', 'lao_set4'];
 
 const DEFAULT_GLOBAL_RATES = {
   '3top': 1000,
+  '3front': 450,
   '3bottom': 450,
   '3tod': 150,
   '2top': 100,

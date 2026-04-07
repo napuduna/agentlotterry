@@ -16,6 +16,7 @@ const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() ||
 
 const DIGIT_LENGTHS = {
   '3top': 3,
+  '3front': 3,
   '3bottom': 3,
   '3tod': 3,
   '2top': 2,
@@ -67,7 +68,7 @@ const expandNumbers = (number, betType, reverse) => {
     return [...new Set([number, number.split('').reverse().join('')])];
   }
 
-  if (betType === '3top' || betType === '3bottom' || betType === '3tod') {
+  if (betType === '3top' || betType === '3front' || betType === '3bottom' || betType === '3tod') {
     return getPermutations(number);
   }
 

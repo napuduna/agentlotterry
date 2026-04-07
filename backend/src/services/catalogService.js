@@ -215,6 +215,10 @@ const ensureCatalogSeed = async ({ force = false } = {}) => {
 
 const mapLegacyResult = (legacyResult, lotteryType) => {
   if (!legacyResult || !lotteryType) return null;
+  const threeTop = legacyResult.firstPrize ? legacyResult.firstPrize.slice(-3) : '';
+  const twoTop = legacyResult.firstPrize ? legacyResult.firstPrize.slice(-2) : '';
+  const threeFrontHits = [...new Set((legacyResult.threeTopList || []).filter(Boolean))];
+  const threeBottomHits = [...new Set((legacyResult.threeBotList || []).filter(Boolean))];
   return {
     id: `legacy-${legacyResult._id}`,
     lotteryTypeId: lotteryType._id.toString(),
@@ -223,10 +227,16 @@ const mapLegacyResult = (legacyResult, lotteryType) => {
     roundCode: legacyResult.roundDate,
     headline: legacyResult.firstPrize || legacyResult.twoBottom || '-',
     firstPrize: legacyResult.firstPrize || '',
-    twoTop: legacyResult.firstPrize ? legacyResult.firstPrize.slice(-2) : '',
+    twoTop,
     twoBottom: legacyResult.twoBottom || '',
-    threeTop: legacyResult.firstPrize ? legacyResult.firstPrize.slice(-3) : '',
-    threeBottom: legacyResult.threeBotList?.[0] || '',
+    threeTop,
+    threeFront: threeFrontHits[0] || '',
+    threeBottom: threeBottomHits[0] || '',
+    threeTopHits: threeTop ? [threeTop] : [],
+    twoTopHits: twoTop ? [twoTop] : [],
+    twoBottomHits: legacyResult.twoBottom ? [legacyResult.twoBottom] : [],
+    threeFrontHits,
+    threeBottomHits,
     runTop: legacyResult.runTop || [],
     runBottom: legacyResult.runBottom || [],
     resultPublishedAt: legacyResult.updatedAt || legacyResult.createdAt,
@@ -254,11 +264,17 @@ const getRecentResults = async ({ lotteryId = null, limit = 50 } = {}) => {
     drawAt: record.drawRoundId?.drawAt,
     resultPublishedAt: record.drawRoundId?.resultPublishedAt || record.updatedAt,
     headline: record.headline || record.firstPrize || record.twoBottom || '-',
-    firstPrize: record.firstPrize || '',
-    twoTop: record.twoTop || '',
-    twoBottom: record.twoBottom || '',
-    threeTop: record.threeTop || '',
-    threeBottom: record.threeBottom || '',
+      firstPrize: record.firstPrize || '',
+      twoTop: record.twoTop || '',
+      twoBottom: record.twoBottom || '',
+      threeTop: record.threeTop || '',
+      threeFront: record.threeFront || '',
+      threeBottom: record.threeBottom || '',
+      threeTopHits: record.threeTopHits || [],
+      twoTopHits: record.twoTopHits || [],
+      twoBottomHits: record.twoBottomHits || [],
+      threeFrontHits: record.threeFrontHits || [],
+      threeBottomHits: record.threeBottomHits || [],
     runTop: record.runTop || [],
     runBottom: record.runBottom || [],
     sourceType: record.sourceType,

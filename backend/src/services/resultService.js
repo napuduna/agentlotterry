@@ -27,11 +27,13 @@ const normalizeResultPayload = (payload = {}) => {
   const threeTopHits = normalizeHitArray(payload.threeTopHits || payload.threeTop || (firstPrize ? [firstPrize.slice(-3)] : []));
   const twoTopHits = normalizeHitArray(payload.twoTopHits || payload.twoTop || (firstPrize ? [firstPrize.slice(-2)] : []));
   const twoBottomHits = normalizeHitArray(payload.twoBottomHits || payload.twoBottom);
+  const threeFrontHits = normalizeHitArray(payload.threeFrontHits || payload.threeFront);
   const threeBottomHits = normalizeHitArray(payload.threeBottomHits || payload.threeBottom);
   const fourTop = fourTopHits[0] || '';
   const threeTop = threeTopHits[0] || '';
   const twoTop = twoTopHits[0] || '';
   const twoBottom = twoBottomHits[0] || '';
+  const threeFront = threeFrontHits[0] || '';
   const threeBottom = threeBottomHits[0] || '';
   const runTop = (Array.isArray(payload.runTop) ? payload.runTop : String(payload.runTop || '').split(','))
     .map(normalizeDigits)
@@ -43,31 +45,35 @@ const normalizeResultPayload = (payload = {}) => {
   return {
     headline: normalizeDigits(payload.headline || firstPrize || twoBottom || threeTop),
     firstPrize,
-    fourTop,
-    fourTopHits,
-    threeTop,
-    twoTop,
-    twoBottom,
-    threeBottom,
-    threeTopHits,
-    twoTopHits,
-    twoBottomHits,
-    threeBottomHits,
-    runTop: runTop.length ? runTop : [...new Set(threeTopHits.join('').split('').filter(Boolean))],
-    runBottom: runBottom.length ? runBottom : [...new Set(twoBottomHits.join('').split('').filter(Boolean))]
+      fourTop,
+      fourTopHits,
+      threeTop,
+      threeFront,
+      twoTop,
+      twoBottom,
+      threeBottom,
+      threeTopHits,
+      twoTopHits,
+      twoBottomHits,
+      threeFrontHits,
+      threeBottomHits,
+      runTop: runTop.length ? runTop : [...new Set(threeTopHits.join('').split('').filter(Boolean))],
+      runBottom: runBottom.length ? runBottom : [...new Set(twoBottomHits.join('').split('').filter(Boolean))]
   };
 };
 
 const checkItemResult = (item, normalizedResult) => {
   const number = String(item.number || '').trim();
 
-  switch (item.betType) {
-    case 'lao_set4':
-      return normalizedResult.fourTopHits.includes(number);
-    case '3top':
-      return normalizedResult.threeTopHits.includes(number);
-    case '3bottom':
-      return normalizedResult.threeBottomHits.includes(number);
+    switch (item.betType) {
+      case 'lao_set4':
+        return normalizedResult.fourTopHits.includes(number);
+      case '3top':
+        return normalizedResult.threeTopHits.includes(number);
+      case '3front':
+        return normalizedResult.threeFrontHits.includes(number);
+      case '3bottom':
+        return normalizedResult.threeBottomHits.includes(number);
     case '3tod':
       return normalizedResult.threeTopHits.some((value) => getPermutations(value).includes(number));
     case '2top':
@@ -189,14 +195,16 @@ const upsertRoundResult = async ({
         drawRoundId: round._id,
         headline: normalized.headline,
         firstPrize: normalized.firstPrize,
-        twoTop: normalized.twoTop,
-        twoBottom: normalized.twoBottom,
-        threeTop: normalized.threeTop,
-        threeBottom: normalized.threeBottom,
-        threeTopHits: normalized.threeTopHits,
-        twoTopHits: normalized.twoTopHits,
-        twoBottomHits: normalized.twoBottomHits,
-        threeBottomHits: normalized.threeBottomHits,
+          twoTop: normalized.twoTop,
+          twoBottom: normalized.twoBottom,
+          threeTop: normalized.threeTop,
+          threeFront: normalized.threeFront,
+          threeBottom: normalized.threeBottom,
+          threeTopHits: normalized.threeTopHits,
+          twoTopHits: normalized.twoTopHits,
+          twoBottomHits: normalized.twoBottomHits,
+          threeFrontHits: normalized.threeFrontHits,
+          threeBottomHits: normalized.threeBottomHits,
         runTop: normalized.runTop,
         runBottom: normalized.runBottom,
         sourceType,
@@ -236,17 +244,23 @@ const syncLegacyThaiGovernmentResult = async (legacyResult, sourceType = 'legacy
 
   if (!round) return null;
 
+  const threeFrontHits = normalizeHitArray(legacyResult.threeTopList || []);
+  const threeBottomHits = normalizeHitArray(legacyResult.threeBotList || []);
+
   return upsertRoundResult({
     roundId: round._id,
     lotteryTypeId: lotteryType._id,
     sourceType,
     resultData: {
       headline: legacyResult.firstPrize || legacyResult.twoBottom,
-      firstPrize: legacyResult.firstPrize,
-      threeTop: legacyResult.firstPrize ? legacyResult.firstPrize.slice(-3) : '',
-      twoTop: legacyResult.firstPrize ? legacyResult.firstPrize.slice(-2) : '',
-      twoBottom: legacyResult.twoBottom,
-      threeBottom: legacyResult.threeBotList?.[0] || '',
+        firstPrize: legacyResult.firstPrize,
+        threeTop: legacyResult.firstPrize ? legacyResult.firstPrize.slice(-3) : '',
+        twoTop: legacyResult.firstPrize ? legacyResult.firstPrize.slice(-2) : '',
+        twoBottom: legacyResult.twoBottom,
+        threeFront: threeFrontHits[0] || '',
+        threeFrontHits,
+        threeBottom: threeBottomHits[0] || '',
+        threeBottomHits,
       runTop: legacyResult.runTop || [],
       runBottom: legacyResult.runBottom || []
     }
@@ -334,13 +348,15 @@ const getRoundResult = async (roundId) => {
     headline: record.headline,
     firstPrize: record.firstPrize,
     twoTop: record.twoTop,
-    twoBottom: record.twoBottom,
-    threeTop: record.threeTop,
-    threeBottom: record.threeBottom,
-    threeTopHits: record.threeTopHits || [],
-    twoTopHits: record.twoTopHits || [],
-    twoBottomHits: record.twoBottomHits || [],
-    threeBottomHits: record.threeBottomHits || [],
+      twoBottom: record.twoBottom,
+      threeTop: record.threeTop,
+      threeFront: record.threeFront,
+      threeBottom: record.threeBottom,
+      threeTopHits: record.threeTopHits || [],
+      twoTopHits: record.twoTopHits || [],
+      twoBottomHits: record.twoBottomHits || [],
+      threeFrontHits: record.threeFrontHits || [],
+      threeBottomHits: record.threeBottomHits || [],
     runTop: record.runTop,
     runBottom: record.runBottom,
     sourceType: record.sourceType,

@@ -1,5 +1,6 @@
 const betTypeLabels = {
   '3top': '3 ตัวบน',
+  '3front': '3 ตัวหน้า',
   '3bottom': '3 ตัวล่าง',
   '3tod': '3 ตัวโต๊ด',
   '2top': '2 ตัวบน',

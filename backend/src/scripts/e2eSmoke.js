@@ -88,6 +88,7 @@ const buildMemberLotterySettings = ({ bootstrap, selectedLotteryId }) =>
     useCustomRates: true,
     customRates: {
       '3top': 987,
+      '3front': 444,
       '3bottom': 444,
       '3tod': 654,
       '2top': 87,
@@ -617,11 +618,11 @@ const main = async () => {
       lotteryId: visibleLotteries[0].id,
       roundId: selectedRound.id,
       rateProfileId: selectedRateProfileId,
-      items: [
-        { betType: '2top', number: '45', amount: 10 },
-        { betType: '2tod', number: '54', amount: 10 },
-        { betType: '3bottom', number: '789', amount: 5 }
-      ],
+        items: [
+          { betType: '2top', number: '45', amount: 10 },
+          { betType: '2tod', number: '54', amount: 10 },
+          { betType: '3tod', number: '789', amount: 5 }
+        ],
       memo: 'agent grid draft slip',
       action: 'draft'
     });

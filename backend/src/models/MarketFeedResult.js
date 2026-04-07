@@ -51,6 +51,11 @@ const marketFeedResultSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  threeFront: {
+    type: String,
+    default: '',
+    trim: true
+  },
   threeBottom: {
     type: String,
     default: '',
@@ -63,6 +68,9 @@ const marketFeedResultSchema = new mongoose.Schema({
     type: String
   }],
   twoBottomHits: [{
+    type: String
+  }],
+  threeFrontHits: [{
     type: String
   }],
   threeBottomHits: [{

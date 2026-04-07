@@ -58,6 +58,7 @@ const LAO_SET_BET_TYPE = 'lao_set4';
 const LAO_SET_AMOUNT = '120';
 const fallbackFastRates = {
   '3top': 1000,
+  '3front': 450,
   '3bottom': 450,
   '3tod': 150,
   '2top': 100,
@@ -70,40 +71,64 @@ const fallbackFastRates = {
 
 const buildInitialFastAmounts = () => ({
   top: '',
+  front: '',
   bottom: '',
   tod: '',
   set: LAO_SET_AMOUNT
 });
+
+const buildEmptyGridAmounts = () => ({
+  top: '',
+  front: '',
+  bottom: '',
+  tod: ''
+});
+
+const TWO_DIGIT_COLUMN_DEFS = [
+  { key: 'top', betType: '2top' },
+  { key: 'bottom', betType: '2bottom' },
+  { key: 'tod', betType: '2tod' }
+];
+
+const THREE_DIGIT_COLUMN_DEFS = [
+  { key: 'top', betType: '3top' },
+  { key: 'front', betType: '3front' },
+  { key: 'bottom', betType: '3bottom' },
+  { key: 'tod', betType: '3tod' }
+];
+
+const RUN_COLUMN_DEFS = [
+  { key: 'top', betType: 'run_top' },
+  { key: 'bottom', betType: 'run_bottom' }
+];
+
+const getDigitModeColumnDefs = (digitMode = '2', supportedBetTypes = []) => {
+  const baseColumns = digitMode === '3' ? THREE_DIGIT_COLUMN_DEFS : TWO_DIGIT_COLUMN_DEFS;
+  if (!supportedBetTypes?.length) {
+    return baseColumns;
+  }
+
+  return baseColumns.filter((column) => supportedBetTypes.includes(column.betType));
+};
 
 const fastFamilyOptions = [
   {
     value: '2',
     label: '2 ตัว',
     digits: 2,
-    columns: [
-      { key: 'top', betType: '2top' },
-      { key: 'bottom', betType: '2bottom' },
-      { key: 'tod', betType: '2tod' }
-    ]
+    columns: TWO_DIGIT_COLUMN_DEFS
   },
   {
     value: '3',
     label: '3 ตัว',
     digits: 3,
-    columns: [
-      { key: 'top', betType: '3top' },
-      { key: 'tod', betType: '3tod' },
-      { key: 'bottom', betType: '3bottom' }
-    ]
+    columns: THREE_DIGIT_COLUMN_DEFS
   },
   {
     value: 'run',
     label: 'วิ่ง',
     digits: 1,
-    columns: [
-      { key: 'top', betType: 'run_top' },
-      { key: 'bottom', betType: 'run_bottom' }
-    ]
+    columns: RUN_COLUMN_DEFS
   },
   {
     value: 'lao_set',
@@ -159,8 +184,8 @@ const roleConfig = {
 };
 
 const digitModeOptions = [
-  { value: '2', label: '2 ตัว / 3 ช่อง', columns: ['2top', '2bottom', '2tod'] },
-  { value: '3', label: '3 ตัว / 3 ช่อง', columns: ['3top', '3bottom', '3tod'] }
+  { value: '2', label: '2 ตัว' },
+  { value: '3', label: '3 ตัว' }
 ];
 
 const copyText = operatorBettingCopy.common;
@@ -183,6 +208,7 @@ const buildFastAmountsForBetType = (betType = '', amount = '') => {
   }
 
   if (betType.endsWith('top')) nextAmounts.top = String(amount || '');
+  if (betType === '3front') nextAmounts.front = String(amount || '');
   if (betType.endsWith('bottom')) nextAmounts.bottom = String(amount || '');
   if (betType.endsWith('tod')) nextAmounts.tod = String(amount || '');
   return nextAmounts;
@@ -227,16 +253,15 @@ const sortMembersByActivity = (members = []) =>
     return String(left?.name || '').localeCompare(String(right?.name || ''), 'th');
   });
 const flattenLotteries = (catalog) => (catalog?.leagues || []).flatMap((league) => (league.lotteries || []).map((lottery) => ({ ...lottery, leagueName: league.name })));
-const buildEmptyGridRow = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, number: '', amounts: { top: '', bottom: '', tod: '' } });
+const buildEmptyGridRow = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, number: '', amounts: buildEmptyGridAmounts() });
 const buildInitialGridRows = () => Array.from({ length: 2 }, buildEmptyGridRow);
 const cloneGridRows = (rows = []) =>
   rows.map((row) => ({
     id: buildEmptyGridRow().id,
     number: row.number || '',
     amounts: {
-      top: row.amounts?.top || '',
-      bottom: row.amounts?.bottom || '',
-      tod: row.amounts?.tod || ''
+      ...buildEmptyGridAmounts(),
+      ...row.amounts
     }
   }));
 
@@ -290,23 +315,38 @@ const toDraftPayloadEntries = (entries = []) =>
       : []
   }));
 
-const getFastFamilyConfig = (fastFamily) => {
+const getFastFamilyConfig = (fastFamily, supportedBetTypes = []) => {
   const matched = fastFamilyOptions.find((option) => option.value === fastFamily) || fastFamilyOptions[0];
+  const filterColumns = (columns) => {
+    if (!supportedBetTypes?.length) {
+      return columns;
+    }
+
+    return columns.filter((column) => supportedBetTypes.includes(column.betType));
+  };
 
   if (fastFamily === '2') {
     return {
       ...matched,
       label: '2 ตัว',
-      columns: matched.columns.filter((column) => column.betType !== '2tod')
+      columns: filterColumns(matched.columns)
     };
   }
 
   if (fastFamily === '3') {
-    return { ...matched, label: '3 ตัว' };
+    return {
+      ...matched,
+      label: '3 ตัว',
+      columns: filterColumns(matched.columns)
+    };
   }
 
   if (fastFamily === 'run') {
-    return { ...matched, label: 'วิ่ง' };
+    return {
+      ...matched,
+      label: 'วิ่ง',
+      columns: filterColumns(matched.columns)
+    };
   }
 
   if (fastFamily === 'lao_set') {
@@ -364,7 +404,7 @@ const extractFastNumbersByDigits = (rawInput, digits) => {
 };
 
 const getFastEnabledColumns = ({ fastFamily, supportedBetTypes = [], closedBetTypes = [] }) => {
-  const config = getFastFamilyConfig(fastFamily);
+  const config = getFastFamilyConfig(fastFamily, supportedBetTypes);
   const supported = new Set(supportedBetTypes);
   const closed = new Set(closedBetTypes);
 
@@ -386,7 +426,7 @@ const getFastDraftSummary = ({
   supportedBetTypes,
   closedBetTypes
 }) => {
-  const config = getFastFamilyConfig(fastFamily);
+  const config = getFastFamilyConfig(fastFamily, supportedBetTypes);
   const enabledColumns = getFastEnabledColumns({
     fastFamily,
     supportedBetTypes,
@@ -444,9 +484,8 @@ const buildFilledGridRows = (entries) => {
     id: buildEmptyGridRow().id,
     number: entry.number || '',
     amounts: {
-      top: entry.amounts?.top || '',
-      bottom: entry.amounts?.bottom || '',
-      tod: entry.amounts?.tod || ''
+      ...buildEmptyGridAmounts(),
+      ...entry.amounts
     }
   }));
 
@@ -472,15 +511,16 @@ const parseGridPasteLines = (text, digitMode) => {
         return null;
       }
 
-      return {
-        number,
-        amounts: {
-          top: parts[1] || '',
-          bottom: parts[2] || '',
-          tod: parts[3] || ''
-        }
-      };
-    })
+        return {
+          number,
+          amounts: {
+            top: parts[1] || '',
+            front: parts[2] || '',
+            bottom: parts[3] || '',
+            tod: parts[4] || ''
+          }
+        };
+      })
     .filter(Boolean);
 };
 
@@ -537,8 +577,8 @@ const buildReusableRecentSlipDraft = (items) => {
     };
   }
 
-  const isTwoDigitGrid = items.every((item) => ['2top', '2bottom', '2tod'].includes(item.betType));
-  const isThreeDigitGrid = items.every((item) => ['3top', '3bottom', '3tod'].includes(item.betType));
+    const isTwoDigitGrid = items.every((item) => ['2top', '2bottom', '2tod'].includes(item.betType));
+    const isThreeDigitGrid = items.every((item) => ['3top', '3front', '3bottom', '3tod'].includes(item.betType));
 
   if (!isTwoDigitGrid && !isThreeDigitGrid) {
     return null;
@@ -547,16 +587,17 @@ const buildReusableRecentSlipDraft = (items) => {
   const digitMode = isThreeDigitGrid ? '3' : '2';
   const map = new Map();
 
-  items.forEach((item) => {
-    const current = map.get(item.number) || {
-      number: item.number,
-      amounts: { top: '', bottom: '', tod: '' }
-    };
+    items.forEach((item) => {
+      const current = map.get(item.number) || {
+        number: item.number,
+        amounts: { top: '', front: '', bottom: '', tod: '' }
+      };
 
-    if (item.betType.endsWith('top')) current.amounts.top = String(item.amount || '');
-    if (item.betType.endsWith('bottom')) current.amounts.bottom = String(item.amount || '');
-    if (item.betType.endsWith('tod')) current.amounts.tod = String(item.amount || '');
-    map.set(item.number, current);
+      if (item.betType.endsWith('top')) current.amounts.top = String(item.amount || '');
+      if (item.betType === '3front') current.amounts.front = String(item.amount || '');
+      if (item.betType.endsWith('bottom')) current.amounts.bottom = String(item.amount || '');
+      if (item.betType.endsWith('tod')) current.amounts.tod = String(item.amount || '');
+      map.set(item.number, current);
   });
 
   return {
@@ -566,16 +607,16 @@ const buildReusableRecentSlipDraft = (items) => {
   };
 };
 
-const buildGridItems = ({ rows, digitMode }) => {
+const buildGridItems = ({ rows, digitMode, supportedBetTypes = [] }) => {
   const digits = Number(digitMode || 2);
   const items = [];
-  const columnMap = digitMode === '3' ? { top: '3top', bottom: '3bottom', tod: '3tod' } : { top: '2top', bottom: '2bottom', tod: '2tod' };
+  const columnDefs = getDigitModeColumnDefs(digitMode, supportedBetTypes);
 
   rows.forEach((row) => {
     const number = normalizeDigits(row.number);
     if (!number) return;
     if (number.length !== digits) throw new Error(`โหมด ${digitMode} ตัว ต้องกรอกหมายเลข ${digits} หลัก`);
-    Object.entries(columnMap).forEach(([key, betType]) => {
+    columnDefs.forEach(({ key, betType }) => {
       const amount = Number(row.amounts?.[key] || 0);
       if (amount > 0) items.push({ betType, number, amount });
     });
@@ -700,7 +741,7 @@ const expandFastDraftNumbers = (number, betType, reverse) => {
     return [...new Set([number, number.split('').reverse().join('')])];
   }
 
-  if (betType === '3top' || betType === '3bottom' || betType === '3tod') {
+  if (betType === '3top' || betType === '3front' || betType === '3bottom' || betType === '3tod') {
     return buildDraftPermutations(number);
   }
 
@@ -785,7 +826,7 @@ const buildFastDraftItems = ({
   closedBetTypes,
   candidateCounts
 }) => {
-  const config = getFastFamilyConfig(fastFamily);
+  const config = getFastFamilyConfig(fastFamily, supportedBetTypes);
   const enabledColumns = getFastEnabledColumns({
     fastFamily,
     supportedBetTypes,
@@ -868,7 +909,7 @@ const OperatorBetting = () => {
   const [reverse, setReverse] = useState(false);
   const [includeDoubleSet, setIncludeDoubleSet] = useState(false);
   const [gridRows, setGridRows] = useState(buildInitialGridRows);
-  const [gridBulkAmounts, setGridBulkAmounts] = useState({ top: '', bottom: '', tod: '' });
+  const [gridBulkAmounts, setGridBulkAmounts] = useState(buildEmptyGridAmounts);
   const [memo, setMemo] = useState('');
   const [savedDraftEntries, setSavedDraftEntries] = useState([]);
   const [preview, setPreview] = useState(null);
@@ -911,7 +952,10 @@ const OperatorBetting = () => {
       rateProfileId: selectedRateProfile?.id || ''
     };
   }, [selectedLottery?.id, selectedMember?.id, selectedRateProfile?.id, selectedRound?.id]);
-  const gridColumns = useMemo(() => digitModeOptions.find((item) => item.value === digitMode)?.columns || [], [digitMode]);
+  const gridColumns = useMemo(
+    () => getDigitModeColumnDefs(digitMode, selectedLottery?.supportedBetTypes || []),
+    [digitMode, selectedLottery]
+  );
   const roundClosedBetTypes = selectedRound?.closedBetTypes || [];
   const canSubmit = selectedRound?.status === 'open';
   const recentRoundCode = selectedRound?.code || '';
@@ -919,7 +963,10 @@ const OperatorBetting = () => {
   const draftScopeKey = draftScopeParams
     ? [draftScopeParams.customerId, draftScopeParams.lotteryId, draftScopeParams.roundId, draftScopeParams.rateProfileId || ''].join(':')
     : '';
-  const fastFamilyConfig = useMemo(() => getFastFamilyConfig(fastFamily), [fastFamily]);
+  const fastFamilyConfig = useMemo(
+    () => getFastFamilyConfig(fastFamily, selectedLottery?.supportedBetTypes || []),
+    [fastFamily, selectedLottery]
+  );
   const usesWinSeedSelector = fastTab === 'win2' || fastTab === 'win3';
   const selectedSeedDigits = useMemo(() => extractFastSeedDigits(rawInput), [rawInput]);
   const enabledFastFamilies = useMemo(() => {
@@ -1037,11 +1084,11 @@ const OperatorBetting = () => {
     if (mode !== 'grid') return [];
 
     try {
-      return buildGridItems({ rows: gridRows, digitMode });
-    } catch {
-      return [];
-    }
-  }, [digitMode, gridRows, mode]);
+        return buildGridItems({ rows: gridRows, digitMode, supportedBetTypes: selectedLottery?.supportedBetTypes || [] });
+      } catch {
+        return [];
+      }
+    }, [digitMode, gridRows, mode, selectedLottery]);
   const gridDraftGroups = useMemo(() => buildSlipDisplayGroups(gridDraftItems), [gridDraftItems]);
   const currentDraftItems = mode === 'fast' ? fastDraftItems : gridDraftItems;
   const combinedDraftItems = useMemo(
@@ -1066,11 +1113,10 @@ const OperatorBetting = () => {
   const supportedGridColumns = useMemo(() => {
     const supported = new Set(selectedLottery?.supportedBetTypes || []);
     const closed = new Set(roundClosedBetTypes);
-    return {
-      top: supported.has(gridColumns[0]) && !closed.has(gridColumns[0]),
-      bottom: supported.has(gridColumns[1]) && !closed.has(gridColumns[1]),
-      tod: supported.has(gridColumns[2]) && !closed.has(gridColumns[2])
-    };
+    return gridColumns.reduce((acc, column) => {
+      acc[column.key] = supported.has(column.betType) && !closed.has(column.betType);
+      return acc;
+    }, {});
   }, [gridColumns, roundClosedBetTypes, selectedLottery]);
 
   const fetchMemberContext = async (memberId, options = {}) => {
@@ -1139,7 +1185,7 @@ const OperatorBetting = () => {
     setIncludeDoubleSet(false);
     setFastTab(fastFamily);
     setGridRows(buildInitialGridRows);
-    setGridBulkAmounts({ top: '', bottom: '', tod: '' });
+    setGridBulkAmounts(buildEmptyGridAmounts());
     setMemo('');
   };
 
@@ -1203,8 +1249,8 @@ const OperatorBetting = () => {
 
   const getCurrentComposerItems = () => {
     if (mode === 'grid') {
-      return buildGridItems({ rows: gridRows, digitMode });
-    }
+        return buildGridItems({ rows: gridRows, digitMode, supportedBetTypes: selectedLottery?.supportedBetTypes || [] });
+      }
 
     if (!fastDraftItems.length) {
       throw new Error('กรุณากรอกหมายเลขและยอดอย่างน้อย 1 รายการ');
@@ -1246,7 +1292,7 @@ const OperatorBetting = () => {
       setMode('grid');
       setDigitMode(source.digitMode || '2');
       setGridRows(cloneGridRows(source.gridRows?.length ? source.gridRows : buildInitialGridRows()));
-      setGridBulkAmounts(source.gridBulkAmounts || { top: '', bottom: '', tod: '' });
+      setGridBulkAmounts({ ...buildEmptyGridAmounts(), ...(source.gridBulkAmounts || {}) });
       setFastAmounts(buildInitialFastAmounts);
       setRawInput('');
       setHelperFastNumbers([]);
@@ -1267,7 +1313,7 @@ const OperatorBetting = () => {
     setReverse(Boolean(source?.reverse));
     setIncludeDoubleSet(Boolean(source?.includeDoubleSet));
     setGridRows(buildInitialGridRows);
-    setGridBulkAmounts({ top: '', bottom: '', tod: '' });
+    setGridBulkAmounts(buildEmptyGridAmounts());
     setMemo(source?.memo || '');
   };
 
@@ -1637,12 +1683,12 @@ const OperatorBetting = () => {
       setRawInput(draft.rawInput);
       setHelperFastNumbers([]);
       setGridRows(buildInitialGridRows);
-      setGridBulkAmounts({ top: '', bottom: '', tod: '' });
+      setGridBulkAmounts(buildEmptyGridAmounts());
     } else {
       setMode('grid');
       setDigitMode(draft.digitMode);
       setGridRows(draft.rows);
-      setGridBulkAmounts({ top: '', bottom: '', tod: '' });
+      setGridBulkAmounts(buildEmptyGridAmounts());
       setFastAmounts(buildInitialFastAmounts);
       setRawInput('');
       setHelperFastNumbers([]);
@@ -1653,9 +1699,7 @@ const OperatorBetting = () => {
 
   const enabledGridFieldOrder = [
     'number',
-    ...(supportedGridColumns.top ? ['top'] : []),
-    ...(supportedGridColumns.bottom ? ['bottom'] : []),
-    ...(supportedGridColumns.tod ? ['tod'] : [])
+    ...gridColumns.filter((column) => supportedGridColumns[column.key]).map((column) => column.key)
   ];
   const enabledFastAmountOrder = fastFamilyConfig.columns
     .map((column) => column.key)
@@ -1828,11 +1872,7 @@ const OperatorBetting = () => {
         nextRows[rowIndex] = {
           ...targetRow,
           number,
-          amounts: {
-            top: '',
-            bottom: '',
-            tod: ''
-          }
+          amounts: buildEmptyGridAmounts()
         };
       });
 
@@ -1840,11 +1880,7 @@ const OperatorBetting = () => {
         nextRows[index] = {
           ...nextRows[index],
           number: '',
-          amounts: {
-            top: '',
-            bottom: '',
-            tod: ''
-          }
+          amounts: buildEmptyGridAmounts()
         };
       }
 
@@ -2031,10 +2067,13 @@ const OperatorBetting = () => {
   };
 
   useEffect(() => {
-    const desired = digitModeOptions.find((item) => item.value === digitMode)?.columns || [];
-    const available = desired.filter((betType) => selectedLottery?.supportedBetTypes?.includes(betType) && !roundClosedBetTypes.includes(betType));
+    const desired = getDigitModeColumnDefs(digitMode, selectedLottery?.supportedBetTypes || []).map((column) => column.betType);
+    const available = desired.filter((betType) => !roundClosedBetTypes.includes(betType));
     if (!available.length && selectedLottery?.supportedBetTypes?.length) {
-      const nextMode = selectedLottery.supportedBetTypes.some((betType) => ['3top', '3bottom', '3tod'].includes(betType) && !roundClosedBetTypes.includes(betType)) ? '3' : '2';
+      const nextMode = getDigitModeColumnDefs('3', selectedLottery.supportedBetTypes)
+        .some((column) => !roundClosedBetTypes.includes(column.betType))
+        ? '3'
+        : '2';
       if (nextMode !== digitMode) setDigitMode(nextMode);
     }
   }, [digitMode, roundClosedBetTypes, selectedLottery]);
@@ -2453,60 +2492,26 @@ const OperatorBetting = () => {
                           </button>
                         </div>
                       </div>
-                      <div className="card operator-grid-entry-card">
-                        <label className="operator-grid-entry-label" htmlFor="grid-entry-top">{getBetTypeLabel(gridColumns[0])}</label>
-                        <input
-                          id="grid-entry-top"
-                          ref={setGridCellRef(gridHeaderRow.id, 'top')}
-                          className="form-input"
-                          type="number"
-                          min="0"
-                          placeholder={copyText.amountPlaceholder}
-                          disabled={!supportedGridColumns.top}
-                          value={gridHeaderRow.amounts.top}
-                          onChange={(event) => updateGridAmount(gridHeaderRow.id, 'top', event.target.value)}
-                          onKeyDown={(event) => handleGridKeyDown(gridHeaderRow.id, 'top', event)}
-                        />
-                        <button type="button" className="btn btn-secondary btn-sm operator-grid-entry-action" onClick={() => copyGridHeaderAmount('top')} disabled={!supportedGridColumns.top}>
-                          <FiCopy /> คัดลอกยอด
-                        </button>
-                      </div>
-                      <div className="card operator-grid-entry-card">
-                        <label className="operator-grid-entry-label" htmlFor="grid-entry-bottom">{getBetTypeLabel(gridColumns[1])}</label>
-                        <input
-                          id="grid-entry-bottom"
-                          ref={setGridCellRef(gridHeaderRow.id, 'bottom')}
-                          className="form-input"
-                          type="number"
-                          min="0"
-                          placeholder={copyText.amountPlaceholder}
-                          disabled={!supportedGridColumns.bottom}
-                          value={gridHeaderRow.amounts.bottom}
-                          onChange={(event) => updateGridAmount(gridHeaderRow.id, 'bottom', event.target.value)}
-                          onKeyDown={(event) => handleGridKeyDown(gridHeaderRow.id, 'bottom', event)}
-                        />
-                        <button type="button" className="btn btn-secondary btn-sm operator-grid-entry-action" onClick={() => copyGridHeaderAmount('bottom')} disabled={!supportedGridColumns.bottom}>
-                          <FiCopy /> คัดลอกยอด
-                        </button>
-                      </div>
-                      <div className="card operator-grid-entry-card">
-                        <label className="operator-grid-entry-label" htmlFor="grid-entry-tod">{getBetTypeLabel(gridColumns[2])}</label>
-                        <input
-                          id="grid-entry-tod"
-                          ref={setGridCellRef(gridHeaderRow.id, 'tod')}
-                          className="form-input"
-                          type="number"
-                          min="0"
-                          placeholder={copyText.amountPlaceholder}
-                          disabled={!supportedGridColumns.tod}
-                          value={gridHeaderRow.amounts.tod}
-                          onChange={(event) => updateGridAmount(gridHeaderRow.id, 'tod', event.target.value)}
-                          onKeyDown={(event) => handleGridKeyDown(gridHeaderRow.id, 'tod', event)}
-                        />
-                        <button type="button" className="btn btn-secondary btn-sm operator-grid-entry-action" onClick={() => copyGridHeaderAmount('tod')} disabled={!supportedGridColumns.tod}>
-                          <FiCopy /> คัดลอกยอด
-                        </button>
-                      </div>
+                      {gridColumns.map((column) => (
+                        <div key={column.key} className="card operator-grid-entry-card">
+                          <label className="operator-grid-entry-label" htmlFor={`grid-entry-${column.key}`}>{getBetTypeLabel(column.betType)}</label>
+                          <input
+                            id={`grid-entry-${column.key}`}
+                            ref={setGridCellRef(gridHeaderRow.id, column.key)}
+                            className="form-input"
+                            type="number"
+                            min="0"
+                            placeholder={copyText.amountPlaceholder}
+                            disabled={!supportedGridColumns[column.key]}
+                            value={gridHeaderRow.amounts[column.key]}
+                            onChange={(event) => updateGridAmount(gridHeaderRow.id, column.key, event.target.value)}
+                            onKeyDown={(event) => handleGridKeyDown(gridHeaderRow.id, column.key, event)}
+                          />
+                          <button type="button" className="btn btn-secondary btn-sm operator-grid-entry-action" onClick={() => copyGridHeaderAmount(column.key)} disabled={!supportedGridColumns[column.key]}>
+                            <FiCopy /> คัดลอกยอด
+                          </button>
+                        </div>
+                      ))}
                     </div>
                     <div className="operator-grid-rows">
                       {gridBodyRows.map((row) => (
@@ -2525,39 +2530,20 @@ const OperatorBetting = () => {
                             onKeyDown={(event) => handleGridKeyDown(row.id, 'number', event)}
                             onPaste={(event) => handleGridNumberPaste(row.id, event)}
                           />
-                          <input
-                            ref={setGridCellRef(row.id, 'top')}
-                            className="form-input"
-                            type="number"
-                            min="0"
-                            placeholder={getBetTypeLabel(gridColumns[0])}
-                            disabled={!supportedGridColumns.top}
-                            value={row.amounts.top}
-                            onChange={(event) => updateGridAmount(row.id, 'top', event.target.value)}
-                            onKeyDown={(event) => handleGridKeyDown(row.id, 'top', event)}
-                          />
-                          <input
-                            ref={setGridCellRef(row.id, 'bottom')}
-                            className="form-input"
-                            type="number"
-                            min="0"
-                            placeholder={getBetTypeLabel(gridColumns[1])}
-                            disabled={!supportedGridColumns.bottom}
-                            value={row.amounts.bottom}
-                            onChange={(event) => updateGridAmount(row.id, 'bottom', event.target.value)}
-                            onKeyDown={(event) => handleGridKeyDown(row.id, 'bottom', event)}
-                          />
-                          <input
-                            ref={setGridCellRef(row.id, 'tod')}
-                            className="form-input"
-                            type="number"
-                            min="0"
-                            placeholder={getBetTypeLabel(gridColumns[2])}
-                            disabled={!supportedGridColumns.tod}
-                            value={row.amounts.tod}
-                            onChange={(event) => updateGridAmount(row.id, 'tod', event.target.value)}
-                            onKeyDown={(event) => handleGridKeyDown(row.id, 'tod', event)}
-                          />
+                          {gridColumns.map((column) => (
+                            <input
+                              key={column.key}
+                              ref={setGridCellRef(row.id, column.key)}
+                              className="form-input"
+                              type="number"
+                              min="0"
+                              placeholder={getBetTypeLabel(column.betType)}
+                              disabled={!supportedGridColumns[column.key]}
+                              value={row.amounts[column.key]}
+                              onChange={(event) => updateGridAmount(row.id, column.key, event.target.value)}
+                              onKeyDown={(event) => handleGridKeyDown(row.id, column.key, event)}
+                            />
+                          ))}
                           <button type="button" className="btn btn-danger btn-sm operator-grid-delete" onClick={() => removeGridRow(row.id)}>
                             <FiTrash2 />
                           </button>

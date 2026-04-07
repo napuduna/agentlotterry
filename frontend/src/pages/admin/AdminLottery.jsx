@@ -1,803 +1,1376 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiActivity, FiAward, FiDownload, FiEdit3, FiRefreshCw, FiSave } from 'react-icons/fi';
-import Modal from '../../components/Modal';
-import PageSkeleton from '../../components/PageSkeleton';
-import { adminCopy } from '../../i18n/th/admin';
-import { getBetTypeLabel, getProviderLabel, getResultSourceTypeLabel } from '../../i18n/th/labels';
 import {
-  fetchLottery,
-  getCatalogLotteries,
-  getCatalogRounds,
-  getLatestLottery,
-  getLotteryResults,
-  getRecentMarketResults,
-  manualLottery,
-  updateRoundClosedBetTypes
-} from '../../services/api';
-import { formatDateTime } from '../../utils/formatters';
+  FiAlertCircle,
+  FiCheckCircle,
+  FiClock,
+  FiExternalLink,
+  FiRefreshCw,
+  FiSlash
+} from 'react-icons/fi';
+import PageSkeleton from '../../components/PageSkeleton';
+import { getCatalogOverview, getMarketOverview } from '../../services/api';
+import { formatDateTime, formatRoundLabel, formatThaiDate, THAI_TIMEZONE } from '../../utils/formatters';
+import { getLotteryVisual } from '../../utils/lotteryVisuals';
 
-const copy = adminCopy.lottery;
-
-const resultStatusBadge = (result) => {
-  if (result?.isCalculated) return 'badge-success';
-  return result?.firstPrize ? 'badge-warning' : 'badge-info';
+const UI = {
+  eyebrow: 'ผลหวย API',
+  title: 'ผลรางวัลหวย',
+  subtitle: 'แสดงเฉพาะตลาดที่มี API ในระบบ พร้อมสถานะเปิดรับ - ปิดรับ และผลล่าสุดของแต่ละหวยในหน้าเดียว',
+  refresh: 'รีเฟรช',
+  warningTitle: 'สถานะการเชื่อมต่อผลหวย',
+  apiNotConfigured: 'ยังไม่ได้ตั้งค่า API หรือผู้ให้บริการผลหวยยังไม่พร้อมใช้งานบางส่วน',
+  noData: 'ยังไม่มีตลาดผลหวยที่พร้อมแสดงผล',
+  openAt: 'เปิดรับ',
+  closeAt: 'ปิดรับ',
+  currentRound: 'งวดปัจจุบัน',
+  latestResult: 'ผลล่าสุด',
+  latestDetailTitle: 'รายละเอียดผลล่าสุด',
+  recentHistoryTitle: 'ย้อนหลัง',
+  noResult: 'ยังไม่มีผลล่าสุดในระบบ',
+  noRound: 'ยังไม่มีงวดเปิดใช้งาน',
+  noHistory: 'ยังไม่มีประวัติผลย้อนหลังของตลาดนี้',
+  source: 'แหล่งข้อมูล',
+  updatedAt: 'อัปเดตล่าสุด',
+  apiLink: 'เปิดแหล่งข้อมูล',
+  providerUnavailable: 'API ยังไม่พร้อม',
+  latestHeadlineFallback: 'รอผลล่าสุด'
 };
 
-const resultStatusLabel = (result) => {
-  if (result?.isCalculated) return copy.settled;
-  if (result?.firstPrize) return copy.resultSaved;
-  return copy.waitingResult;
+const CATALOG_MARKET_ALIASES = {
+  thai_government: ['thai-government', 'thai_government'],
+  baac: ['baac'],
+  hanoi_special: ['hanoi-special', 'hanoi_special'],
+  lao_vip: ['lao-vip', 'lao_vip'],
+  dowjones_vip: ['stock-dowjones', 'dowjones_vip'],
+  nikkei_morning: ['stock-nikkei-morning', 'nikkei_morning'],
+  china_afternoon: ['stock-china-afternoon', 'china_afternoon']
+};
+
+const API_MARKET_RESULT_ALIASES = {
+  'thai-government': ['thai_government', 'tgfc'],
+  baac: ['baac'],
+  'hanoi-vip': ['hnvip'],
+  'hanoi-special': ['hanoi_special', 'bfhn'],
+  'hanoi-specific': ['cqhn'],
+  lao: ['tlzc'],
+  'lao-vip': ['lao_vip', 'zcvip'],
+  'hanoi-normal': ['ynhn'],
+  malay: ['ynma'],
+  'yeekee-vip': ['tykc'],
+  'stock-thai': ['gsth'],
+  'stock-hangseng-morning': ['gshka'],
+  'stock-hangseng-afternoon': ['gshkp'],
+  'stock-taiwan': ['gstw'],
+  'stock-nikkei-morning': ['nikkei_morning', 'gsjpa'],
+  'stock-nikkei-afternoon': ['gsjpp'],
+  'stock-korea': ['gskr'],
+  'stock-china-morning': ['gscna'],
+  'stock-china-afternoon': ['china_afternoon', 'gscnp'],
+  'stock-singapore': ['gssg'],
+  'stock-india': ['gsin'],
+  'stock-egypt': ['gseg'],
+  'stock-russia': ['gsru'],
+  'stock-germany': ['gsde'],
+  'stock-england': ['gsuk'],
+  'stock-dowjones': ['dowjones_vip', 'gsus']
+};
+
+const SOURCE_LABELS = {
+  api: 'API',
+  manual: 'กรอกมือ',
+  legacy: 'ผลเดิม',
+  unknown: 'ไม่ระบุ'
+};
+
+const STATUS_META = {
+  open: {
+    label: 'เปิดรับ',
+    icon: FiCheckCircle,
+    cardClass: 'is-open'
+  },
+  upcoming: {
+    label: 'ยังไม่เปิด',
+    icon: FiClock,
+    cardClass: 'is-upcoming'
+  },
+  closed: {
+    label: 'ปิดรับ',
+    icon: FiSlash,
+    cardClass: 'is-closed'
+  },
+  resulted: {
+    label: 'ประกาศผลแล้ว',
+    icon: FiAlertCircle,
+    cardClass: 'is-resulted'
+  },
+  pending: {
+    label: 'รอผล',
+    icon: FiClock,
+    cardClass: 'is-closed'
+  },
+  waiting: {
+    label: 'รอข้อมูล',
+    icon: FiAlertCircle,
+    cardClass: 'is-missing'
+  },
+  live: {
+    label: 'มีผลแล้ว',
+    icon: FiCheckCircle,
+    cardClass: 'is-resulted'
+  },
+  missing: {
+    label: 'ยังไม่มีงวด',
+    icon: FiAlertCircle,
+    cardClass: 'is-missing'
+  }
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const SYNTHETIC_ROUND_SCHEDULES = {
+  'hanoi-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 20, closeMinute: 20, drawHour: 20, drawMinute: 30, roundDateOffsetDays: 0 },
+  'hanoi-specific': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 17, closeMinute: 20, drawHour: 17, drawMinute: 30, roundDateOffsetDays: 0 },
+  lao: { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 21, closeMinute: 20, drawHour: 21, drawMinute: 30, roundDateOffsetDays: 0 },
+  'hanoi-normal': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 19, closeMinute: 20, drawHour: 19, drawMinute: 30, roundDateOffsetDays: 0 },
+  malay: { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 19, closeMinute: 50, drawHour: 20, drawMinute: 0, roundDateOffsetDays: 0 },
+  'yeekee-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 22, closeMinute: 50, drawHour: 23, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-thai': { weekdays: [1, 2, 3, 4, 5], closeHour: 18, closeMinute: 0, drawHour: 18, drawMinute: 15, roundDateOffsetDays: 0 },
+  'stock-hangseng-morning': { weekdays: [1, 2, 3, 4, 5], closeHour: 11, closeMinute: 45, drawHour: 12, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-hangseng-afternoon': { weekdays: [1, 2, 3, 4, 5], closeHour: 15, closeMinute: 45, drawHour: 16, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-taiwan': { weekdays: [1, 2, 3, 4, 5], closeHour: 13, closeMinute: 15, drawHour: 13, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-nikkei-afternoon': { weekdays: [1, 2, 3, 4, 5], closeHour: 14, closeMinute: 15, drawHour: 14, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-korea': { weekdays: [1, 2, 3, 4, 5], closeHour: 14, closeMinute: 15, drawHour: 14, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-china-morning': { weekdays: [1, 2, 3, 4, 5], closeHour: 11, closeMinute: 15, drawHour: 11, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-singapore': { weekdays: [1, 2, 3, 4, 5], closeHour: 16, closeMinute: 45, drawHour: 17, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-india': { weekdays: [1, 2, 3, 4, 5], closeHour: 17, closeMinute: 45, drawHour: 18, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-egypt': { weekdays: [1, 2, 3, 4, 5], closeHour: 20, closeMinute: 15, drawHour: 20, drawMinute: 25, roundDateOffsetDays: 0 },
+  'stock-russia': { weekdays: [1, 2, 3, 4, 5], closeHour: 23, closeMinute: 50, drawHour: 0, drawMinute: 0, roundDateOffsetDays: -1 },
+  'stock-germany': { weekdays: [1, 2, 3, 4, 5], closeHour: 2, closeMinute: 45, drawHour: 3, drawMinute: 0, roundDateOffsetDays: -1 },
+  'stock-england': { weekdays: [1, 2, 3, 4, 5], closeHour: 0, closeMinute: 30, drawHour: 0, drawMinute: 45, roundDateOffsetDays: -1 }
+};
+
+const normalizeKey = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[\s_]+/g, '-');
+
+const createBangkokDate = (year, month, day, hour = 0, minute = 0) =>
+  new Date(Date.UTC(year, month - 1, day, hour - 7, minute));
+
+const getBangkokParts = (value = new Date()) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: THAI_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+
+  const parts = formatter.formatToParts(value).reduce((acc, part) => {
+    if (part.type !== 'literal') {
+      acc[part.type] = part.value;
+    }
+    return acc;
+  }, {});
+
+  const shifted = new Date(value.getTime() + 7 * 60 * 60 * 1000);
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    weekday: shifted.getUTCDay()
+  };
+};
+
+const formatClock = (value) => formatDateTime(value, {
+  fallback: '-',
+  options: {
+    hour: '2-digit',
+    minute: '2-digit'
+  }
+});
+
+const formatUpdatedAt = (value) => formatDateTime(value, {
+  fallback: '-',
+  options: {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }
+});
+
+const formatHitValue = (primaryValue, hits = []) => {
+  const values = [...new Set((Array.isArray(hits) ? hits : []).map((item) => String(item || '').trim()).filter(Boolean))];
+  if (values.length) {
+    return values.join(' / ');
+  }
+
+  return String(primaryValue || '').trim();
+};
+
+const buildResultItems = (result) => {
+  if (!result) return [];
+
+  const threeTopValue = formatHitValue(result.threeTop, result.threeTopHits);
+  const twoTopValue = formatHitValue(result.twoTop, result.twoTopHits);
+  const threeFrontValue = formatHitValue(result.threeFront, result.threeFrontHits);
+  const threeBottomValue = formatHitValue(result.threeBottom, result.threeBottomHits);
+  const twoBottomValue = formatHitValue(result.twoBottom, result.twoBottomHits);
+
+  const structuredItems = [
+    { label: 'เลขเด่น', value: result.headline || '-' },
+    result.firstPrize ? { label: 'รางวัลหลัก', value: result.firstPrize } : null,
+    threeTopValue ? { label: '3 ตัวบน', value: threeTopValue } : null,
+    twoTopValue && twoTopValue !== twoBottomValue ? { label: '2 ตัวบน', value: twoTopValue } : null,
+    threeFrontValue ? { label: '3 ตัวหน้า', value: threeFrontValue } : null,
+    threeBottomValue ? { label: '3 ตัวล่าง', value: threeBottomValue } : null,
+    twoBottomValue ? { label: '2 ตัวล่าง', value: twoBottomValue } : null
+  ].filter(Boolean);
+
+  if (structuredItems.length > 1) {
+    return structuredItems;
+  }
+
+  const fallbackNumbers = (result.numbers || [])
+    .filter((item) => item?.value)
+    .slice(0, 4)
+    .map((item) => ({
+      label: item.label || 'ผลย่อย',
+      value: item.value
+    }));
+
+  return fallbackNumbers.length ? fallbackNumbers : structuredItems;
+};
+
+const flattenApiMarkets = (overview) => {
+  const map = new Map();
+  (overview?.sections || []).forEach((section) => {
+    (section.markets || []).forEach((market) => {
+      const hydrated = {
+        ...market,
+        sectionId: section.id,
+        sectionTitle: section.title
+      };
+      map.set(normalizeKey(market.id), hydrated);
+      map.set(normalizeKey(market.name), hydrated);
+    });
+  });
+  return map;
+};
+
+const buildCatalogLotteryMap = (overview) => {
+  const map = new Map();
+
+  (overview?.leagues || []).forEach((league) => {
+    (league.lotteries || []).forEach((lottery) => {
+      const aliases = [
+        ...(CATALOG_MARKET_ALIASES[lottery.code] || []),
+        lottery.code,
+        lottery.name,
+        lottery.shortName
+      ];
+
+      aliases.forEach((alias) => {
+        map.set(normalizeKey(alias), lottery);
+      });
+    });
+  });
+
+  return map;
+};
+
+const resolveCatalogLottery = (apiMarket, catalogLotteryMap) => {
+  const candidates = [
+    apiMarket.id,
+    apiMarket.name,
+    apiMarket.marketId,
+    apiMarket.sectionId
+  ];
+
+  for (const candidate of candidates) {
+    const lottery = catalogLotteryMap.get(normalizeKey(candidate));
+    if (lottery) return lottery;
+  }
+
+  return null;
+};
+
+const resolveStatusMeta = (status) => STATUS_META[status] || STATUS_META.missing;
+
+const buildApiResultSnapshot = (apiMarket) => ({
+  headline: apiMarket?.headline || '',
+  numbers: apiMarket?.numbers || [],
+  sourceType: 'api',
+  sourceUrl: '',
+  resultPublishedAt: apiMarket?.resultDate || null,
+  drawAt: apiMarket?.resultDate || null
+});
+
+const formatLotteryDisplayDate = (value, fallback = '-') => {
+  if (!value) return fallback;
+  return formatRoundLabel(value, { fallback });
+};
+
+const hasResultContent = (result) => Boolean(
+  result
+  && (
+    (result.headline && result.headline !== '-')
+    || result.firstPrize
+    || result.twoBottom
+    || result.threeTop
+    || result.resultPublishedAt
+    || (result.numbers || []).some((item) => item?.value)
+  )
+);
+
+const buildSyntheticRound = (marketId, now = new Date()) => {
+  const schedule = SYNTHETIC_ROUND_SCHEDULES[marketId];
+  if (!schedule) return null;
+
+  const occurrences = [];
+
+  for (let offset = -1; offset <= 4; offset += 1) {
+    const candidateDate = new Date(now.getTime() + offset * DAY_MS);
+    const parts = getBangkokParts(candidateDate);
+
+    if (schedule.weekdays && !schedule.weekdays.includes(parts.weekday)) {
+      continue;
+    }
+
+    const drawAt = createBangkokDate(parts.year, parts.month, parts.day, schedule.drawHour, schedule.drawMinute);
+    const closeAt = createBangkokDate(parts.year, parts.month, parts.day, schedule.closeHour, schedule.closeMinute);
+    const openAt = new Date(drawAt.getTime() - DAY_MS);
+    const roundDate = new Date(drawAt.getTime() + (schedule.roundDateOffsetDays || 0) * DAY_MS);
+    const displayDate = formatThaiDate(roundDate, { fallback: '-' });
+
+    occurrences.push({
+      id: `synthetic-${marketId}-${parts.year}${String(parts.month).padStart(2, '0')}${String(parts.day).padStart(2, '0')}`,
+      code: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`,
+      title: `รอบ ${displayDate}`,
+      openAt,
+      closeAt,
+      drawAt,
+      displayDate,
+      isSynthetic: true
+    });
+  }
+
+  if (!occurrences.length) return null;
+
+  occurrences.sort((left, right) => left.drawAt - right.drawAt);
+  return (
+    occurrences.find((round) => now <= round.closeAt)
+    || occurrences.find((round) => now <= round.drawAt)
+    || occurrences[0]
+    || null
+  );
+};
+
+const getCardDisplayDate = (card, fallback) => {
+  if (card?.activeRound?.displayDate) {
+    return formatLotteryDisplayDate(card.activeRound.displayDate, fallback);
+  }
+
+  if (card?.activeRound?.drawAt) {
+    return formatThaiDate(card.activeRound.drawAt, { fallback });
+  }
+
+  const roundLabel = formatRoundLabel(card?.activeRound?.title, { fallback: '' });
+  if (roundLabel) {
+    return roundLabel;
+  }
+
+  if (card?.apiMarket?.resultDate) {
+    return formatThaiDate(card.apiMarket.resultDate, { fallback: card.apiMarket.resultDate });
+  }
+
+  const latestRoundDate = card?.latestResult?.drawAt
+    || card?.latestResult?.roundCode
+    || card?.latestResult?.resultPublishedAt;
+  if (latestRoundDate) {
+    return formatRoundLabel(latestRoundDate, { fallback });
+  }
+
+  return fallback;
+};
+
+const getWarningMarketMatch = (warning, cards) => cards.find((card) => (
+  [card?.name, card?.shortName, card?.apiMarket?.name]
+    .filter(Boolean)
+    .some((value) => String(warning || '').includes(value))
+));
+
+const buildRecentResultsMap = (overview) => {
+  const map = new Map();
+
+  (overview?.recentResults || []).forEach((result) => {
+    [result.lotteryCode, result.lotteryName, result.lotteryShortName]
+      .filter(Boolean)
+      .forEach((alias) => {
+        const key = normalizeKey(alias);
+        const bucket = map.get(key) || [];
+        bucket.push(result);
+        map.set(key, bucket);
+      });
+  });
+
+  return map;
+};
+
+const resolveResultKeys = (apiMarket, matchedLottery) => [
+  matchedLottery?.code,
+  ...(API_MARKET_RESULT_ALIASES[apiMarket.id] || []),
+  apiMarket.id,
+  apiMarket.marketId,
+  apiMarket.name,
+  matchedLottery?.name,
+  matchedLottery?.shortName
+].filter(Boolean);
+
+const getLatestRecentResult = (recentResultsMap, resultKeys) => {
+  for (const key of resultKeys) {
+    const entries = recentResultsMap.get(normalizeKey(key));
+    if (entries?.length) {
+      return entries[0];
+    }
+  }
+
+  return null;
+};
+
+const getRecentHistory = (recentResultsMap, resultKeys) => {
+  const merged = [];
+  const seen = new Set();
+
+  resultKeys.forEach((key) => {
+    const entries = recentResultsMap.get(normalizeKey(key)) || [];
+    entries.forEach((entry) => {
+      if (!seen.has(entry.id)) {
+        seen.add(entry.id);
+        merged.push(entry);
+      }
+    });
+  });
+
+  return merged
+    .sort((left, right) => {
+      const leftDate = new Date(left.resultPublishedAt || left.drawAt || 0).getTime();
+      const rightDate = new Date(right.resultPublishedAt || right.drawAt || 0).getTime();
+      return rightDate - leftDate;
+    })
+    .slice(0, 6);
 };
 
 const AdminLottery = () => {
-  const [latest, setLatest] = useState(null);
-  const [results, setResults] = useState([]);
-  const [externalResults, setExternalResults] = useState([]);
-  const [lotteryOptions, setLotteryOptions] = useState([]);
-  const [selectedLotteryId, setSelectedLotteryId] = useState('');
-  const [roundOptions, setRoundOptions] = useState([]);
-  const [selectedRoundId, setSelectedRoundId] = useState('');
-  const [closedBetTypesDraft, setClosedBetTypesDraft] = useState([]);
-  const [savingClosedBetTypes, setSavingClosedBetTypes] = useState(false);
-  const [loadingRounds, setLoadingRounds] = useState(false);
+  const [catalogOverview, setCatalogOverview] = useState(null);
+  const [marketOverview, setMarketOverview] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [fetchDate, setFetchDate] = useState('');
-  const [showManual, setShowManual] = useState(false);
-  const [manualForm, setManualForm] = useState({
-    roundDate: '',
-    firstPrize: '',
-    twoBottom: '',
-    threeTopList: '',
-    threeBotList: '',
-    runTop: '',
-    runBottom: ''
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedCode, setSelectedCode] = useState('');
+
+  const loadData = async ({ silent = false } = {}) => {
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    const [catalogResult, marketResult] = await Promise.allSettled([
+      getCatalogOverview(),
+      getMarketOverview()
+    ]);
+
+    if (catalogResult.status === 'fulfilled') {
+      setCatalogOverview(catalogResult.value.data || null);
+    } else {
+      console.error(catalogResult.reason);
+      toast.error('โหลดข้อมูลผลหวยไม่สำเร็จ');
+      setCatalogOverview({ leagues: [], recentResults: [] });
+    }
+
+    if (marketResult.status === 'fulfilled') {
+      setMarketOverview(marketResult.value.data || null);
+    } else {
+      console.error(marketResult.reason);
+      toast.error('โหลดสถานะ API ผลหวยไม่สำเร็จ');
+      setMarketOverview({ provider: { configured: false }, warnings: [] });
+    }
+
+    setLoading(false);
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (!selectedLotteryId) {
-      setRoundOptions([]);
-      setSelectedRoundId('');
-      setClosedBetTypesDraft([]);
-      return undefined;
-    }
+  const displaySections = useMemo(() => {
+    const catalogLotteryMap = buildCatalogLotteryMap(catalogOverview);
+    const recentResultsMap = buildRecentResultsMap(catalogOverview);
 
-    let isActive = true;
+    return (marketOverview?.sections || [])
+      .map((section) => ({
+        id: section.id,
+        code: section.id,
+        name: section.title,
+        description: section.description,
+        cards: (section.markets || []).map((apiMarket) => {
+          const matchedLottery = resolveCatalogLottery(apiMarket, catalogLotteryMap);
+          const resultKeys = resolveResultKeys(apiMarket, matchedLottery);
+          const fallbackRecentResult = getLatestRecentResult(recentResultsMap, resultKeys);
+          const latestResult = hasResultContent(matchedLottery?.latestResult)
+            ? matchedLottery.latestResult
+            : (fallbackRecentResult || buildApiResultSnapshot(apiMarket));
+          const effectiveStatus = matchedLottery?.status
+            || ((apiMarket.status === 'waiting' || apiMarket.status === 'missing') && fallbackRecentResult ? 'live' : (apiMarket.status || 'missing'));
+          const statusMeta = resolveStatusMeta(effectiveStatus);
 
-    const loadRounds = async () => {
-      setLoadingRounds(true);
-      try {
-        const roundsRes = await getCatalogRounds(selectedLotteryId);
-        if (!isActive) return;
+          const resolvedActiveRound = matchedLottery?.activeRound || buildSyntheticRound(apiMarket.id);
 
-        const nextRounds = roundsRes.data || [];
-        setRoundOptions(nextRounds);
-        setSelectedRoundId((current) => (
-          current && nextRounds.some((round) => round.id === current)
-            ? current
-            : (nextRounds[0]?.id || '')
-        ));
-      } catch (error) {
-        console.error(error);
-        if (isActive) {
-          toast.error(copy.saveClosedTypesError);
-          setRoundOptions([]);
-          setSelectedRoundId('');
-        }
-      } finally {
-        if (isActive) {
-          setLoadingRounds(false);
-        }
-      }
-    };
-
-    loadRounds();
-
-    return () => {
-      isActive = false;
-    };
-  }, [selectedLotteryId]);
-
-  const loadData = async () => {
-    try {
-      const [latestRes, resultsRes, lotteriesRes, externalRes] = await Promise.all([
-        getLatestLottery(),
-        getLotteryResults(),
-        getCatalogLotteries(),
-        getRecentMarketResults({ limit: 50 })
-      ]);
-      setLatest(latestRes.data);
-      setResults(resultsRes.data || []);
-      setExternalResults(externalRes.data || []);
-      const nextLotteries = lotteriesRes.data || [];
-      setLotteryOptions(nextLotteries);
-      setSelectedLotteryId((current) => (
-        current && nextLotteries.some((lottery) => lottery.id === current)
-          ? current
-          : (nextLotteries[0]?.id || '')
-      ));
-    } catch (error) {
-      console.error(error);
-      toast.error('โหลดข้อมูลหน้าผลหวยไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const selectedLottery = useMemo(
-    () => lotteryOptions.find((lottery) => lottery.id === selectedLotteryId) || null,
-    [lotteryOptions, selectedLotteryId]
-  );
-
-  const selectedRound = useMemo(
-    () => roundOptions.find((round) => round.id === selectedRoundId) || null,
-    [roundOptions, selectedRoundId]
-  );
-
-  const supportedBetTypes = selectedLottery?.supportedBetTypes || [];
-  const selectedRoundClosedKey = selectedRound?.closedBetTypes?.join('|') || '';
+          return {
+            id: matchedLottery?.id || apiMarket.id,
+            code: matchedLottery?.code || apiMarket.id,
+            selectionKey: apiMarket.id,
+            name: matchedLottery?.name || apiMarket.name,
+            shortName: matchedLottery?.shortName || apiMarket.name,
+            status: effectiveStatus,
+            statusLabel: statusMeta.label,
+            statusIcon: statusMeta.icon,
+            statusClass: statusMeta.cardClass,
+            activeRound: resolvedActiveRound,
+            latestResult,
+            historyKeys: resultKeys,
+            providerConfigured: apiMarket?.providerConfigured ?? marketOverview?.provider?.configured ?? true,
+            apiMarket,
+            visual: getLotteryVisual(matchedLottery?.code || apiMarket.id, matchedLottery?.shortName || apiMarket.name)
+          };
+        })
+      }))
+      .filter((section) => section.cards.length > 0);
+  }, [catalogOverview, marketOverview]);
 
   useEffect(() => {
-    setClosedBetTypesDraft(selectedRound?.closedBetTypes || []);
-  }, [selectedRound?.id, selectedRoundClosedKey]);
+    if (!displaySections.length) {
+      setSelectedCode('');
+      return;
+    }
 
-  const overviewCards = useMemo(() => {
-    const latestRound = latest?.roundDate || copy.noRound;
-    const latestFirstPrize = latest?.firstPrize || '-';
-    const latestTop = latest?.firstPrize?.slice(-3) || '-';
-    const latestBottom = latest?.twoBottom || '-';
+    const availableCodes = displaySections.flatMap((section) => section.cards.map((card) => card.selectionKey));
+    setSelectedCode((current) => (availableCodes.includes(current) ? current : availableCodes[0]));
+  }, [displaySections]);
+
+  const selectedCard = useMemo(
+    () => displaySections.flatMap((section) => section.cards).find((card) => card.selectionKey === selectedCode) || null,
+    [displaySections, selectedCode]
+  );
+
+  const selectedHistory = useMemo(
+    () => {
+      if (!selectedCard?.historyKeys?.length) return [];
+      return getRecentHistory(buildRecentResultsMap(catalogOverview), selectedCard.historyKeys);
+    },
+    [catalogOverview, selectedCard]
+  );
+
+  const selectedResult = selectedCard?.latestResult || selectedHistory[0] || null;
+  const SelectedStatusIcon = selectedCard?.statusIcon || FiAlertCircle;
+  const pageWarnings = useMemo(() => {
+    const cards = displaySections.flatMap((section) => section.cards);
 
     return [
-      {
-        icon: FiActivity,
-        label: copy.overviewCards.latestRound.label,
-        value: latestRound,
-        hint: latest?.isCalculated ? copy.overviewCards.latestRound.settled : copy.overviewCards.latestRound.pending
-      },
-      {
-        icon: FiAward,
-        label: copy.overviewCards.firstPrize.label,
-        value: latestFirstPrize,
-        hint: copy.overviewCards.firstPrize.hint
-      },
-      {
-        icon: FiDownload,
-        label: copy.overviewCards.top3.label,
-        value: latestTop,
-        hint: copy.overviewCards.top3.hint
-      },
-      {
-        icon: FiRefreshCw,
-        label: copy.overviewCards.bottom2.label,
-        value: latestBottom,
-        hint: copy.overviewCards.bottom2.hint(results.length)
-      }
-    ];
-  }, [latest, results.length]);
+      ...(marketOverview?.warnings || []),
+      ...(marketOverview?.provider?.configured === false ? [UI.apiNotConfigured] : [])
+    ]
+      .filter(Boolean)
+      .filter((warning) => {
+        if (!/ManyCai/i.test(String(warning || ''))) {
+          return true;
+        }
 
-  const toggleClosedBetType = (betType) => {
-    setClosedBetTypesDraft((current) => (
-      current.includes(betType)
-        ? current.filter((item) => item !== betType)
-        : [...current, betType]
-    ));
-  };
+        const matchedCard = getWarningMarketMatch(warning, cards);
+        if (!matchedCard) {
+          return true;
+        }
 
-  const handleSaveClosedBetTypes = async () => {
-    if (!selectedRound) {
-      toast.error(copy.noRoundSelected);
-      return;
-    }
+        const hasVisibleResult =
+          hasResultContent(matchedCard.latestResult)
+          || hasResultContent(buildApiResultSnapshot(matchedCard.apiMarket));
+        const hasResolvedStatus = !['waiting', 'missing'].includes(matchedCard.status);
 
-    const toastId = toast.loading(copy.saveClosedTypesLoading);
-    setSavingClosedBetTypes(true);
-
-    try {
-      const response = await updateRoundClosedBetTypes(selectedRound.id, {
-        closedBetTypes: closedBetTypesDraft
+        return !(hasVisibleResult || hasResolvedStatus);
       });
-      const roundsRes = await getCatalogRounds(selectedLotteryId);
-      const nextRounds = roundsRes.data || [];
-      setRoundOptions(nextRounds);
-      setSelectedRoundId(response.data.id);
-      setClosedBetTypesDraft(response.data.closedBetTypes || []);
-      toast.success(copy.saveClosedTypesSuccess, { id: toastId });
-    } catch (error) {
-      toast.error(error.response?.data?.message || copy.saveClosedTypesError, { id: toastId });
-    } finally {
-      setSavingClosedBetTypes(false);
-    }
-  };
-
-  const handleFetch = async () => {
-    if (!fetchDate) {
-      toast.error(copy.fetchErrorNoDate);
-      return;
-    }
-
-    const toastId = toast.loading(copy.fetchingExternal);
-
-    try {
-      const res = await fetchLottery({ roundDate: fetchDate });
-      const settlement = res.data?.settlement;
-      if (settlement) {
-        toast.success(copy.fetchAndSettleSuccess(settlement.wonCount, settlement.lostCount), { id: toastId });
-      } else {
-        toast.success(copy.fetchSuccess, { id: toastId });
-      }
-      await loadData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || copy.fetchError, { id: toastId });
-    }
-  };
-
-  const handleQuickSync = async () => {
-    const targetDate = fetchDate || latest?.roundDate;
-    if (!targetDate) {
-      toast.error(copy.noRoundToSync);
-      return;
-    }
-
-    setFetchDate(targetDate);
-    const toastId = toast.loading(copy.quickSyncLoading(targetDate));
-
-    try {
-      const res = await fetchLottery({ roundDate: targetDate });
-      const settlement = res.data?.settlement;
-      if (settlement) {
-        toast.success(copy.quickSyncSettled(targetDate), { id: toastId });
-      } else {
-        toast.success(copy.quickSyncSuccess(targetDate), { id: toastId });
-      }
-      await loadData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || copy.quickSyncError(targetDate), { id: toastId });
-    }
-  };
-
-  const handleManualSave = async (event) => {
-    event.preventDefault();
-
-    const toastId = toast.loading(copy.manualLoading);
-
-    try {
-      const payload = {
-        ...manualForm,
-        threeTopList: manualForm.threeTopList ? manualForm.threeTopList.split(',').map((item) => item.trim()).filter(Boolean) : [],
-        threeBotList: manualForm.threeBotList ? manualForm.threeBotList.split(',').map((item) => item.trim()).filter(Boolean) : [],
-        runTop: manualForm.runTop ? manualForm.runTop.split(',').map((item) => item.trim()).filter(Boolean) : [],
-        runBottom: manualForm.runBottom ? manualForm.runBottom.split(',').map((item) => item.trim()).filter(Boolean) : []
+  }, [displaySections, marketOverview]);
+  const connectionStatus = useMemo(() => {
+    const fallbackOnly = pageWarnings.length === 1 && /fallback|สำรอง/i.test(pageWarnings[0] || '');
+    if (fallbackOnly) {
+      return {
+        label: 'เชื่อมต่อผ่าน feed สำรอง',
+        className: 'is-fallback',
+        note: 'ระบบยังดึงผลหวยได้ แต่ใช้ช่องทางสำรองแทน API หลัก'
       };
-
-      const res = await manualLottery(payload);
-      const settlement = res.data?.settlement;
-      if (settlement) {
-        toast.success(copy.manualSettled(settlement.wonCount, settlement.lostCount), { id: toastId });
-      } else {
-        toast.success(copy.manualSuccess, { id: toastId });
-      }
-
-      setShowManual(false);
-      setManualForm({
-        roundDate: '',
-        firstPrize: '',
-        twoBottom: '',
-        threeTopList: '',
-        threeBotList: '',
-        runTop: '',
-        runBottom: ''
-      });
-      await loadData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || copy.manualError, { id: toastId });
     }
-  };
+
+    if (pageWarnings.length > 0) {
+      return {
+        label: 'บางตลาดยังรอข้อมูล',
+        className: 'is-warning',
+        note: 'ตรวจพบตลาดที่เชื่อมต่อได้ไม่ครบหรือผลยังไม่พร้อมแสดง'
+      };
+    }
+
+    return {
+      label: 'เชื่อมต่อปกติ',
+      className: 'is-ok',
+      note: 'ระบบเชื่อมต่อข้อมูลผลหวยได้ตามปกติ'
+    };
+  }, [pageWarnings]);
 
   if (loading) {
-    return <PageSkeleton statCount={4} rows={6} sidebar={false} />;
+    return <PageSkeleton statCount={0} rows={6} sidebar={false} />;
   }
 
   return (
-    <div className="ops-page admin-lottery-page animate-fade-in">
-      <section className="ops-hero admin-lottery-hero">
-        <div className="ops-hero-copy">
-          <span className="ui-eyebrow">{copy.heroEyebrow}</span>
-          <h1 className="page-title">{copy.heroTitle}</h1>
-          <p className="page-subtitle">{copy.heroSubtitle}</p>
+    <div className="animate-fade-in admin-lottery-page">
+      <section className="card lottery-hero">
+        <div className="lottery-hero-copy">
+          <span className="section-eyebrow">{UI.eyebrow}</span>
+          <h1 className="page-title">{UI.title}</h1>
+          <p className="page-subtitle">{UI.subtitle}</p>
         </div>
-
-        <div className="ops-hero-side">
-          <span>{copy.latestStatus}</span>
-          <strong>{latest?.roundDate || copy.noRound}</strong>
-          <small>{latest?.firstPrize ? `${copy.firstPrize} ${latest.firstPrize}` : copy.noSavedResult}</small>
-        </div>
+        <button
+          type="button"
+          className="button button-secondary refresh-button"
+          onClick={() => loadData({ silent: true })}
+          disabled={refreshing}
+        >
+          <FiRefreshCw className={refreshing ? 'spin' : ''} />
+          {UI.refresh}
+        </button>
       </section>
 
-      <section className="ops-overview-grid admin-lottery-overview">
-        {overviewCards.map((card) => (
-          <article key={card.label} className="ops-overview-card">
-            <div className="ops-icon-badge"><card.icon /></div>
-            <span>{card.label}</span>
-            <strong>{card.value}</strong>
-            <small>{card.hint}</small>
-          </article>
-        ))}
-      </section>
-
-      <section className="ops-grid admin-lottery-grid">
-        <section className="card ops-section admin-lottery-panel">
-          <div className="ui-panel-head">
-            <div>
-              <div className="ui-eyebrow">{copy.externalEyebrow}</div>
-              <h3 className="card-title">{copy.externalTitle}</h3>
-            </div>
-            <span className="ui-pill">{copy.autoSyncEnabled}</span>
-          </div>
-
-          <div className="ops-stack admin-lottery-sync-stack">
-            <label className="form-label" htmlFor="lottery-round-date">{copy.roundDate}</label>
-            <input
-              id="lottery-round-date"
-              type="date"
-              className="form-input"
-              value={fetchDate}
-              onChange={(event) => setFetchDate(event.target.value)}
-            />
-
-            <div className="ops-actions">
-              <button className="btn btn-primary" onClick={handleFetch}>
-                <FiDownload />
-                {copy.fetchByDate}
-              </button>
-              <button className="btn btn-secondary" onClick={handleQuickSync}>
-                <FiRefreshCw />
-                {copy.fetchLatest}
-              </button>
-            </div>
-
-            <p className="ops-table-note">{copy.externalHint}</p>
-          </div>
-        </section>
-
-        <section className="card ops-section admin-lottery-panel">
-          <div className="ui-panel-head">
-            <div>
-              <div className="ui-eyebrow">{copy.fallbackEyebrow}</div>
-              <h3 className="card-title">{copy.fallbackTitle}</h3>
-            </div>
-            <span className={`badge ${resultStatusBadge(latest)}`}>{resultStatusLabel(latest)}</span>
-          </div>
-
-          <div className="ops-stack admin-lottery-fallback-stack">
-            <div className="ops-feed-row">
-              <div>
-                <strong>{copy.latestFirstPrize}</strong>
-                <div className="ops-feed-meta">{latest?.firstPrize || copy.noFirstPrize}</div>
-              </div>
-              <div className="ops-feed-right">
-                <strong>{latest?.twoBottom || '-'}</strong>
-                <span className="ops-feed-meta">{copy.bottom2Short}</span>
-              </div>
-            </div>
-
-            <p className="ops-table-note">{copy.fallbackHint}</p>
-            <button className="btn btn-secondary" onClick={() => setShowManual(true)}>
-              <FiEdit3 />
-              {copy.openManualForm}
-            </button>
-          </div>
-        </section>
-      </section>
-
-      <section className="card ops-section admin-lottery-control">
-        <div className="ui-panel-head">
+      <section className="card warning-panel">
+        <div className="warning-head">
           <div>
-            <div className="ui-eyebrow">{copy.roundControlEyebrow}</div>
-            <h3 className="card-title">{copy.roundControlTitle}</h3>
-            <p className="ops-table-note">{copy.roundControlNote}</p>
+            <div className="warning-title"><FiAlertCircle /> {UI.warningTitle}</div>
+            <p className="warning-note">{connectionStatus.note}</p>
           </div>
-          <span className="ui-pill">{copy.closedTypesCount(closedBetTypesDraft.length)}</span>
+          <span className={`connection-pill ${connectionStatus.className}`}>{connectionStatus.label}</span>
         </div>
-
-        <div className="ops-form-grid">
-          <div className="form-group">
-            <label className="form-label" htmlFor="closed-bet-lottery">{copy.lotteryLabel}</label>
-            <select
-              id="closed-bet-lottery"
-              className="form-select"
-              value={selectedLotteryId}
-              onChange={(event) => setSelectedLotteryId(event.target.value)}
-              disabled={!lotteryOptions.length}
-            >
-              {!lotteryOptions.length ? <option value="">{copy.noLotteryOptions}</option> : null}
-              {lotteryOptions.map((lottery) => (
-                <option key={lottery.id} value={lottery.id}>
-                  {lottery.leagueName} • {lottery.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="closed-bet-round">{copy.roundLabel}</label>
-            <select
-              id="closed-bet-round"
-              className="form-select"
-              value={selectedRoundId}
-              onChange={(event) => setSelectedRoundId(event.target.value)}
-              disabled={loadingRounds || !roundOptions.length}
-            >
-              {loadingRounds ? <option value="">{copy.roundLoading}</option> : null}
-              {!loadingRounds && !roundOptions.length ? <option value="">{copy.noRoundOptions}</option> : null}
-              {!loadingRounds && roundOptions.map((round) => (
-                <option key={round.id} value={round.id}>
-                  {round.title} • {round.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {(selectedLottery || selectedRound) ? (
-          <div className="ops-selected-summary admin-lottery-selected">
-            <div className="ops-stat-row">
-              <div>
-                <strong>{copy.lotteryLabel}</strong>
-                <div className="ops-feed-meta">
-                  {selectedLottery ? `${selectedLottery.leagueName} • ${selectedLottery.name}` : copy.noLotteryOptions}
-                </div>
-              </div>
-            </div>
-
-            <div className="ops-stat-row">
-              <div>
-                <strong>{copy.roundLabel}</strong>
-                <div className="ops-feed-meta">
-                  {selectedRound ? `${selectedRound.title} • ${selectedRound.label}` : copy.noRoundOptions}
-                </div>
-              </div>
-            </div>
-
-            <div className="ops-stat-row">
-              <div>
-                <strong>ปิดรับ</strong>
-                <div className="ops-feed-meta">{formatDateTime(selectedRound?.closeAt)}</div>
-              </div>
-            </div>
+        {pageWarnings.length > 0 ? (
+          <div className="warning-list">
+            {pageWarnings.map((warning, index) => (
+              <span key={`${warning}-${index}`} className="warning-chip">{warning}</span>
+            ))}
           </div>
         ) : null}
+      </section>
 
-        <div className="ops-stack">
-          {!supportedBetTypes.length ? (
-            <div className="empty-state">
-              <div className="empty-state-text">{copy.unsupportedBetTypes}</div>
-            </div>
-          ) : (
-            <>
-              <div className="ops-chip-grid admin-lottery-chip-grid">
-                {supportedBetTypes.map((betType) => {
-                  const isClosed = closedBetTypesDraft.includes(betType);
-                  return (
-                    <button
-                      key={betType}
-                      type="button"
-                      className={`btn ${isClosed ? 'btn-danger' : 'btn-secondary'} btn-sm ops-chip-toggle`}
-                      onClick={() => toggleClosedBetType(betType)}
-                      disabled={!selectedRound}
-                    >
-                      {getBetTypeLabel(betType)} • {isClosed ? copy.closedForBetting : copy.openForBetting}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="ops-feed-row admin-lottery-status-row">
-                <div>
-                  <strong>{copy.closedTypesCurrent}</strong>
-                  <div className="ops-feed-meta">
-                    {closedBetTypesDraft.length
-                      ? closedBetTypesDraft.map((betType) => getBetTypeLabel(betType)).join(', ')
-                      : copy.closedTypesEmpty}
+      {!displaySections.length ? (
+        <section className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon"><FiAlertCircle /></div>
+            <div className="empty-state-text">{UI.noData}</div>
+          </div>
+        </section>
+      ) : (
+        <div className="lottery-grid-layout">
+          <div className="lottery-sections">
+            {displaySections.map((section) => (
+              <section key={section.id} className="card lottery-section-card">
+                <div className="section-head">
+                  <div>
+                    <div className="section-title">{section.name}</div>
+                    <p className="section-note">{section.description}</p>
                   </div>
                 </div>
-                <div className="ops-actions">
-                  <span className={`badge ${selectedRound?.status === 'open' ? 'badge-success' : 'badge-warning'}`}>
-                    {selectedRound?.label || copy.noRound}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={handleSaveClosedBetTypes}
-                    disabled={!selectedRound || savingClosedBetTypes}
-                  >
-                    <FiSave />
-                    {savingClosedBetTypes ? copy.saveClosedTypesLoading : copy.saveClosedTypes}
-                  </button>
+
+                <div className="market-grid">
+                  {section.cards.map((card) => {
+                    const StatusIcon = card.statusIcon;
+                    const isSelected = selectedCode === card.selectionKey;
+                    const latestHeadline = card.latestResult?.headline || card.apiMarket?.headline || '';
+
+                    return (
+                      <button
+                        key={card.selectionKey}
+                        type="button"
+                        className={`market-card ${card.statusClass} ${isSelected ? 'is-selected' : ''}`}
+                        onClick={() => setSelectedCode(card.selectionKey)}
+                      >
+                        <div
+                          className="market-logo"
+                          style={{
+                            background: card.visual.background,
+                            '--logo-accent': card.visual.accent
+                          }}
+                        >
+                          <span>{card.visual.shortLabel}</span>
+                          <i />
+                        </div>
+
+                        <div className="market-card-body">
+                          <div className="market-card-top">
+                            <div>
+                              <h3>{card.name}</h3>
+                              <div className="market-round">{getCardDisplayDate(card, UI.noRound)}</div>
+                            </div>
+
+                            <span className="market-status-pill">
+                              <StatusIcon />
+                              {card.statusLabel}
+                            </span>
+                          </div>
+
+                          <div className="market-card-foot">
+                            <span>
+                              {latestHeadline
+                                ? `${UI.latestResult} ${latestHeadline}`
+                                : (card.providerConfigured ? UI.latestHeadlineFallback : UI.providerUnavailable)}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            </>
-          )}
+              </section>
+            ))}
+          </div>
+
+          <aside className="card lottery-detail-card">
+            {selectedCard ? (
+              <>
+                <div className="detail-top">
+                  <div className="detail-market-meta">
+                    <span className="section-eyebrow">{UI.latestDetailTitle}</span>
+                    <h2>{selectedCard.name}</h2>
+                    <div className="detail-market-date">{getCardDisplayDate(selectedCard, UI.noRound)}</div>
+                    <p>
+                      {selectedCard.activeRound?.drawAt
+                        ? formatThaiDate(selectedCard.activeRound.drawAt)
+                        : (selectedCard.apiMarket?.resultDate ? formatThaiDate(selectedCard.apiMarket.resultDate, { fallback: selectedCard.apiMarket.resultDate }) : UI.noRound)}
+                      {' · '}
+                    </p>
+                  </div>
+
+                  <span className={`detail-status-pill ${selectedCard.statusClass}`}>
+                    <SelectedStatusIcon />
+                    {selectedCard.statusLabel}
+                  </span>
+                </div>
+
+                <section className="detail-result-hero">
+                  <div className="detail-result-label">{UI.latestResult}</div>
+                  <div className="detail-result-headline">{selectedResult?.headline || '-'}</div>
+                  <div className="detail-result-meta">
+                    <span>{UI.source}: {SOURCE_LABELS[selectedResult?.sourceType] || SOURCE_LABELS.unknown}</span>
+                    <span>{UI.updatedAt}: {formatUpdatedAt(selectedResult?.resultPublishedAt || selectedResult?.drawAt)}</span>
+                  </div>
+                </section>
+
+                {selectedResult ? (
+                  <div className="detail-result-grid">
+                    {buildResultItems(selectedResult).map((item) => (
+                      <article key={`${item.label}-${item.value}`} className="detail-result-item">
+                        <span>{item.label}</span>
+                        <strong>{item.value || '-'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="detail-empty">{UI.noResult}</div>
+                )}
+
+                {selectedCard?.apiMarket?.provider ? (
+                  <div className="detail-provider-note">
+                    {UI.source}: {selectedCard.apiMarket.provider}
+                  </div>
+                ) : null}
+
+                {selectedResult?.sourceUrl ? (
+                  <a
+                    className="detail-link"
+                    href={selectedResult.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <FiExternalLink />
+                    {UI.apiLink}
+                  </a>
+                ) : null}
+
+                <div className="history-head">
+                  <div className="history-title">{UI.recentHistoryTitle}</div>
+                  <div className="history-count">{selectedHistory.length} งวด</div>
+                </div>
+
+                {selectedHistory.length ? (
+                  <div className="history-list">
+                    {selectedHistory.map((result) => (
+                      <article key={result.id} className="history-item">
+                        <div>
+                          <div className="history-round">{formatRoundLabel(result.drawAt || result.roundCode, { fallback: result.roundCode || '-' })}</div>
+                          <div className="history-source">{SOURCE_LABELS[result.sourceType] || SOURCE_LABELS.unknown}</div>
+                        </div>
+                        <div className="history-headline">{result.headline || '-'}</div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="detail-empty">{UI.noHistory}</div>
+                )}
+              </>
+            ) : (
+              <div className="detail-empty">{UI.noData}</div>
+            )}
+          </aside>
         </div>
-      </section>
-
-      <section className="card ops-section admin-lottery-history">
-        <div className="ops-table-head">
-          <div>
-            <div className="ui-eyebrow">{copy.historyEyebrow}</div>
-            <h3 className="card-title">{copy.historyTitle}</h3>
-            <p className="ops-table-note">{copy.historyNote}</p>
-          </div>
-          <div className="ops-actions admin-lottery-history-actions">
-            <span className="ui-pill"><FiActivity /> {copy.roundsCount(results.length)}</span>
-            <span className={`badge ${resultStatusBadge(latest)}`}>{resultStatusLabel(latest)}</span>
-          </div>
-        </div>
-
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{copy.roundDate}</th>
-                <th>{copy.firstPrize}</th>
-                <th>{copy.overviewCards.top3.label}</th>
-                <th>{copy.bottom2Short}</th>
-                <th>{copy.statusColumn}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="text-center text-muted table-empty-cell">{copy.noResults}</td>
-                </tr>
-              ) : (
-                results.map((result) => (
-                  <tr key={result._id}>
-                    <td className="ops-history-cell-strong">{result.roundDate}</td>
-                    <td>{result.firstPrize || '-'}</td>
-                    <td>{result.firstPrize?.slice(-3) || '-'}</td>
-                    <td>{result.twoBottom || '-'}</td>
-                    <td>
-                      <span className={`badge ${resultStatusBadge(result)}`}>
-                        {resultStatusLabel(result)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="card ops-section admin-lottery-history">
-        <div className="ops-table-head">
-          <div>
-            <div className="ui-eyebrow">ฟีดผลจาก API</div>
-            <h3 className="card-title">ผลล่าสุดจากทุกตลาด</h3>
-            <p className="ops-table-note">แสดง snapshot ล่าสุดจาก API ภายนอกทั้งหมดที่ระบบดึงและเก็บไว้แล้ว</p>
-          </div>
-          <div className="ops-actions admin-lottery-history-actions">
-            <span className="ui-pill"><FiDownload /> {externalResults.length} ตลาด</span>
-          </div>
-        </div>
-
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ตลาด</th>
-                <th>ผู้ให้บริการ</th>
-                <th>งวด</th>
-                <th>ผลล่าสุด</th>
-                <th>ที่มา</th>
-                <th>อัปเดตล่าสุด</th>
-              </tr>
-            </thead>
-            <tbody>
-              {externalResults.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="text-center text-muted table-empty-cell">ยังไม่มีข้อมูลฟีดภายนอก</td>
-                </tr>
-              ) : (
-                externalResults.map((result) => (
-                  <tr key={`${result.lotteryCode}-${result.roundCode}-${result.id}`}>
-                    <td className="ops-history-cell-strong">
-                      {result.lotteryName || result.lotteryCode || '-'}
-                    </td>
-                    <td>{getProviderLabel(result.provider, '-')}</td>
-                    <td>{result.roundCode || '-'}</td>
-                    <td>{result.headline || result.firstPrize || result.twoBottom || '-'}</td>
-                    <td>{getResultSourceTypeLabel(result.sourceType, '-')}</td>
-                    <td>{formatDateTime(result.resultPublishedAt || result.drawAt)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <Modal isOpen={showManual} onClose={() => setShowManual(false)} title={copy.manualTitle} size="lg">
-        <form onSubmit={handleManualSave}>
-          <div className="ops-form-grid admin-lottery-manual-grid">
-            <div className="form-group">
-              <label className="form-label">{copy.roundDate} *</label>
-              <input
-                type="date"
-                className="form-input"
-                value={manualForm.roundDate}
-                onChange={(event) => setManualForm({ ...manualForm, roundDate: event.target.value })}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{copy.firstPrize} *</label>
-              <input
-                className="form-input"
-                value={manualForm.firstPrize}
-                onChange={(event) => setManualForm({ ...manualForm, firstPrize: event.target.value })}
-                maxLength={6}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{copy.bottom2Short}</label>
-              <input
-                className="form-input"
-                value={manualForm.twoBottom}
-                onChange={(event) => setManualForm({ ...manualForm, twoBottom: event.target.value })}
-                maxLength={2}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{copy.threeTopList}</label>
-              <input
-                className="form-input"
-                placeholder="123, 456"
-                value={manualForm.threeTopList}
-                onChange={(event) => setManualForm({ ...manualForm, threeTopList: event.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{copy.threeBottomList}</label>
-              <input
-                className="form-input"
-                placeholder="321, 654"
-                value={manualForm.threeBotList}
-                onChange={(event) => setManualForm({ ...manualForm, threeBotList: event.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{copy.runTop}</label>
-              <input
-                className="form-input"
-                placeholder="1, 2, 3"
-                value={manualForm.runTop}
-                onChange={(event) => setManualForm({ ...manualForm, runTop: event.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">{copy.runBottom}</label>
-              <input
-                className="form-input"
-                placeholder="4, 5, 6"
-                value={manualForm.runBottom}
-                onChange={(event) => setManualForm({ ...manualForm, runBottom: event.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setShowManual(false)}>{adminCopy.common.cancel}</button>
-            <button type="submit" className="btn btn-primary">
-              <FiAward />
-              {copy.saveResult}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      )}
 
       <style>{`
         .admin-lottery-page {
-          gap: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
         }
 
-        .admin-lottery-grid {
-          align-items: stretch;
+        .lottery-hero {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 26px 28px;
         }
 
-        .admin-lottery-panel {
-          min-height: 100%;
-          box-shadow: 0 18px 32px rgba(127, 29, 29, 0.08);
-        }
-
-        .admin-lottery-control,
-        .admin-lottery-history {
-          box-shadow: 0 20px 36px rgba(127, 29, 29, 0.08);
-        }
-
-        .admin-lottery-overview .ops-overview-card {
-          min-height: 100%;
-        }
-
-        .admin-lottery-sync-stack,
-        .admin-lottery-fallback-stack {
-          gap: 14px;
-        }
-
-        .admin-lottery-selected {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+        .lottery-hero-copy {
+          display: flex;
+          flex-direction: column;
           gap: 10px;
         }
 
-        .admin-lottery-selected .ops-stat-row {
-          min-height: 100%;
-          padding: 14px 16px;
+        .lottery-hero .page-title {
+          margin: 0;
+          font-size: clamp(2.2rem, 4vw, 3.4rem);
+          line-height: 0.95;
+          letter-spacing: -0.04em;
+        }
+
+        .lottery-hero .page-subtitle {
+          margin: 0;
+          max-width: 58ch;
+        }
+
+        .refresh-button {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 156px;
+          justify-content: center;
+          padding: 12px 18px;
           border-radius: 16px;
-          background: rgba(255, 252, 252, 0.92);
+          border: 1px solid rgba(239, 68, 68, 0.18);
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 238, 238, 0.96));
+          box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+          color: #991b1b;
+          font-weight: 800;
+          transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
         }
 
-        .admin-lottery-chip-grid {
-          gap: 10px;
+        .refresh-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.1);
+          border-color: rgba(239, 68, 68, 0.28);
         }
 
-        .admin-lottery-chip-grid .btn {
-          justify-content: flex-start;
+        .refresh-button:disabled {
+          opacity: 0.72;
         }
 
-        .admin-lottery-control .ops-feed-row {
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        .warning-panel {
+          padding: 18px 20px;
+          border-color: rgba(245, 158, 11, 0.3);
+          background: linear-gradient(135deg, rgba(255, 251, 235, 0.92), rgba(255, 247, 237, 0.92));
+        }
+
+        .warning-head {
+          display: flex;
           align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 12px;
         }
 
-        .admin-lottery-status-row {
-          padding: 14px 16px;
-          border-radius: 16px;
-          background: rgba(255, 252, 252, 0.92);
+        .warning-title {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          font-weight: 700;
+          color: #9a3412;
+          margin-bottom: 12px;
         }
 
-        .admin-lottery-history-actions {
+        .warning-note {
+          margin: 0;
+          color: #9a3412;
+          opacity: 0.88;
+        }
+
+        .connection-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px 14px;
+          border-radius: 999px;
+          font-size: 0.88rem;
+          font-weight: 800;
+          white-space: nowrap;
+          border: 1px solid transparent;
+        }
+
+        .connection-pill.is-ok {
+          background: rgba(220, 252, 231, 0.88);
+          color: #166534;
+          border-color: rgba(34, 197, 94, 0.22);
+        }
+
+        .connection-pill.is-warning,
+        .connection-pill.is-fallback {
+          background: rgba(255, 255, 255, 0.82);
+          color: #9a3412;
+          border-color: rgba(251, 191, 36, 0.45);
+        }
+
+        .warning-list {
+          display: flex;
           flex-wrap: wrap;
-          justify-content: flex-end;
+          gap: 10px;
         }
 
-        .admin-lottery-history .data-table td {
-          vertical-align: middle;
+        .warning-chip {
+          display: inline-flex;
+          align-items: center;
+          padding: 10px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.82);
+          border: 1px solid rgba(251, 191, 36, 0.45);
+          color: #7c2d12;
+          font-size: 0.92rem;
         }
 
-        .admin-lottery-manual-grid {
+        .lottery-grid-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 7fr) minmax(320px, 3fr);
+          gap: 18px;
           align-items: start;
         }
 
-        @media (max-width: 760px) {
-          .admin-lottery-grid {
+        .lottery-sections {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          min-width: 0;
+        }
+
+        .lottery-section-card,
+        .lottery-detail-card {
+          padding: 18px;
+        }
+
+        .lottery-detail-card {
+          position: sticky;
+          top: 18px;
+          max-height: calc(100vh - 36px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+        }
+
+        .lottery-detail-card::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .lottery-detail-card::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.42);
+          border-radius: 999px;
+        }
+
+        .lottery-detail-card::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .section-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 14px;
+        }
+
+        .section-title {
+          font-size: 1.7rem;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+        }
+
+        .section-note {
+          margin: 6px 0 0;
+          color: var(--text-muted);
+        }
+
+        .market-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        .market-card {
+          width: 100%;
+          display: grid;
+          grid-template-columns: 82px minmax(0, 1fr);
+          gap: 14px;
+          align-items: stretch;
+          border-radius: 24px;
+          border: 1px solid rgba(244, 114, 182, 0.18);
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 248, 0.96));
+          padding: 16px;
+          text-align: left;
+          transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        }
+
+        .market-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 20px 34px rgba(15, 23, 42, 0.08);
+        }
+
+        .market-card.is-selected {
+          border-color: rgba(239, 68, 68, 0.42);
+          box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+        }
+
+        .market-card.is-open {
+          background: linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(220, 252, 231, 0.94));
+          border-color: rgba(34, 197, 94, 0.25);
+        }
+
+        .market-card.is-closed,
+        .market-card.is-upcoming {
+          background: linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
+          border-color: rgba(148, 163, 184, 0.22);
+        }
+
+        .market-card.is-resulted {
+          background: linear-gradient(135deg, rgba(255, 251, 235, 0.96), rgba(255, 247, 237, 0.96));
+          border-color: rgba(245, 158, 11, 0.24);
+        }
+
+        .market-card.is-missing {
+          background: linear-gradient(135deg, rgba(254, 242, 242, 0.96), rgba(255, 241, 242, 0.96));
+          border-color: rgba(248, 113, 113, 0.22);
+        }
+
+        .market-logo {
+          position: relative;
+          width: 82px;
+          height: 82px;
+          border-radius: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 1.2rem;
+          font-weight: 900;
+          letter-spacing: -0.03em;
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+        }
+
+        .market-logo i {
+          position: absolute;
+          right: 8px;
+          bottom: 8px;
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          background: var(--logo-accent);
+          border: 2px solid rgba(255, 255, 255, 0.86);
+        }
+
+        .market-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-width: 0;
+        }
+
+        .market-card-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .market-card-top h3 {
+          margin: 0;
+          font-size: 1.35rem;
+          line-height: 1;
+          letter-spacing: -0.03em;
+        }
+
+        .market-round {
+          margin-top: 6px;
+          color: var(--text-muted);
+          font-size: 0.92rem;
+        }
+
+        .market-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          font-size: 0.86rem;
+          font-weight: 700;
+          background: rgba(255, 255, 255, 0.82);
+          border: 1px solid rgba(148, 163, 184, 0.22);
+          white-space: nowrap;
+        }
+
+        .detail-result-item span {
+          display: block;
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin-bottom: 4px;
+        }
+
+        .market-card-foot {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 0.92rem;
+          color: var(--text-muted);
+        }
+
+        .detail-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+          margin-bottom: 18px;
+        }
+
+        .detail-market-meta h2 {
+          margin: 6px 0 8px;
+          font-size: 2rem;
+          letter-spacing: -0.04em;
+        }
+
+        .detail-market-meta p {
+          display: none;
+          margin: 0;
+          color: var(--text-muted);
+        }
+
+        .detail-market-date {
+          margin: 0;
+          color: var(--text-muted);
+        }
+
+        .detail-market-meta p {
+          display: none;
+        }
+
+        .detail-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          border-radius: 999px;
+          font-weight: 700;
+          white-space: nowrap;
+          background: rgba(255, 255, 255, 0.78);
+          border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .detail-result-hero {
+          padding: 18px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.92));
+          color: white;
+        }
+
+        .detail-result-label {
+          font-size: 0.84rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.72);
+        }
+
+        .detail-result-headline {
+          margin-top: 10px;
+          font-size: clamp(2rem, 4vw, 3rem);
+          font-weight: 900;
+          letter-spacing: 0.08em;
+        }
+
+        .detail-result-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px 18px;
+          margin-top: 12px;
+          color: rgba(255, 255, 255, 0.72);
+          font-size: 0.9rem;
+        }
+
+        .detail-result-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .detail-result-item {
+          padding: 16px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 248, 0.98));
+          border: 1px solid rgba(244, 114, 182, 0.14);
+        }
+
+        .detail-result-item strong {
+          font-size: 1.45rem;
+          letter-spacing: -0.03em;
+        }
+
+        .detail-link {
+          margin-top: 14px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--primary);
+          font-weight: 700;
+        }
+
+        .detail-provider-note {
+          margin-top: 14px;
+          color: var(--text-muted);
+          font-size: 0.92rem;
+        }
+
+        .history-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin: 22px 0 12px;
+        }
+
+        .history-title {
+          font-size: 1.1rem;
+          font-weight: 800;
+        }
+
+        .history-count {
+          color: var(--text-muted);
+          font-size: 0.9rem;
+        }
+
+        .history-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .history-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          padding: 14px 16px;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.78);
+          border: 1px solid rgba(244, 114, 182, 0.14);
+        }
+
+        .history-round {
+          font-weight: 700;
+        }
+
+        .history-source {
+          margin-top: 4px;
+          color: var(--text-muted);
+          font-size: 0.88rem;
+        }
+
+        .history-headline {
+          font-size: 1.1rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+        }
+
+        .detail-empty {
+          margin-top: 16px;
+          padding: 18px;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.72);
+          border: 1px dashed rgba(148, 163, 184, 0.3);
+          color: var(--text-muted);
+          text-align: center;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1200px) {
+          .lottery-grid-layout {
             grid-template-columns: 1fr;
           }
 
-          .admin-lottery-selected {
+          .lottery-detail-card {
+            position: static;
+            max-height: none;
+            overflow: visible;
+          }
+        }
+
+        @media (max-width: 980px) {
+          .market-grid {
             grid-template-columns: 1fr;
           }
 
-          .admin-lottery-status-row,
-          .admin-lottery-history-actions {
+          .warning-head {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+        }
+
+        @media (max-width: 720px) {
+          .lottery-hero {
             flex-direction: column;
             align-items: stretch;
           }
 
-          .admin-lottery-history-actions .badge,
-          .admin-lottery-history-actions .ui-pill,
-          .admin-lottery-history-actions .btn {
-            width: 100%;
-            justify-content: center;
+          .market-card {
+            grid-template-columns: 1fr;
+          }
+
+          .market-logo {
+            width: 72px;
+            height: 72px;
+          }
+
+          .detail-result-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .detail-top,
+          .history-item,
+          .market-card-top {
+            flex-direction: column;
+            align-items: flex-start;
           }
         }
       `}</style>

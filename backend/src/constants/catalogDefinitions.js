@@ -1,6 +1,13 @@
 const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('./betting');
-const STANDARD_BET_TYPES = BET_TYPES.filter((betType) => betType !== 'lao_set4');
+
+const GOVERNMENT_BET_TYPES = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
+const STANDARD_BET_TYPES = ['3top', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
 const LAO_BET_TYPES = [...STANDARD_BET_TYPES, 'lao_set4'];
+const STOCK_BET_TYPES = ['3top', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
+const BAAC_BET_TYPES = ['3top', '3tod', '2top', '2bottom', '2tod'];
+
+const DAILY_ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const WEEKDAYS = [1, 2, 3, 4, 5];
 
 const DEFAULT_RATE_TIERS = [
   {
@@ -13,6 +20,7 @@ const DEFAULT_RATE_TIERS = [
     },
     commissions: {
       '3top': 0,
+      '3front': 0,
       '3bottom': 0,
       '3tod': 0,
       '2top': 0,
@@ -58,8 +66,47 @@ const LOTTERY_LEAGUES = [
   }
 ];
 
+const createDailySchedule = ({
+  weekdays = DAILY_ALL_DAYS,
+  openLeadDays = 1,
+  closeHour,
+  closeMinute,
+  drawHour,
+  drawMinute
+}) => ({
+  type: 'daily',
+  weekdays,
+  openLeadDays,
+  closeHour,
+  closeMinute,
+  drawHour,
+  drawMinute
+});
+
+const createLottery = ({
+  code,
+  leagueCode,
+  name,
+  shortName = name,
+  description,
+  provider = 'Market Feed',
+  schedule,
+  supportedBetTypes = STANDARD_BET_TYPES,
+  resultSource = 'manual'
+}) => ({
+  code,
+  leagueCode,
+  name,
+  shortName,
+  description,
+  provider,
+  schedule,
+  supportedBetTypes,
+  resultSource
+});
+
 const LOTTERY_TYPES = [
-  {
+  createLottery({
     code: 'thai_government',
     leagueCode: 'government',
     name: 'รัฐบาลไทย',
@@ -75,15 +122,15 @@ const LOTTERY_TYPES = [
       drawHour: 16,
       drawMinute: 0
     },
-    supportedBetTypes: STANDARD_BET_TYPES,
+    supportedBetTypes: GOVERNMENT_BET_TYPES,
     resultSource: 'legacy'
-  },
-  {
+  }),
+  createLottery({
     code: 'baac',
     leagueCode: 'government',
     name: 'ธกส',
     shortName: 'ธกส',
-    description: 'หวย ธกส รอบเช้าสำหรับตลาดรัฐบาล',
+    description: 'สลากออมทรัพย์ ธ.ก.ส. รอบเช้าสำหรับตลาดรัฐบาล',
     provider: 'Internal Feed',
     schedule: {
       type: 'monthly',
@@ -94,110 +141,336 @@ const LOTTERY_TYPES = [
       drawHour: 12,
       drawMinute: 15
     },
-    supportedBetTypes: ['3top', '3bottom', '3tod', '2top', '2bottom', '2tod'],
-    resultSource: 'manual'
-  },
-  {
+    supportedBetTypes: BAAC_BET_TYPES
+  }),
+  createLottery({
+    code: 'hnvip',
+    leagueCode: 'foreign',
+    name: 'ฮานอย VIP',
+    description: 'หวยฮานอย VIP ออกรายวันช่วงค่ำ',
+    schedule: createDailySchedule({
+      closeHour: 20,
+      closeMinute: 20,
+      drawHour: 20,
+      drawMinute: 30
+    })
+  }),
+  createLottery({
     code: 'hanoi_special',
     leagueCode: 'foreign',
     name: 'ฮานอยพิเศษ',
-    shortName: 'ฮานอยพิเศษ',
-    description: 'หวยต่างประเทศรอบรายวันช่วงเช้า',
-    provider: 'Market Feed',
-    schedule: {
-      type: 'daily',
-      weekdays: [1, 2, 3, 4, 5, 6],
-      openLeadDays: 1,
+    description: 'หวยฮานอยพิเศษออกรายวันช่วงเย็น',
+    schedule: createDailySchedule({
       closeHour: 16,
       closeMinute: 5,
       drawHour: 16,
       drawMinute: 20
-    },
-    supportedBetTypes: STANDARD_BET_TYPES,
-    resultSource: 'manual'
-  },
-  {
+    })
+  }),
+  createLottery({
+    code: 'cqhn',
+    leagueCode: 'foreign',
+    name: 'ฮานอยเฉพาะกิจ',
+    description: 'หวยฮานอยเฉพาะกิจออกรายวันช่วงเย็น',
+    schedule: createDailySchedule({
+      closeHour: 17,
+      closeMinute: 20,
+      drawHour: 17,
+      drawMinute: 30
+    })
+  }),
+  createLottery({
+    code: 'tlzc',
+    leagueCode: 'daily',
+    name: 'หวยลาว',
+    shortName: 'ลาว',
+    description: 'หวยลาวรายวัน รองรับหวยชุดลาว 4 ตัว',
+    schedule: createDailySchedule({
+      closeHour: 21,
+      closeMinute: 20,
+      drawHour: 21,
+      drawMinute: 30
+    }),
+    supportedBetTypes: LAO_BET_TYPES
+  }),
+  createLottery({
     code: 'lao_vip',
     leagueCode: 'daily',
     name: 'ลาว VIP',
-    shortName: 'ลาว VIP',
-    description: 'หวยลาวรอบเรทสูง รายวัน',
-    provider: 'Market Feed',
-    schedule: {
-      type: 'daily',
-      weekdays: [1, 2, 3, 4, 5, 6, 0],
-      openLeadDays: 1,
+    description: 'หวยลาว VIP รายวัน รองรับหวยชุดลาว 4 ตัว',
+    schedule: createDailySchedule({
       closeHour: 20,
       closeMinute: 15,
       drawHour: 20,
       drawMinute: 30
-    },
-    supportedBetTypes: LAO_BET_TYPES,
-    resultSource: 'manual'
-  },
-  {
-    code: 'dowjones_vip',
+    }),
+    supportedBetTypes: LAO_BET_TYPES
+  }),
+  createLottery({
+    code: 'ynhn',
+    leagueCode: 'daily',
+    name: 'ฮานอยธรรมดา',
+    description: 'หวยฮานอยธรรมดารายวัน',
+    schedule: createDailySchedule({
+      closeHour: 19,
+      closeMinute: 20,
+      drawHour: 19,
+      drawMinute: 30
+    })
+  }),
+  createLottery({
+    code: 'ynma',
+    leagueCode: 'daily',
+    name: 'มาเลย์',
+    description: 'หวยมาเลย์รายวัน',
+    schedule: createDailySchedule({
+      closeHour: 19,
+      closeMinute: 50,
+      drawHour: 20,
+      drawMinute: 0
+    })
+  }),
+  createLottery({
+    code: 'tykc',
     leagueCode: 'vip',
-    name: 'ดาวโจนส์ VIP',
-    shortName: 'ดาวโจนส์ VIP',
-    description: 'หวย VIP อิงผลต่างประเทศรอบค่ำ',
-    provider: 'Market Feed',
-    schedule: {
-      type: 'daily',
-      weekdays: [1, 2, 3, 4, 5],
-      openLeadDays: 1,
+    name: 'จับยี่กี VIP',
+    description: 'หวยจับยี่กี VIP รอบดึก',
+    schedule: createDailySchedule({
       closeHour: 22,
-      closeMinute: 45,
+      closeMinute: 50,
       drawHour: 23,
-      drawMinute: 5
-    },
-    supportedBetTypes: STANDARD_BET_TYPES,
-    resultSource: 'manual'
-  },
-  {
+      drawMinute: 0
+    })
+  }),
+  createLottery({
     code: 'nikkei_morning',
     leagueCode: 'stocks',
     name: 'นิเคอิเช้า',
-    shortName: 'นิเคอิเช้า',
     description: 'หวยหุ้นเช้าอิงผลนิเคอิ',
-    provider: 'Market Feed',
-    schedule: {
-      type: 'daily',
-      weekdays: [1, 2, 3, 4, 5],
-      openLeadDays: 1,
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
       closeHour: 9,
       closeMinute: 20,
       drawHour: 9,
       drawMinute: 35
-    },
-    supportedBetTypes: ['3top', '3bottom', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'],
-    resultSource: 'manual'
-  },
-  {
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gshka',
+    leagueCode: 'stocks',
+    name: 'ฮั่งเส็งเช้า',
+    description: 'หวยหุ้นฮั่งเส็งรอบเช้า',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 11,
+      closeMinute: 45,
+      drawHour: 12,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gscna',
+    leagueCode: 'stocks',
+    name: 'หุ้นจีนเช้า',
+    description: 'หวยหุ้นจีนรอบเช้า',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 11,
+      closeMinute: 15,
+      drawHour: 11,
+      drawMinute: 30
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gstw',
+    leagueCode: 'stocks',
+    name: 'หุ้นไต้หวัน',
+    description: 'หวยหุ้นไต้หวันรายวัน',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 13,
+      closeMinute: 15,
+      drawHour: 13,
+      drawMinute: 30
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
     code: 'china_afternoon',
     leagueCode: 'stocks',
     name: 'จีนบ่าย',
-    shortName: 'จีนบ่าย',
     description: 'หวยหุ้นจีนภาคบ่าย',
-    provider: 'Market Feed',
-    schedule: {
-      type: 'daily',
-      weekdays: [1, 2, 3, 4, 5],
-      openLeadDays: 1,
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
       closeHour: 13,
       closeMinute: 20,
       drawHour: 13,
       drawMinute: 40
-    },
-    supportedBetTypes: ['3top', '3bottom', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'],
-    resultSource: 'manual'
-  }
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gsjpp',
+    leagueCode: 'stocks',
+    name: 'นิเคอิบ่าย',
+    description: 'หวยหุ้นนิเคอิรอบบ่าย',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 14,
+      closeMinute: 15,
+      drawHour: 14,
+      drawMinute: 30
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gskr',
+    leagueCode: 'stocks',
+    name: 'หุ้นเกาหลี',
+    description: 'หวยหุ้นเกาหลีรายวัน',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 14,
+      closeMinute: 15,
+      drawHour: 14,
+      drawMinute: 30
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gshkp',
+    leagueCode: 'stocks',
+    name: 'ฮั่งเส็งบ่าย',
+    description: 'หวยหุ้นฮั่งเส็งรอบบ่าย',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 15,
+      closeMinute: 45,
+      drawHour: 16,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gssg',
+    leagueCode: 'stocks',
+    name: 'หุ้นสิงคโปร์',
+    description: 'หวยหุ้นสิงคโปร์รายวัน',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 16,
+      closeMinute: 45,
+      drawHour: 17,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gsth',
+    leagueCode: 'stocks',
+    name: 'หุ้นไทย',
+    description: 'หวยหุ้นไทยรายวัน',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 18,
+      closeMinute: 0,
+      drawHour: 18,
+      drawMinute: 15
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gsin',
+    leagueCode: 'stocks',
+    name: 'หุ้นอินเดีย',
+    description: 'หวยหุ้นอินเดียรายวัน',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 17,
+      closeMinute: 45,
+      drawHour: 18,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gseg',
+    leagueCode: 'stocks',
+    name: 'หุ้นอียิปต์',
+    description: 'หวยหุ้นอียิปต์รายวัน',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 20,
+      closeMinute: 15,
+      drawHour: 20,
+      drawMinute: 25
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'dowjones_vip',
+    leagueCode: 'vip',
+    name: 'ดาวโจนส์ VIP',
+    description: 'หวยดาวโจนส์ VIP รอบดึก',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 22,
+      closeMinute: 45,
+      drawHour: 23,
+      drawMinute: 5
+    })
+  }),
+  createLottery({
+    code: 'gsru',
+    leagueCode: 'stocks',
+    name: 'หุ้นรัสเซีย',
+    description: 'หวยหุ้นรัสเซียรอบดึก',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 23,
+      closeMinute: 50,
+      drawHour: 23,
+      drawMinute: 59
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gsuk',
+    leagueCode: 'stocks',
+    name: 'หุ้นอังกฤษ',
+    description: 'หวยหุ้นอังกฤษรอบดึก',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 0,
+      closeMinute: 30,
+      drawHour: 0,
+      drawMinute: 45
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'gsde',
+    leagueCode: 'stocks',
+    name: 'หุ้นเยอรมัน',
+    description: 'หวยหุ้นเยอรมันรอบดึก',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 2,
+      closeMinute: 45,
+      drawHour: 3,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STOCK_BET_TYPES
+  })
 ];
 
 const DEFAULT_ANNOUNCEMENTS = [
   {
     code: 'phase1-launch',
-    title: 'เปิดใช้งานล็อตเตอรี่หลายตลาดแบบอ่านอย่างเดียว',
+    title: 'เปิดใช้งานลอตเตอรี่หลายตลาดแบบอ่านอย่างเดียว',
     body: 'ระบบเริ่มรองรับการเลือกตลาดหวยและงวดหลายประเภทเพื่อเตรียมต่อยอดหน้า member แบบใหม่ใน phase ถัดไป',
     audience: ['admin', 'agent', 'customer']
   }

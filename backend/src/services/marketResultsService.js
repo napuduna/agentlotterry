@@ -1,9 +1,15 @@
 const axios = require('axios');
 const LotteryResult = require('../models/LotteryResult');
+const { MANYCAI_FEED_BASE_URL } = require('./externalResultFeedService');
 
 const PROVIDER_NAME = 'manycai';
-const PROVIDER_BASE_URL = (process.env.MANYCAI_BASE_URL || 'http://vip.manycai.com').replace(/\/$/, '');
-const PROVIDER_KEY = process.env.MANYCAI_API_KEY || '';
+const RAW_PROVIDER_KEY = String(process.env.MANYCAI_API_KEY || '').trim();
+const PROVIDER_KEY = RAW_PROVIDER_KEY || '__feed_fallback__';
+const PROVIDER_BASE_URL = (
+  RAW_PROVIDER_KEY
+    ? `${(process.env.MANYCAI_BASE_URL || 'http://vip.manycai.com').replace(/\/$/, '')}/${RAW_PROVIDER_KEY}`
+    : MANYCAI_FEED_BASE_URL
+).replace(/\/$/, '');
 const CACHE_TTL_MS = Number(process.env.MARKET_RESULTS_CACHE_MS || 60000);
 
 const cache = {
@@ -13,7 +19,7 @@ const cache = {
 
 const MANYCAI_MARKETS = [
   { code: 'tgfc', marketId: 'thai-government', name: 'รัฐบาลไทย', sectionId: 'government', type: 'standard' },
-  { code: 'baac', marketId: 'baac', name: 'สลากออมทรัพย์ ธกส.', sectionId: 'government', type: 'standard' },
+  { code: 'baac', marketId: 'baac', name: 'สลากออมทรัพย์ ธกส.', sectionId: 'government', type: 'baac' },
   { code: 'hnvip', marketId: 'hanoi-vip', name: 'ฮานอย VIP', sectionId: 'international', type: 'standard' },
   { code: 'bfhn', marketId: 'hanoi-special', name: 'ฮานอยพิเศษ', sectionId: 'international', type: 'standard' },
   { code: 'cqhn', marketId: 'hanoi-specific', name: 'ฮานอยเฉพาะกิจ', sectionId: 'international', type: 'standard' },
@@ -131,6 +137,23 @@ const setMarketData = (sections, sectionId, nextMarket) => {
 };
 
 const compactDigits = (value) => stringValue(value).replace(/[^0-9xX]/g, '');
+const tailDigits = (value, length) => {
+  const digits = compactDigits(value);
+  if (!digits) return '';
+  return digits.slice(-length);
+};
+const twoDigitScalar = (value) => {
+  const digits = compactDigits(value);
+  return digits.length === 2 ? digits : '';
+};
+const middleDigits = (value, length) => {
+  const digits = compactDigits(value);
+  if (!digits) return '';
+  if (digits.length <= length) return digits;
+  const start = Math.floor((digits.length - length) / 2);
+  return digits.slice(start, start + length);
+};
+const mergeUniqueValues = (...values) => [...new Set(values.flat().filter(Boolean))];
 
 const formatIssueDate = (issue, openDate) => {
   const normalizedIssue = stringValue(issue).replace(/\D/g, '');
@@ -143,7 +166,7 @@ const formatIssueDate = (issue, openDate) => {
 };
 
 const fetchProvider = async (code) => {
-  const response = await axios.get(`${PROVIDER_BASE_URL}/${PROVIDER_KEY}/${code}.json`, {
+  const response = await axios.get(`${PROVIDER_BASE_URL}/${code}.json`, {
     timeout: 12000
   });
 
@@ -191,7 +214,10 @@ const applyGovernmentFromLocal = async (sections) => {
     resultDate: latest.roundDate,
     headline: latest.firstPrize,
     numbers: [
-      { label: '3 ตัวบน', value: latest.firstPrize ? latest.firstPrize.slice(-3) : '' },
+      { label: '3 ตัวบน', value: tailDigits(latest.firstPrize, 3) },
+      { label: '2 ตัวบน', value: tailDigits(latest.firstPrize, 2) },
+      { label: '3 ตัวหน้า', value: mergeUniqueValues(latest.threeTopList || []).join(' / ') },
+      { label: '3 ตัวล่าง', value: mergeUniqueValues(latest.threeBotList || []).join(' / ') },
       { label: '2 ตัวล่าง', value: latest.twoBottom || '' }
     ],
     note: latest.isCalculated ? 'ผลในระบบคำนวณแล้ว' : 'ผลในระบบพร้อมใช้งาน'
@@ -206,12 +232,17 @@ const applyManyCaiStandardMarket = (sections, config, payload) => {
     return false;
   }
 
-  const fullDigits = compactDigits(row?.code?.code_1);
-  const threeDigits = compactDigits(row?.code?.code_last3);
-  const twoDigits = compactDigits(row?.code?.code_last2);
-  const frontTwoDigits = compactDigits(row?.code?.code_pre2);
+  const firstPrize = compactDigits(row?.code?.code);
+  const fourDigits = compactDigits(row?.code?.code_last4);
+  const threeDigits = compactDigits(row?.code?.code_last3) || tailDigits(firstPrize, 3);
+  const twoTopDigits = compactDigits(row?.code?.code_last2) || tailDigits(firstPrize, 2);
+  const twoBottomDigits =
+    tailDigits(row?.code?.code1, 2) ||
+    twoDigitScalar(row?.code?.code2) ||
+    compactDigits(row?.code?.code_pre2) ||
+    compactDigits(row?.code?.code_mid2);
 
-  if (!fullDigits && !threeDigits && !twoDigits) {
+  if (!firstPrize && !threeDigits && !twoTopDigits && !twoBottomDigits) {
     return false;
   }
 
@@ -220,12 +251,12 @@ const applyManyCaiStandardMarket = (sections, config, payload) => {
     name: config.name,
     provider: PROVIDER_NAME,
     resultDate: formatIssueDate(row.officialissue || row.issue, row.opendate),
-    headline: fullDigits || threeDigits,
+    headline: firstPrize || threeDigits || twoTopDigits || twoBottomDigits,
     numbers: [
-      { label: '4 ตัว', value: fullDigits },
-      { label: '3 ตัวท้าย', value: threeDigits },
-      { label: '2 ตัวท้าย', value: twoDigits },
-      { label: '2 ตัวหน้า', value: frontTwoDigits }
+      { label: '4 ตัวบน', value: fourDigits },
+      { label: '3 ตัวบน', value: threeDigits },
+      { label: '2 ตัวบน', value: twoTopDigits },
+      { label: '2 ตัวล่าง', value: twoBottomDigits }
     ],
     note: row.opendate ? `เปิดผล ${row.opendate}` : 'อัปเดตจาก ManyCai'
   }));
@@ -240,9 +271,10 @@ const applyManyCaiStockMarket = (sections, config, payload) => {
   }
 
   const threeDigits = compactDigits(row?.code?.code);
-  const twoDigits = compactDigits(row?.code?.code1);
+  const twoTopDigits = tailDigits(threeDigits, 2);
+  const twoBottomDigits = compactDigits(row?.code?.code1);
 
-  if (!threeDigits && !twoDigits) {
+  if (!threeDigits && !twoTopDigits && !twoBottomDigits) {
     return false;
   }
 
@@ -251,10 +283,43 @@ const applyManyCaiStockMarket = (sections, config, payload) => {
     name: config.name,
     provider: PROVIDER_NAME,
     resultDate: formatIssueDate(row.officialissue || row.issue, row.opendate),
-    headline: threeDigits || twoDigits,
+    headline: threeDigits || twoTopDigits || twoBottomDigits,
     numbers: [
-      { label: '3 ตัว', value: threeDigits },
-      { label: '2 ตัว', value: twoDigits }
+      { label: '3 ตัวบน', value: threeDigits },
+      { label: '2 ตัวบน', value: twoTopDigits },
+      { label: '2 ตัวล่าง', value: twoBottomDigits }
+    ],
+    note: row.opendate ? `เปิดผล ${row.opendate}` : 'อัปเดตจาก ManyCai'
+  }));
+
+  return true;
+};
+
+const applyManyCaiBaacMarket = (sections, config, payload) => {
+  const row = getLatestManyCaiRow(payload);
+  if (!row) {
+    return false;
+  }
+
+  const firstPrize = compactDigits(row?.code?.code);
+  const threeDigits = tailDigits(firstPrize, 3);
+  const twoTopDigits = tailDigits(firstPrize, 2);
+  const twoBottomDigits = middleDigits(firstPrize, 2);
+
+  if (!firstPrize && !threeDigits && !twoTopDigits && !twoBottomDigits) {
+    return false;
+  }
+
+  setMarketData(sections, config.sectionId, buildMarket({
+    id: config.marketId,
+    name: config.name,
+    provider: PROVIDER_NAME,
+    resultDate: formatIssueDate(row.officialissue || row.issue, row.opendate),
+    headline: firstPrize || threeDigits || twoTopDigits || twoBottomDigits,
+    numbers: [
+      { label: '3 ตัวบน', value: threeDigits },
+      { label: '2 ตัวบน', value: twoTopDigits },
+      { label: '2 ตัวล่าง', value: twoBottomDigits }
     ],
     note: row.opendate ? `เปิดผล ${row.opendate}` : 'อัปเดตจาก ManyCai'
   }));
@@ -292,22 +357,7 @@ const getMarketOverview = async () => {
   if (!PROVIDER_KEY) {
     warnings.push('ยังไม่ได้ตั้งค่า MANYCAI_API_KEY บน backend ตลาดที่ใช้ ManyCai จะแสดงเป็นรอเชื่อมต่อ');
 
-    const fallback = {
-      provider: {
-        name: PROVIDER_NAME,
-        configured: false,
-        baseUrl: PROVIDER_BASE_URL,
-        fetchedAt: new Date().toISOString(),
-        cacheTtlMs: CACHE_TTL_MS
-      },
-      summary: buildSummary(sections),
-      warnings,
-      sections
-    };
-
-    cache.data = fallback;
-    cache.fetchedAt = Date.now();
-    return fallback;
+    warnings.push('Using ManyCai feed fallback because MANYCAI_API_KEY is not configured');
   }
 
   const requests = await Promise.allSettled(MANYCAI_MARKETS.map((market) => fetchProvider(market.code)));
@@ -325,6 +375,8 @@ const getMarketOverview = async () => {
 
     const hydrated = market.type === 'stock'
       ? applyManyCaiStockMarket(sections, market, result.value)
+      : market.type === 'baac'
+        ? applyManyCaiBaacMarket(sections, market, result.value)
       : applyManyCaiStandardMarket(sections, market, result.value);
 
     if (!hydrated) {

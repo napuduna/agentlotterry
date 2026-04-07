@@ -84,6 +84,15 @@ const normalizeEnabledBetTypes = (value, supportedBetTypes) => {
     }
   }
 
+  if (supportedBetTypes.includes('3front') && !nextTypes.includes('3front')) {
+    const legacySupportedTypes = supportedBetTypes.filter((betType) => betType !== '3front');
+    const matchesLegacyDefault = legacySupportedTypes.every((betType) => nextTypes.includes(betType));
+
+    if (matchesLegacyDefault) {
+      return [...nextTypes, '3front'];
+    }
+  }
+
   return nextTypes;
 };
 

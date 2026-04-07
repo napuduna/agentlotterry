@@ -1,13 +1,14 @@
 const betTypeMeta = {
   '3top': { familyLabel: '3ตัว', shortLabel: 'บน', order: 1 },
-  '3bottom': { familyLabel: '3ตัว', shortLabel: 'ล่าง', order: 2 },
-  '3tod': { familyLabel: '3ตัว', shortLabel: 'โต๊ด', order: 3 },
-  '2top': { familyLabel: '2ตัว', shortLabel: 'บน', order: 4 },
-  '2bottom': { familyLabel: '2ตัว', shortLabel: 'ล่าง', order: 5 },
-  '2tod': { familyLabel: '2ตัว', shortLabel: 'โต๊ด', order: 6 },
-  'run_top': { familyLabel: 'วิ่ง', shortLabel: 'บน', order: 7 },
-  'run_bottom': { familyLabel: 'วิ่ง', shortLabel: 'ล่าง', order: 8 },
-  'lao_set4': { familyLabel: 'หวยชุดลาว', shortLabel: '4ตัว', order: 9 }
+  '3front': { familyLabel: '3ตัว', shortLabel: 'หน้า', order: 2 },
+  '3bottom': { familyLabel: '3ตัว', shortLabel: 'ล่าง', order: 3 },
+  '3tod': { familyLabel: '3ตัว', shortLabel: 'โต๊ด', order: 4 },
+  '2top': { familyLabel: '2ตัว', shortLabel: 'บน', order: 5 },
+  '2bottom': { familyLabel: '2ตัว', shortLabel: 'ล่าง', order: 6 },
+  '2tod': { familyLabel: '2ตัว', shortLabel: 'โต๊ด', order: 7 },
+  'run_top': { familyLabel: 'วิ่ง', shortLabel: 'บน', order: 8 },
+  'run_bottom': { familyLabel: 'วิ่ง', shortLabel: 'ล่าง', order: 9 },
+  'lao_set4': { familyLabel: 'หวยชุดลาว', shortLabel: '4ตัว', order: 10 }
 };
 
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');

@@ -24,6 +24,7 @@ const rateProfileSchema = new mongoose.Schema({
   },
   rates: {
     '3top': { type: Number, default: DEFAULT_GLOBAL_RATES['3top'] },
+    '3front': { type: Number, default: DEFAULT_GLOBAL_RATES['3front'] },
     '3bottom': { type: Number, default: DEFAULT_GLOBAL_RATES['3bottom'] },
     '3tod': { type: Number, default: DEFAULT_GLOBAL_RATES['3tod'] },
     '2top': { type: Number, default: DEFAULT_GLOBAL_RATES['2top'] },
@@ -35,6 +36,7 @@ const rateProfileSchema = new mongoose.Schema({
   },
   commissions: {
     '3top': { type: Number, default: 0 },
+    '3front': { type: Number, default: 0 },
     '3bottom': { type: Number, default: 0 },
     '3tod': { type: Number, default: 0 },
     '2top': { type: Number, default: 0 },

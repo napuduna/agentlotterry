@@ -55,6 +55,23 @@ let autoSyncTimer = null;
 const flattenValues = (value) => Array.isArray(value) ? value.flatMap(flattenValues) : [value];
 const joinDigits = (value) => String(value || '').replace(/\D/g, '');
 const uniqueDigits = (value) => [...new Set(flattenValues(value).map(joinDigits).filter(Boolean))];
+const combineUniqueDigits = (...values) => [...new Set(values.flatMap((value) => uniqueDigits(value)).filter(Boolean))];
+const tailDigits = (value, length) => {
+  const digits = joinDigits(value);
+  if (!digits) return '';
+  return digits.slice(-length);
+};
+const twoDigitScalar = (value) => {
+  const digits = joinDigits(value);
+  return digits.length === 2 ? digits : '';
+};
+const middleDigits = (value, length) => {
+  const digits = joinDigits(value);
+  if (!digits) return '';
+  if (digits.length <= length) return digits;
+  const start = Math.floor((digits.length - length) / 2);
+  return digits.slice(start, start + length);
+};
 const parseIssueToRoundCode = (value) => {
   const digits = joinDigits(value);
   if (digits.length < 8) return '';
@@ -91,26 +108,28 @@ const buildGovernmentSnapshot = (config, row) => {
   const frontThreeHits = uniqueDigits(row?.code?.code1);
   const backThreeHits = uniqueDigits(row?.code?.code2);
   const twoBottom = joinDigits(row?.code?.code3);
-  const threeTop = firstPrize ? firstPrize.slice(-3) : '';
-  const twoTop = firstPrize ? firstPrize.slice(-2) : '';
+  const threeTop = tailDigits(firstPrize, 3);
+  const twoTop = tailDigits(firstPrize, 2);
 
   return {
     lotteryCode: config.lotteryCode,
     feedCode: config.feedCode,
     marketName: config.marketName,
     roundCode: parseIssueToRoundCode(row?.officialissue || row?.issue),
-    headline: toHeadline(firstPrize, twoBottom),
-    firstPrize,
-    threeTop,
-    twoTop,
-    twoBottom,
-    threeBottom: backThreeHits[0] || '',
-    threeTopHits: threeTop ? [threeTop] : [],
-    twoTopHits: twoTop ? [twoTop] : [],
-    twoBottomHits: twoBottom ? [twoBottom] : [],
-    threeBottomHits: backThreeHits,
-    runTop: buildRunDigits(threeTop ? [threeTop] : []),
-    runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
+      headline: toHeadline(firstPrize, twoBottom),
+      firstPrize,
+      threeTop,
+      threeFront: frontThreeHits[0] || '',
+      twoTop,
+      twoBottom,
+      threeBottom: backThreeHits[0] || '',
+      threeTopHits: threeTop ? [threeTop] : [],
+      twoTopHits: twoTop ? [twoTop] : [],
+      twoBottomHits: twoBottom ? [twoBottom] : [],
+      threeFrontHits: frontThreeHits,
+      threeBottomHits: backThreeHits,
+      runTop: buildRunDigits(threeTop ? [threeTop] : []),
+      runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
     isSettlementSafe: getSettlementSafety(config),
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
@@ -130,29 +149,32 @@ const buildGovernmentSnapshot = (config, row) => {
 
 const buildSimpleSnapshot = (config, row) => {
   const firstPrize = joinDigits(row?.code?.code);
-  const threeTop = joinDigits(row?.code?.code_last3) || (firstPrize ? firstPrize.slice(-3) : '');
-  const twoBottom = joinDigits(row?.code?.code_last2) || (firstPrize ? firstPrize.slice(-2) : '');
-  const twoTop =
-    joinDigits(row?.code?.code2) ||
+  const threeTop = joinDigits(row?.code?.code_last3) || tailDigits(firstPrize, 3);
+  const twoTop = joinDigits(row?.code?.code_last2) || tailDigits(firstPrize, 2);
+  const twoBottom =
+    tailDigits(row?.code?.code1, 2) ||
+    twoDigitScalar(row?.code?.code2) ||
     joinDigits(row?.code?.code_pre2) ||
     joinDigits(row?.code?.code_mid2) ||
-    twoBottom;
+    '';
 
   return {
     lotteryCode: config.lotteryCode,
     feedCode: config.feedCode,
     marketName: config.marketName,
     roundCode: parseIssueToRoundCode(row?.officialissue || row?.issue),
-    headline: toHeadline(firstPrize, threeTop, twoBottom, twoTop),
-    firstPrize,
-    threeTop,
-    twoTop,
-    twoBottom,
-    threeBottom: '',
-    threeTopHits: threeTop ? [threeTop] : [],
-    twoTopHits: twoTop ? [twoTop] : [],
-    twoBottomHits: twoBottom ? [twoBottom] : [],
-    threeBottomHits: [],
+      headline: toHeadline(firstPrize, threeTop, twoBottom, twoTop),
+      firstPrize,
+      threeTop,
+      threeFront: '',
+      twoTop,
+      twoBottom,
+      threeBottom: '',
+      threeTopHits: threeTop ? [threeTop] : [],
+      twoTopHits: twoTop ? [twoTop] : [],
+      twoBottomHits: twoBottom ? [twoBottom] : [],
+      threeFrontHits: [],
+      threeBottomHits: [],
     runTop: buildRunDigits(threeTop ? [threeTop] : []),
     runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
@@ -163,26 +185,30 @@ const buildSimpleSnapshot = (config, row) => {
 };
 
 const buildStockSnapshot = (config, row) => {
-  const threeDigits = joinDigits(row?.code?.code);
-  const twoDigits = joinDigits(row?.code?.code1);
+  const firstPrize = joinDigits(row?.code?.code);
+  const threeDigits = firstPrize;
+  const twoTop = tailDigits(firstPrize, 2);
+  const twoBottom = joinDigits(row?.code?.code1);
 
   return {
     lotteryCode: config.lotteryCode,
     feedCode: config.feedCode,
     marketName: config.marketName,
     roundCode: parseIssueToRoundCode(row?.officialissue || row?.issue),
-    headline: toHeadline(threeDigits, twoDigits),
-    firstPrize: threeDigits,
-    threeTop: threeDigits,
-    twoTop: twoDigits,
-    twoBottom: twoDigits,
-    threeBottom: '',
-    threeTopHits: threeDigits ? [threeDigits] : [],
-    twoTopHits: twoDigits ? [twoDigits] : [],
-    twoBottomHits: twoDigits ? [twoDigits] : [],
-    threeBottomHits: [],
+      headline: toHeadline(firstPrize, twoBottom, twoTop),
+      firstPrize,
+      threeTop: threeDigits,
+      threeFront: '',
+      twoTop,
+      twoBottom,
+      threeBottom: '',
+      threeTopHits: threeDigits ? [threeDigits] : [],
+      twoTopHits: twoTop ? [twoTop] : [],
+      twoBottomHits: twoBottom ? [twoBottom] : [],
+      threeFrontHits: [],
+      threeBottomHits: [],
     runTop: buildRunDigits(threeDigits ? [threeDigits] : []),
-    runBottom: buildRunDigits(twoDigits ? [twoDigits] : []),
+    runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
     isSettlementSafe: getSettlementSafety(config),
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
@@ -192,30 +218,29 @@ const buildStockSnapshot = (config, row) => {
 
 const buildBaacSnapshot = (config, row) => {
   const firstPrize = joinDigits(row?.code?.code);
-  const threeTopHits = [
-    ...uniqueDigits(row?.code?.code_last3),
-    ...uniqueDigits(row?.code?.code_last3_1)
-  ];
-  const threeTop = threeTopHits[0] || (firstPrize ? firstPrize.slice(-3) : '');
-  const twoTail = firstPrize ? firstPrize.slice(-2) : '';
+  const threeTop = tailDigits(firstPrize, 3);
+  const twoTop = tailDigits(firstPrize, 2);
+  const twoBottom = middleDigits(firstPrize, 2);
 
   return {
     lotteryCode: config.lotteryCode,
     feedCode: config.feedCode,
     marketName: config.marketName,
     roundCode: parseIssueToRoundCode(row?.officialissue || row?.issue),
-    headline: toHeadline(firstPrize, threeTop),
-    firstPrize,
-    threeTop,
-    twoTop: twoTail,
-    twoBottom: twoTail,
-    threeBottom: '',
-    threeTopHits,
-    twoTopHits: twoTail ? [twoTail] : [],
-    twoBottomHits: twoTail ? [twoTail] : [],
-    threeBottomHits: [],
-    runTop: buildRunDigits(threeTopHits),
-    runBottom: buildRunDigits(twoTail ? [twoTail] : []),
+      headline: toHeadline(firstPrize, threeTop, twoBottom),
+      firstPrize,
+      threeTop,
+      threeFront: '',
+      twoTop,
+      twoBottom,
+      threeBottom: '',
+      threeTopHits: threeTop ? [threeTop] : [],
+      twoTopHits: twoTop ? [twoTop] : [],
+      twoBottomHits: twoBottom ? [twoBottom] : [],
+      threeFrontHits: [],
+      threeBottomHits: [],
+    runTop: buildRunDigits(threeTop ? [threeTop] : []),
+    runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
     isSettlementSafe: false,
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
@@ -263,15 +288,17 @@ const upsertSnapshot = async (snapshot, lotteryType) => {
         lotteryCode: snapshot.lotteryCode,
         marketName: snapshot.marketName,
         headline: snapshot.headline,
-        firstPrize: snapshot.firstPrize,
-        twoTop: snapshot.twoTop,
-        twoBottom: snapshot.twoBottom,
-        threeTop: snapshot.threeTop,
-        threeBottom: snapshot.threeBottom,
-        threeTopHits: snapshot.threeTopHits,
-        twoTopHits: snapshot.twoTopHits,
-        twoBottomHits: snapshot.twoBottomHits,
-        threeBottomHits: snapshot.threeBottomHits,
+          firstPrize: snapshot.firstPrize,
+          twoTop: snapshot.twoTop,
+          twoBottom: snapshot.twoBottom,
+          threeTop: snapshot.threeTop,
+          threeFront: snapshot.threeFront,
+          threeBottom: snapshot.threeBottom,
+          threeTopHits: snapshot.threeTopHits,
+          twoTopHits: snapshot.twoTopHits,
+          twoBottomHits: snapshot.twoBottomHits,
+          threeFrontHits: snapshot.threeFrontHits,
+          threeBottomHits: snapshot.threeBottomHits,
         runTop: snapshot.runTop,
         runBottom: snapshot.runBottom,
         resultPublishedAt: snapshot.resultPublishedAt,
@@ -317,15 +344,17 @@ const syncSnapshotToResults = async (snapshot, lotteryType) => {
     lotteryTypeId: lotteryType._id,
     resultData: {
       headline: snapshot.headline,
-      firstPrize: snapshot.firstPrize,
-      threeTop: snapshot.threeTop,
-      twoTop: snapshot.twoTop,
-      twoBottom: snapshot.twoBottom,
-      threeBottom: snapshot.threeBottom,
-      threeTopHits: snapshot.threeTopHits,
-      twoTopHits: snapshot.twoTopHits,
-      twoBottomHits: snapshot.twoBottomHits,
-      threeBottomHits: snapshot.threeBottomHits,
+        firstPrize: snapshot.firstPrize,
+        threeTop: snapshot.threeTop,
+        threeFront: snapshot.threeFront,
+        twoTop: snapshot.twoTop,
+        twoBottom: snapshot.twoBottom,
+        threeBottom: snapshot.threeBottom,
+        threeTopHits: snapshot.threeTopHits,
+        twoTopHits: snapshot.twoTopHits,
+        twoBottomHits: snapshot.twoBottomHits,
+        threeFrontHits: snapshot.threeFrontHits,
+        threeBottomHits: snapshot.threeBottomHits,
       runTop: snapshot.runTop,
       runBottom: snapshot.runBottom
     },
@@ -436,15 +465,17 @@ const getStoredLatestExternalResults = async ({ lotteryId = null, limit = 50 } =
     drawAt: item.resultPublishedAt,
     resultPublishedAt: item.resultPublishedAt || item.updatedAt,
     headline: item.headline || item.firstPrize || item.twoBottom || '-',
-    firstPrize: item.firstPrize || '',
-    twoTop: item.twoTop || '',
-    twoBottom: item.twoBottom || '',
-    threeTop: item.threeTop || '',
-    threeBottom: item.threeBottom || '',
-    threeTopHits: item.threeTopHits || [],
-    twoTopHits: item.twoTopHits || [],
-    twoBottomHits: item.twoBottomHits || [],
-    threeBottomHits: item.threeBottomHits || [],
+      firstPrize: item.firstPrize || '',
+      twoTop: item.twoTop || '',
+      twoBottom: item.twoBottom || '',
+      threeTop: item.threeTop || '',
+      threeFront: item.threeFront || '',
+      threeBottom: item.threeBottom || '',
+      threeTopHits: item.threeTopHits || [],
+      twoTopHits: item.twoTopHits || [],
+      twoBottomHits: item.twoBottomHits || [],
+      threeFrontHits: item.threeFrontHits || [],
+      threeBottomHits: item.threeBottomHits || [],
     runTop: item.runTop || [],
     runBottom: item.runBottom || [],
     sourceType: 'api',
