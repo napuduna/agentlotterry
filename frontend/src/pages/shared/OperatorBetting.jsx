@@ -244,6 +244,14 @@ const dedupeOrderedNumbers = (numbers = []) => {
     return true;
   });
 };
+const buildNumberCountMap = (numbers = []) => {
+  const counts = new Map();
+  (numbers || []).forEach((value) => {
+    if (!value) return;
+    counts.set(value, (counts.get(value) || 0) + 1);
+  });
+  return counts;
+};
 const sortMembersByActivity = (members = []) =>
   [...members].sort((left, right) => {
     const betDiff = Number(right?.totals?.totalBets || 0) - Number(left?.totals?.totalBets || 0);
@@ -424,7 +432,7 @@ const extractFastNumbersByDigits = (rawInput, digits) => {
         .forEach((token) => numbers.push(token));
     });
 
-  return dedupeOrderedNumbers(numbers);
+  return numbers;
 };
 
 const getFastEnabledColumns = ({ fastFamily, supportedBetTypes = [], closedBetTypes = [] }) => {
@@ -727,25 +735,25 @@ const toggleSeedDigitInput = (value, digit) => {
   return [...current, digit].join('');
 };
 
-const buildDraftRoodNumberCounts = (seedDigits = []) => {
-  const counts = new Map();
-  dedupeOrderedNumbers(seedDigits).forEach((seedDigit) => {
-    for (let digit = 0; digit <= 9; digit += 1) {
-      const nextNumbers =
-        seedDigit === String(digit)
-          ? [`${seedDigit}${digit}`]
-          : [`${seedDigit}${digit}`, `${digit}${seedDigit}`];
+const buildDraftRoodNumbers = (seedDigits = []) => {
+  const numbers = [];
 
-      nextNumbers.forEach((number) => {
-        counts.set(number, (counts.get(number) || 0) + 1);
-      });
+  (seedDigits || []).forEach((seedDigit) => {
+    for (let digit = 0; digit <= 9; digit += 1) {
+      if (seedDigit === String(digit)) {
+        numbers.push(`${seedDigit}${digit}`);
+        continue;
+      }
+
+      numbers.push(`${seedDigit}${digit}`);
+      numbers.push(`${digit}${seedDigit}`);
     }
   });
 
-  return counts;
+  return numbers;
 };
 
-const buildDraftRoodNumbers = (seedDigits = []) => [...buildDraftRoodNumberCounts(seedDigits).keys()];
+const buildDraftRoodNumberCounts = (seedDigits = []) => buildNumberCountMap(buildDraftRoodNumbers(seedDigits));
 
 const buildDraftTongNumbers = () =>
   Array.from({ length: 10 }, (_, index) => `${index}${index}${index}`);
@@ -762,7 +770,8 @@ const expandFastDraftNumbers = (number, betType, reverse) => {
   if (!reverse) return [number];
 
   if (betType === '2top' || betType === '2bottom' || betType === '2tod') {
-    return [...new Set([number, number.split('').reverse().join('')])];
+    const reversed = number.split('').reverse().join('');
+    return reversed === number ? [number] : [number, reversed];
   }
 
   if (betType === '3top' || betType === '3front' || betType === '3bottom' || betType === '3tod') {
@@ -773,24 +782,11 @@ const expandFastDraftNumbers = (number, betType, reverse) => {
 };
 
 const combineFastDraftItems = (items) => {
-  const grouped = new Map();
-
-  items.forEach((item) => {
-    const key = `${item.betType}:${item.number}`;
-    const current = grouped.get(key);
-    if (current) {
-      current.amount += item.amount;
-      current.potentialPayout = current.amount * current.payRate;
-      return;
-    }
-
-    grouped.set(key, {
-      ...item,
-      potentialPayout: item.amount * item.payRate
-    });
-  });
-
-  return [...grouped.values()];
+  return (items || []).map((item, index) => ({
+    ...item,
+    draftKey: item.draftKey || `${item.betType}:${item.number}:${index}`,
+    potentialPayout: Number(item.amount || 0) * Number(item.payRate || 0)
+  }));
 };
 
 const buildFastWorkingNumbers = ({
@@ -803,7 +799,7 @@ const buildFastWorkingNumbers = ({
 }) => {
   const config = getFastFamilyConfig(fastFamily);
   if (Array.isArray(numbers)) {
-    return dedupeOrderedNumbers(numbers.filter((number) => normalizeDigits(number).length === config.digits));
+    return numbers.filter((number) => normalizeDigits(number).length === config.digits);
   }
 
   if (fastTab === 'rood') {
@@ -835,7 +831,7 @@ const buildFastWorkingNumbers = ({
     buildDraftDoubleSet(config.digits).forEach((number) => workingNumbers.push(number));
   }
 
-  return dedupeOrderedNumbers(workingNumbers);
+  return workingNumbers;
 };
 
 const buildFastDraftItems = ({
@@ -857,7 +853,7 @@ const buildFastDraftItems = ({
     closedBetTypes
   });
   const activeNumbers = Array.isArray(numbers)
-    ? dedupeOrderedNumbers(numbers.filter((number) => normalizeDigits(number).length === config.digits))
+    ? numbers.filter((number) => normalizeDigits(number).length === config.digits)
     : buildFastWorkingNumbers({
         fastFamily,
         rawInput,
@@ -889,11 +885,7 @@ const buildFastDraftItems = ({
 
   activeNumbers.forEach((number) => {
     if (normalizeDigits(number).length !== config.digits) return;
-    const repeatCount = getFastCandidateCount(candidateCounts, number);
-
-    for (let index = 0; index < repeatCount; index += 1) {
-      appendNumberItems(number);
-    }
+    appendNumberItems(number);
   });
 
   if (includeDoubleSet && shouldExpandInline && config.digits > 1) {
@@ -1036,7 +1028,7 @@ const OperatorBetting = () => {
       }),
     [fastFamily, roundClosedBetTypes, selectedLottery]
   );
-  const parsedFastCandidates = useMemo(() => {
+  const parsedFastCandidateEntries = useMemo(() => {
     if (mode !== 'fast') return [];
     return buildFastWorkingNumbers({
       fastFamily,
@@ -1047,29 +1039,29 @@ const OperatorBetting = () => {
       includeDoubleSet
     });
   }, [fastFamily, fastTab, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse]);
+  const parsedFastCandidates = useMemo(
+    () => dedupeOrderedNumbers(parsedFastCandidateEntries),
+    [parsedFastCandidateEntries]
+  );
   const fastCandidateCountMap = useMemo(() => {
     if (mode !== 'fast') return new Map();
-
-    if (fastTab === 'rood') {
-      const seedDigits = extractFastSeedDigits(rawInput);
-      if (seedDigits.length) {
-        return buildDraftRoodNumberCounts(seedDigits);
-      }
-    }
-
-    return new Map(parsedFastCandidates.map((number) => [number, 1]));
-  }, [fastTab, mode, parsedFastCandidates, rawInput]);
+    return buildNumberCountMap(parsedFastCandidateEntries);
+  }, [mode, parsedFastCandidateEntries]);
+  const activeFastCandidateEntries = useMemo(
+    () => parsedFastCandidateEntries.filter((number) => !excludedFastNumbers.includes(number)),
+    [excludedFastNumbers, parsedFastCandidateEntries]
+  );
   const activeFastNumbers = useMemo(
-    () => parsedFastCandidates.filter((number) => !excludedFastNumbers.includes(number)),
-    [excludedFastNumbers, parsedFastCandidates]
+    () => dedupeOrderedNumbers(activeFastCandidateEntries),
+    [activeFastCandidateEntries]
   );
   const parsedFastEntryCount = useMemo(
-    () => parsedFastCandidates.reduce((sum, number) => sum + getFastCandidateCount(fastCandidateCountMap, number), 0),
-    [fastCandidateCountMap, parsedFastCandidates]
+    () => parsedFastCandidateEntries.length,
+    [parsedFastCandidateEntries]
   );
   const activeFastEntryCount = useMemo(
-    () => activeFastNumbers.reduce((sum, number) => sum + getFastCandidateCount(fastCandidateCountMap, number), 0),
-    [activeFastNumbers, fastCandidateCountMap]
+    () => activeFastCandidateEntries.length,
+    [activeFastCandidateEntries]
   );
   const gridHeaderRow = gridRows[0] || buildEmptyGridRow();
   const gridBodyRows = gridRows.slice(1);
@@ -1097,7 +1089,7 @@ const OperatorBetting = () => {
     return buildFastDraftItems({
       fastFamily,
       rawInput,
-      numbers: activeFastNumbers,
+      numbers: activeFastCandidateEntries,
       reverse,
       includeDoubleSet,
       rates: selectedRateProfile?.rates || {},
@@ -1106,7 +1098,7 @@ const OperatorBetting = () => {
       closedBetTypes: roundClosedBetTypes,
       candidateCounts: fastCandidateCountMap
     });
-  }, [activeFastNumbers, fastAmounts, fastCandidateCountMap, fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
+  }, [activeFastCandidateEntries, fastAmounts, fastCandidateCountMap, fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
   const fastDraftGroups = useMemo(() => buildSlipDisplayGroups(fastDraftItems), [fastDraftItems]);
   const gridDraftItems = useMemo(() => {
     if (mode !== 'grid') return [];
@@ -1643,7 +1635,7 @@ const OperatorBetting = () => {
     }
 
     const nextNumbers = appendToCurrent
-      ? dedupeOrderedNumbers([...activeFastNumbers, ...numbers])
+      ? [...activeFastCandidateEntries, ...numbers]
       : numbers;
 
     setMode('fast');

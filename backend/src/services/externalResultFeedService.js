@@ -14,32 +14,32 @@ const MANYCAI_FEED_BASE_URL = (
 const RESULT_SYNC_TIMEOUT_MS = Number(process.env.RESULT_SYNC_TIMEOUT_MS || 12000);
 
 const FEED_CONFIGS = [
-  { feedCode: 'hnvip', lotteryCode: 'hnvip', marketName: 'ฮานอย VIP', parser: 'simple', syncToResults: false },
-  { feedCode: 'tlzc', lotteryCode: 'tlzc', marketName: 'หวยลาว', parser: 'simple', syncToResults: false },
-  { feedCode: 'tykc', lotteryCode: 'tykc', marketName: 'ยี่กี VIP', parser: 'simple', syncToResults: false },
+  { feedCode: 'hnvip', lotteryCode: 'hnvip', marketName: 'ฮานอย VIP', parser: 'simple', syncToResults: true },
+  { feedCode: 'tlzc', lotteryCode: 'tlzc', marketName: 'หวยลาว', parser: 'simple', syncToResults: true },
+  { feedCode: 'tykc', lotteryCode: 'tykc', marketName: 'ยี่กี VIP', parser: 'simple', syncToResults: true },
   { feedCode: 'tgfc', lotteryCode: 'thai_government', marketName: 'รัฐบาลไทย', parser: 'government', syncToResults: true },
-  { feedCode: 'baac', lotteryCode: 'baac', marketName: 'ธ.ก.ส.', parser: 'baac', syncToResults: false },
-  { feedCode: 'gshka', lotteryCode: 'gshka', marketName: 'หุ้นฮั่งเส็ง เช้า', parser: 'stock', syncToResults: false },
-  { feedCode: 'gshkp', lotteryCode: 'gshkp', marketName: 'หุ้นฮั่งเส็ง บ่าย', parser: 'stock', syncToResults: false },
+  { feedCode: 'baac', lotteryCode: 'baac', marketName: 'ธ.ก.ส.', parser: 'baac', syncToResults: true },
+  { feedCode: 'gshka', lotteryCode: 'gshka', marketName: 'หุ้นฮั่งเส็ง เช้า', parser: 'stock', syncToResults: true },
+  { feedCode: 'gshkp', lotteryCode: 'gshkp', marketName: 'หุ้นฮั่งเส็ง บ่าย', parser: 'stock', syncToResults: true },
   { feedCode: 'bfhn', lotteryCode: 'hanoi_special', marketName: 'ฮานอยพิเศษ', parser: 'simple', syncToResults: true },
-  { feedCode: 'gstw', lotteryCode: 'gstw', marketName: 'หุ้นไต้หวัน', parser: 'stock', syncToResults: false },
+  { feedCode: 'gstw', lotteryCode: 'gstw', marketName: 'หุ้นไต้หวัน', parser: 'stock', syncToResults: true },
   { feedCode: 'gsjpa', lotteryCode: 'nikkei_morning', marketName: 'นิเคอิเช้า', parser: 'stock', syncToResults: true },
-  { feedCode: 'gsjpp', lotteryCode: 'gsjpp', marketName: 'นิเคอิบ่าย', parser: 'stock', syncToResults: false },
-  { feedCode: 'gskr', lotteryCode: 'gskr', marketName: 'หุ้นเกาหลี', parser: 'stock', syncToResults: false },
-  { feedCode: 'gscna', lotteryCode: 'gscna', marketName: 'หุ้นจีนเช้า', parser: 'stock', syncToResults: false },
+  { feedCode: 'gsjpp', lotteryCode: 'gsjpp', marketName: 'นิเคอิบ่าย', parser: 'stock', syncToResults: true },
+  { feedCode: 'gskr', lotteryCode: 'gskr', marketName: 'หุ้นเกาหลี', parser: 'stock', syncToResults: true },
+  { feedCode: 'gscna', lotteryCode: 'gscna', marketName: 'หุ้นจีนเช้า', parser: 'stock', syncToResults: true },
   { feedCode: 'gscnp', lotteryCode: 'china_afternoon', marketName: 'หุ้นจีนบ่าย', parser: 'stock', syncToResults: true },
-  { feedCode: 'gssg', lotteryCode: 'gssg', marketName: 'หุ้นสิงคโปร์', parser: 'stock', syncToResults: false },
-  { feedCode: 'gsth', lotteryCode: 'gsth', marketName: 'หุ้นไทย', parser: 'stock', syncToResults: false },
-  { feedCode: 'gsin', lotteryCode: 'gsin', marketName: 'หุ้นอินเดีย', parser: 'stock', syncToResults: false },
-  { feedCode: 'gseg', lotteryCode: 'gseg', marketName: 'หุ้นอียิปต์', parser: 'stock', syncToResults: false },
-  { feedCode: 'gsru', lotteryCode: 'gsru', marketName: 'หุ้นรัสเซีย', parser: 'stock', syncToResults: false },
-  { feedCode: 'gsde', lotteryCode: 'gsde', marketName: 'หุ้นเยอรมัน', parser: 'stock', syncToResults: false },
-  { feedCode: 'gsuk', lotteryCode: 'gsuk', marketName: 'หุ้นอังกฤษ', parser: 'stock', syncToResults: false },
+  { feedCode: 'gssg', lotteryCode: 'gssg', marketName: 'หุ้นสิงคโปร์', parser: 'stock', syncToResults: true },
+  { feedCode: 'gsth', lotteryCode: 'gsth', marketName: 'หุ้นไทย', parser: 'stock', syncToResults: true },
+  { feedCode: 'gsin', lotteryCode: 'gsin', marketName: 'หุ้นอินเดีย', parser: 'stock', syncToResults: true },
+  { feedCode: 'gseg', lotteryCode: 'gseg', marketName: 'หุ้นอียิปต์', parser: 'stock', syncToResults: true },
+  { feedCode: 'gsru', lotteryCode: 'gsru', marketName: 'หุ้นรัสเซีย', parser: 'stock', syncToResults: true },
+  { feedCode: 'gsde', lotteryCode: 'gsde', marketName: 'หุ้นเยอรมัน', parser: 'stock', syncToResults: true },
+  { feedCode: 'gsuk', lotteryCode: 'gsuk', marketName: 'หุ้นอังกฤษ', parser: 'stock', syncToResults: true },
   { feedCode: 'gsus', lotteryCode: 'dowjones_vip', marketName: 'หุ้นดาวโจนส์', parser: 'stock', syncToResults: true },
-  { feedCode: 'cqhn', lotteryCode: 'cqhn', marketName: 'ฮานอยเฉพาะกิจ', parser: 'simple', syncToResults: false },
+  { feedCode: 'cqhn', lotteryCode: 'cqhn', marketName: 'ฮานอยเฉพาะกิจ', parser: 'simple', syncToResults: true },
   { feedCode: 'zcvip', lotteryCode: 'lao_vip', marketName: 'ลาว VIP', parser: 'simple', syncToResults: true },
-  { feedCode: 'ynhn', lotteryCode: 'ynhn', marketName: 'ฮานอยธรรมดา', parser: 'simple', syncToResults: false },
-  { feedCode: 'ynma', lotteryCode: 'ynma', marketName: 'มาเลย์', parser: 'simple', syncToResults: false }
+  { feedCode: 'ynhn', lotteryCode: 'ynhn', marketName: 'ฮานอยธรรมดา', parser: 'simple', syncToResults: true },
+  { feedCode: 'ynma', lotteryCode: 'ynma', marketName: 'มาเลย์', parser: 'simple', syncToResults: true }
 ];
 
 const syncState = {
@@ -242,7 +242,7 @@ const buildBaacSnapshot = (config, row) => {
     runTop: buildRunDigits(threeTop ? [threeTop] : []),
     runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
     resultPublishedAt: parseBangkokDateTime(row?.opendate),
-    isSettlementSafe: false,
+    isSettlementSafe: getSettlementSafety(config),
     sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
     rawPayload: row
   };
@@ -398,37 +398,44 @@ const syncLatestExternalResults = async () => {
     for (const config of FEED_CONFIGS) {
       try {
         const rows = await fetchFeedRows(config.feedCode);
-        const row = rows[0];
-        if (!row) {
+        if (!rows.length) {
           summary.skipped++;
           summary.warnings.push(`No data in feed ${config.feedCode}`);
           continue;
         }
 
-        const snapshot = buildSnapshot(config, row);
-        if (!snapshot.roundCode || !snapshot.headline) {
+        const lotteryType = lotteryByCode.get(config.lotteryCode) || null;
+        const processedRounds = new Set();
+
+        for (const row of rows) {
+          const snapshot = buildSnapshot(config, row);
+          if (!snapshot.roundCode || !snapshot.headline || processedRounds.has(snapshot.roundCode)) {
+            continue;
+          }
+
+          processedRounds.add(snapshot.roundCode);
+          await upsertSnapshot(snapshot, lotteryType);
+          summary.fetched++;
+          summary.savedSnapshots++;
+
+          if (snapshot.lotteryCode === 'thai_government') {
+            await upsertLegacyGovernmentResult(snapshot);
+          }
+
+          if (config.syncToResults) {
+            const result = await syncSnapshotToResults(snapshot, lotteryType);
+            if (result.synced) {
+              summary.syncedResults++;
+            }
+            if (result.settlement) {
+              summary.settlements++;
+            }
+          }
+        }
+
+        if (!processedRounds.size) {
           summary.skipped++;
           summary.warnings.push(`Incomplete snapshot for ${config.feedCode}`);
-          continue;
-        }
-
-        const lotteryType = lotteryByCode.get(config.lotteryCode) || null;
-        await upsertSnapshot(snapshot, lotteryType);
-        summary.fetched++;
-        summary.savedSnapshots++;
-
-        if (snapshot.lotteryCode === 'thai_government') {
-          await upsertLegacyGovernmentResult(snapshot);
-        }
-
-        if (config.syncToResults) {
-          const result = await syncSnapshotToResults(snapshot, lotteryType);
-          if (result.synced) {
-            summary.syncedResults++;
-          }
-          if (result.settlement) {
-            summary.settlements++;
-          }
         }
       } catch (error) {
         summary.warnings.push(`${config.feedCode}: ${error.message}`);

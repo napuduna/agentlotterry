@@ -13,31 +13,51 @@ const betTypeMeta = {
 
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
 
-const compareNumberText = (left, right) => {
-  const leftDigits = normalizeDigits(left);
-  const rightDigits = normalizeDigits(right);
-
-  if (leftDigits && rightDigits && leftDigits.length === rightDigits.length) {
-    return Number(leftDigits) - Number(rightDigits);
-  }
-
-  return String(left || '').localeCompare(String(right || ''), 'th');
-};
-
-const summarizeNumberItems = (number, items) => {
-  const ordered = [...items]
+const orderOccurrenceItems = (items = []) =>
+  [...items]
     .filter((item) => betTypeMeta[item.betType])
     .sort((left, right) => betTypeMeta[left.betType].order - betTypeMeta[right.betType].order);
 
+const buildOccurrenceBlocks = (items = []) => {
+  const blocks = [];
+  let current = null;
+
+  (items || []).forEach((item) => {
+    const number = String(item?.number || '').trim();
+    if (!number || !betTypeMeta[item?.betType]) return;
+
+    if (!current || current.number !== number || current.seenBetTypes.has(item.betType)) {
+      if (current?.items?.length) {
+        blocks.push({ number: current.number, items: current.items });
+      }
+
+      current = {
+        number,
+        items: [],
+        seenBetTypes: new Set()
+      };
+    }
+
+    current.items.push(item);
+    current.seenBetTypes.add(item.betType);
+  });
+
+  if (current?.items?.length) {
+    blocks.push({ number: current.number, items: current.items });
+  }
+
+  return blocks;
+};
+
+const summarizeOccurrence = ({ number, items }) => {
+  const ordered = orderOccurrenceItems(items);
   if (!ordered.length) {
     return null;
   }
 
-  const signature = ordered.map((item) => `${item.betType}:${Number(item.amount || 0)}`).join('|');
-
   return {
-    key: `${normalizeDigits(number) || number}-${signature}`,
-    signature,
+    key: `${normalizeDigits(number) || number}-${ordered.map((item) => `${item.betType}:${Number(item.amount || 0)}`).join('|')}`,
+    signature: ordered.map((item) => `${item.betType}:${Number(item.amount || 0)}`).join('|'),
     familyLabel: betTypeMeta[ordered[0].betType].familyLabel,
     comboLabel: ordered.map((item) => betTypeMeta[item.betType].shortLabel).join(' x '),
     amountLabel: ordered.map((item) => Number(item.amount || 0)).join(' x '),
@@ -49,47 +69,34 @@ const summarizeNumberItems = (number, items) => {
 };
 
 export const buildSlipDisplayGroups = (items = []) => {
-  const perNumber = new Map();
-
-  items.forEach((item) => {
-    const numberKey = String(item.number || '').trim();
-    if (!numberKey) return;
-    const current = perNumber.get(numberKey) || [];
-    current.push(item);
-    perNumber.set(numberKey, current);
-  });
-
   const grouped = new Map();
 
-  [...perNumber.entries()]
-    .sort(([left], [right]) => compareNumberText(left, right))
-    .forEach(([number, numberItems]) => {
-      const summary = summarizeNumberItems(number, numberItems);
-      if (!summary) return;
+  buildOccurrenceBlocks(items).forEach((occurrence) => {
+    const summary = summarizeOccurrence(occurrence);
+    if (!summary) return;
 
-      const current = grouped.get(summary.signature) || {
-        key: summary.signature,
-        familyLabel: summary.familyLabel,
-        comboLabel: summary.comboLabel,
-        amountLabel: summary.amountLabel,
-        numbers: [],
-        totalAmount: 0,
-        potentialPayout: 0,
-        items: []
-      };
+    const current = grouped.get(summary.signature) || {
+      key: summary.signature,
+      familyLabel: summary.familyLabel,
+      comboLabel: summary.comboLabel,
+      amountLabel: summary.amountLabel,
+      numbers: [],
+      totalAmount: 0,
+      potentialPayout: 0,
+      items: []
+    };
 
-      current.numbers.push(summary.number);
-      current.totalAmount += summary.totalAmount;
-      current.potentialPayout += summary.potentialPayout;
-      current.items.push(...summary.items);
-      grouped.set(summary.signature, current);
-    });
+    current.numbers.push(summary.number);
+    current.totalAmount += summary.totalAmount;
+    current.potentialPayout += summary.potentialPayout;
+    current.items.push(...summary.items);
+    grouped.set(summary.signature, current);
+  });
 
   return [...grouped.values()].map((group, index) => ({
     ...group,
     key: `${group.key}-${index}`,
-    numbers: [...group.numbers].sort(compareNumberText),
-    numbersText: [...group.numbers].sort(compareNumberText).join(' '),
+    numbersText: group.numbers.join(' '),
     itemCount: group.items.length
   }));
 };
