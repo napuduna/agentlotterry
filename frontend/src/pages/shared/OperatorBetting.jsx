@@ -92,8 +92,8 @@ const fastFamilyOptions = [
     digits: 3,
     columns: [
       { key: 'top', betType: '3top' },
-      { key: 'bottom', betType: '3bottom' },
-      { key: 'tod', betType: '3tod' }
+      { key: 'tod', betType: '3tod' },
+      { key: 'bottom', betType: '3bottom' }
     ]
   },
   {
@@ -377,6 +377,8 @@ const getFastEnabledColumns = ({ fastFamily, supportedBetTypes = [], closedBetTy
 const getFastDraftSummary = ({
   parsedCandidates,
   activeNumbers,
+  parsedEntryCount,
+  selectedEntryCount,
   fastFamily,
   includeDoubleSet,
   reverse,
@@ -396,8 +398,8 @@ const getFastDraftSummary = ({
     .map((column) => `${getBetTypeLabel(column.betType)} ${money(getFastColumnAmount(config, column, fastAmounts))}`);
 
   return {
-    parsedCount: parsedCandidates.length,
-    selectedCount: activeNumbers.length,
+    parsedCount: parsedEntryCount ?? parsedCandidates.length,
+    selectedCount: selectedEntryCount ?? activeNumbers.length,
     helperCount: includeDoubleSet && config.digits > 1 ? doubleSetCounts[config.digits] || 0 : 0,
     reverseEnabled: Boolean(reverse),
     pricedColumns,
@@ -660,21 +662,36 @@ const toggleSeedDigitInput = (value, digit) => {
   return [...current, digit].join('');
 };
 
-const buildDraftRoodNumbers = (seedDigits = []) => {
-  const values = [];
-
+const buildDraftRoodNumberCounts = (seedDigits = []) => {
+  const counts = new Map();
   dedupeOrderedNumbers(seedDigits).forEach((seedDigit) => {
     for (let digit = 0; digit <= 9; digit += 1) {
-      values.push(`${seedDigit}${digit}`);
-      values.push(`${digit}${seedDigit}`);
+      const nextNumbers =
+        seedDigit === String(digit)
+          ? [`${seedDigit}${digit}`]
+          : [`${seedDigit}${digit}`, `${digit}${seedDigit}`];
+
+      nextNumbers.forEach((number) => {
+        counts.set(number, (counts.get(number) || 0) + 1);
+      });
     }
   });
 
-  return dedupeOrderedNumbers(values);
+  return counts;
 };
+
+const buildDraftRoodNumbers = (seedDigits = []) => [...buildDraftRoodNumberCounts(seedDigits).keys()];
 
 const buildDraftTongNumbers = () =>
   Array.from({ length: 10 }, (_, index) => `${index}${index}${index}`);
+
+const getFastCandidateCount = (candidateCounts, number) => {
+  if (candidateCounts instanceof Map) {
+    return Number(candidateCounts.get(number) || 1);
+  }
+
+  return Number(candidateCounts?.[number] || 1);
+};
 
 const expandFastDraftNumbers = (number, betType, reverse) => {
   if (!reverse) return [number];
@@ -765,7 +782,8 @@ const buildFastDraftItems = ({
   rates,
   amounts,
   supportedBetTypes,
-  closedBetTypes
+  closedBetTypes,
+  candidateCounts
 }) => {
   const config = getFastFamilyConfig(fastFamily);
   const enabledColumns = getFastEnabledColumns({
@@ -806,7 +824,11 @@ const buildFastDraftItems = ({
 
   activeNumbers.forEach((number) => {
     if (normalizeDigits(number).length !== config.digits) return;
-    appendNumberItems(number);
+    const repeatCount = getFastCandidateCount(candidateCounts, number);
+
+    for (let index = 0; index < repeatCount; index += 1) {
+      appendNumberItems(number);
+    }
   });
 
   if (includeDoubleSet && shouldExpandInline && config.digits > 1) {
@@ -860,6 +882,7 @@ const OperatorBetting = () => {
   const [recentLoading, setRecentLoading] = useState(false);
   const [expandedRecentGroups, setExpandedRecentGroups] = useState({});
   const gridCellRefs = useRef({});
+  const fastAmountRefs = useRef({});
   const memberPickerRef = useRef(null);
   const searchInputRef = useRef(null);
   const fastInputRef = useRef(null);
@@ -949,9 +972,29 @@ const OperatorBetting = () => {
       includeDoubleSet
     });
   }, [fastFamily, fastTab, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse]);
+  const fastCandidateCountMap = useMemo(() => {
+    if (mode !== 'fast') return new Map();
+
+    if (fastTab === 'rood') {
+      const seedDigits = extractFastSeedDigits(rawInput);
+      if (seedDigits.length) {
+        return buildDraftRoodNumberCounts(seedDigits);
+      }
+    }
+
+    return new Map(parsedFastCandidates.map((number) => [number, 1]));
+  }, [fastTab, mode, parsedFastCandidates, rawInput]);
   const activeFastNumbers = useMemo(
     () => parsedFastCandidates.filter((number) => !excludedFastNumbers.includes(number)),
     [excludedFastNumbers, parsedFastCandidates]
+  );
+  const parsedFastEntryCount = useMemo(
+    () => parsedFastCandidates.reduce((sum, number) => sum + getFastCandidateCount(fastCandidateCountMap, number), 0),
+    [fastCandidateCountMap, parsedFastCandidates]
+  );
+  const activeFastEntryCount = useMemo(
+    () => activeFastNumbers.reduce((sum, number) => sum + getFastCandidateCount(fastCandidateCountMap, number), 0),
+    [activeFastNumbers, fastCandidateCountMap]
   );
   const gridHeaderRow = gridRows[0] || buildEmptyGridRow();
   const gridBodyRows = gridRows.slice(1);
@@ -960,6 +1003,8 @@ const OperatorBetting = () => {
       getFastDraftSummary({
         parsedCandidates: parsedFastCandidates,
         activeNumbers: activeFastNumbers,
+        parsedEntryCount: parsedFastEntryCount,
+        selectedEntryCount: activeFastEntryCount,
         fastFamily,
         includeDoubleSet,
         reverse,
@@ -967,7 +1012,7 @@ const OperatorBetting = () => {
         supportedBetTypes: selectedLottery?.supportedBetTypes || [],
         closedBetTypes: roundClosedBetTypes
       }),
-    [activeFastNumbers, fastAmounts, fastFamily, includeDoubleSet, parsedFastCandidates, reverse, roundClosedBetTypes, selectedLottery]
+    [activeFastEntryCount, activeFastNumbers, fastAmounts, fastFamily, includeDoubleSet, parsedFastCandidates, parsedFastEntryCount, reverse, roundClosedBetTypes, selectedLottery]
   );
   const gridDraftSummary = useMemo(() => getGridDraftSummary(gridRows), [gridRows]);
   const recentSlipGroups = useMemo(() => groupRecentItemsBySlip(recentItems), [recentItems]);
@@ -983,9 +1028,10 @@ const OperatorBetting = () => {
       rates: selectedRateProfile?.rates || {},
       amounts: fastAmounts,
       supportedBetTypes: selectedLottery?.supportedBetTypes || [],
-      closedBetTypes: roundClosedBetTypes
+      closedBetTypes: roundClosedBetTypes,
+      candidateCounts: fastCandidateCountMap
     });
-  }, [activeFastNumbers, fastAmounts, fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
+  }, [activeFastNumbers, fastAmounts, fastCandidateCountMap, fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
   const fastDraftGroups = useMemo(() => buildSlipDisplayGroups(fastDraftItems), [fastDraftItems]);
   const gridDraftItems = useMemo(() => {
     if (mode !== 'grid') return [];
@@ -1611,6 +1657,9 @@ const OperatorBetting = () => {
     ...(supportedGridColumns.bottom ? ['bottom'] : []),
     ...(supportedGridColumns.tod ? ['tod'] : [])
   ];
+  const enabledFastAmountOrder = fastFamilyConfig.columns
+    .map((column) => column.key)
+    .filter((columnKey) => supportedFastColumns[columnKey]);
 
   const setGridCellRef = (rowId, field) => (element) => {
     const key = `${rowId}:${field}`;
@@ -1618,6 +1667,14 @@ const OperatorBetting = () => {
       gridCellRefs.current[key] = element;
     } else {
       delete gridCellRefs.current[key];
+    }
+  };
+
+  const setFastAmountRef = (field) => (element) => {
+    if (element) {
+      fastAmountRefs.current[field] = element;
+    } else {
+      delete fastAmountRefs.current[field];
     }
   };
 
@@ -1651,10 +1708,34 @@ const OperatorBetting = () => {
     window.requestAnimationFrame(() => focusGridCell(appendedRow.id, 'number'));
   };
 
+  const focusFastAmountField = (field) => {
+    const target = fastAmountRefs.current[field];
+    if (target) {
+      target.focus();
+      target.select?.();
+    }
+  };
+
+  const focusNextFastAmountField = (field) => {
+    const fieldIndex = enabledFastAmountOrder.indexOf(field);
+    if (fieldIndex < 0) return;
+
+    const nextField = enabledFastAmountOrder[fieldIndex + 1];
+    if (nextField) {
+      focusFastAmountField(nextField);
+    }
+  };
+
   const handleGridKeyDown = (rowId, field, event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     focusNextGridField(rowId, field);
+  };
+
+  const handleFastAmountKeyDown = (field, event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    focusNextFastAmountField(field);
   };
 
   const handleGridNumberPaste = (rowId, event) => {
@@ -2236,6 +2317,7 @@ const OperatorBetting = () => {
                         {parsedFastCandidates.length ? (
                           parsedFastCandidates.map((number) => {
                             const isActive = activeFastNumbers.includes(number);
+                            const repeatCount = getFastCandidateCount(fastCandidateCountMap, number);
                             return (
                               <button
                                 key={number}
@@ -2244,6 +2326,7 @@ const OperatorBetting = () => {
                                 onClick={() => toggleFastCandidate(number)}
                               >
                                 {number}
+                                {repeatCount > 1 ? <span className="operator-fast-chip-count">x{repeatCount}</span> : null}
                               </button>
                             );
                           })
@@ -2281,6 +2364,7 @@ const OperatorBetting = () => {
                             <label className="operator-fast-amount-label" htmlFor={`fast-amount-${column.key}`}>{betLabel}</label>
                             <input
                               id={`fast-amount-${column.key}`}
+                              ref={setFastAmountRef(column.key)}
                               className="form-input"
                               type="number"
                               min="0"
@@ -2289,6 +2373,7 @@ const OperatorBetting = () => {
                               readOnly={enabled && Boolean(fastFamilyConfig.fixedAmount && column.key === 'set')}
                               value={fastFamilyConfig.fixedAmount && column.key === 'set' ? String(fastFamilyConfig.fixedAmount) : fastAmounts[column.key]}
                               onChange={(event) => setFastAmounts((current) => ({ ...current, [column.key]: event.target.value }))}
+                              onKeyDown={(event) => handleFastAmountKeyDown(column.key, event)}
                             />
                           </div>
                         );
