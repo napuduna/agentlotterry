@@ -362,6 +362,390 @@ const syncLegacyThaiGovernmentResult = async (legacyResult, sourceType = 'legacy
   });
 };
 
+const loadRoundForSettlement = async (roundId, session) => {
+  const round = await DrawRound.findById(roundId).session(session);
+  if (!round) {
+    const error = new Error('Round not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return round;
+};
+
+const loadPublishedResultForRound = async (roundId, session) => {
+  const record = await ResultRecord.findOne({ drawRoundId: roundId, isPublished: true }).session(session);
+  if (!record) {
+    const error = new Error('Published result not found for this round');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return record;
+};
+
+const loadRoundItemsWithCustomers = async (roundId, session, filter = {}) => {
+  const items = await BetItem.find({
+    drawRoundId: roundId,
+    status: 'submitted',
+    ...filter
+  }).session(session);
+  const customerIds = [...new Set(items.map((item) => toIdString(item.customerId)).filter(Boolean))];
+  const customers = await User.find({ _id: { $in: customerIds } }).session(session);
+  const customerMap = new Map(customers.map((customer) => [toIdString(customer), customer]));
+
+  return { items, customerMap };
+};
+
+const saveModifiedCustomers = async (customerMap, session) => {
+  const dirtyCustomers = [...customerMap.values()].filter((customer) => customer.isModified('creditBalance'));
+  if (!dirtyCustomers.length) {
+    return;
+  }
+
+  await Promise.all(dirtyCustomers.map((customer) => customer.save({ session })));
+};
+
+const applyRoundSettlement = async (roundId, { force = false, session }) => {
+  const round = await loadRoundForSettlement(roundId, session);
+  const record = await loadPublishedResultForRound(round._id, session);
+  const normalized = normalizeResultPayload(record.toObject());
+  const itemFilter = force ? {} : { isLocked: false };
+  const { items, customerMap } = await loadRoundItemsWithCustomers(round._id, session, itemFilter);
+  const settlementGroupId = makeSettlementGroupId(round.code);
+  const payoutUpdatedAt = new Date();
+  const ledgerEntries = [];
+
+  let totalWon = 0;
+  let totalLost = 0;
+  let wonCount = 0;
+  let lostCount = 0;
+  let payoutEntryCount = 0;
+  let payoutNetDelta = 0;
+
+  for (const item of items) {
+    const isWon = checkItemResult(item, normalized);
+    const nextWonAmount = isWon ? toMoney(item.amount) * toMoney(item.payRate) : 0;
+    const previousAppliedAmount = toMoney(item.payoutAppliedAmount);
+    const payoutDelta = nextWonAmount - previousAppliedAmount;
+
+    item.result = isWon ? 'won' : 'lost';
+    item.wonAmount = nextWonAmount;
+    item.isLocked = true;
+
+    if (payoutDelta !== 0) {
+      const customer = customerMap.get(toIdString(item.customerId));
+      if (!customer) {
+        throw new Error(`Customer not found for payout reconciliation (${item.customerId})`);
+      }
+
+      const balanceBefore = toMoney(customer.creditBalance);
+      const balanceAfter = balanceBefore + payoutDelta;
+      customer.creditBalance = balanceAfter;
+
+      ledgerEntries.push({
+        groupId: settlementGroupId,
+        entryType: 'settlement',
+        direction: payoutDelta > 0 ? 'credit' : 'debit',
+        userId: customer._id,
+        counterpartyUserId: null,
+        performedByUserId: null,
+        performedByRole: 'system',
+        amount: Math.abs(payoutDelta),
+        balanceBefore,
+        balanceAfter,
+        reasonCode: payoutDelta > 0 ? 'bet_result_payout' : 'bet_result_reversal',
+        note: payoutDelta > 0
+          ? `Prize payout for round ${round.code}`
+          : `Prize reversal for round ${round.code}`,
+        metadata: {
+          roundId: round._id.toString(),
+          roundCode: round.code,
+          resultRecordId: record._id.toString(),
+          slipId: toIdString(item.slipId),
+          betItemId: item._id.toString(),
+          previousAppliedAmount,
+          nextWonAmount
+        }
+      });
+
+      item.payoutAppliedAmount = nextWonAmount;
+      item.payoutLedgerGroupId = settlementGroupId;
+      item.payoutUpdatedAt = payoutUpdatedAt;
+      payoutEntryCount++;
+      payoutNetDelta += payoutDelta;
+    }
+
+    await item.save({ session });
+
+    if (isWon) {
+      totalWon += item.wonAmount;
+      wonCount++;
+    } else {
+      totalLost += item.amount;
+      lostCount++;
+    }
+  }
+
+  await saveModifiedCustomers(customerMap, session);
+
+  if (ledgerEntries.length) {
+    await CreditLedgerEntry.insertMany(ledgerEntries, { session });
+  }
+
+  const legacyGovernmentResult = await LotteryResult.findOne({ roundDate: round.code }).session(session);
+  if (legacyGovernmentResult) {
+    legacyGovernmentResult.isCalculated = true;
+    await legacyGovernmentResult.save({ session });
+  }
+
+  return {
+    roundId: round._id.toString(),
+    roundCode: round.code,
+    totalItems: items.length,
+    wonCount,
+    lostCount,
+    totalWon,
+    totalLost,
+    netProfit: totalLost - totalWon,
+    payoutEntryCount,
+    payoutNetDelta,
+    payoutGroupId: ledgerEntries.length ? settlementGroupId : ''
+  };
+};
+
+const reverseRoundSettlement = async (roundId, { session }) => {
+  const round = await loadRoundForSettlement(roundId, session);
+  const { items, customerMap } = await loadRoundItemsWithCustomers(round._id, session);
+  const reversalGroupId = makeSettlementGroupId(`${round.code}-REV`);
+  const payoutUpdatedAt = new Date();
+  const ledgerEntries = [];
+
+  let resetItemCount = 0;
+  let reversedPayoutTotal = 0;
+
+  for (const item of items) {
+    const appliedAmount = toMoney(item.payoutAppliedAmount);
+    const shouldReset =
+      item.isLocked ||
+      item.result !== 'pending' ||
+      toMoney(item.wonAmount) !== 0 ||
+      appliedAmount !== 0;
+
+    if (!shouldReset) {
+      continue;
+    }
+
+    if (appliedAmount !== 0) {
+      const customer = customerMap.get(toIdString(item.customerId));
+      if (!customer) {
+        throw new Error(`Customer not found for payout rollback (${item.customerId})`);
+      }
+
+      const balanceBefore = toMoney(customer.creditBalance);
+      const balanceAfter = balanceBefore - appliedAmount;
+      customer.creditBalance = balanceAfter;
+
+      ledgerEntries.push({
+        groupId: reversalGroupId,
+        entryType: 'settlement',
+        direction: 'debit',
+        userId: customer._id,
+        counterpartyUserId: null,
+        performedByUserId: null,
+        performedByRole: 'system',
+        amount: appliedAmount,
+        balanceBefore,
+        balanceAfter,
+        reasonCode: 'bet_result_rollback',
+        note: `Settlement rollback for round ${round.code}`,
+        metadata: {
+          roundId: round._id.toString(),
+          roundCode: round.code,
+          slipId: toIdString(item.slipId),
+          betItemId: item._id.toString(),
+          reversedAppliedAmount: appliedAmount,
+          reversedFromGroupId: item.payoutLedgerGroupId || ''
+        }
+      });
+
+      reversedPayoutTotal += appliedAmount;
+    }
+
+    item.result = 'pending';
+    item.wonAmount = 0;
+    item.payoutAppliedAmount = 0;
+    item.payoutLedgerGroupId = '';
+    item.payoutUpdatedAt = payoutUpdatedAt;
+    item.isLocked = false;
+
+    await item.save({ session });
+    resetItemCount++;
+  }
+
+  await saveModifiedCustomers(customerMap, session);
+
+  if (ledgerEntries.length) {
+    await CreditLedgerEntry.insertMany(ledgerEntries, { session });
+  }
+
+  return {
+    roundId: round._id.toString(),
+    roundCode: round.code,
+    totalItems: items.length,
+    resetItemCount,
+    reversedPayoutTotal,
+    reversalEntryCount: ledgerEntries.length,
+    reversalGroupId: ledgerEntries.length ? reversalGroupId : ''
+  };
+};
+
+const reconcileRoundSettlementById = async (roundId) => {
+  const round = await DrawRound.findById(roundId).select('code lotteryTypeId status resultPublishedAt');
+  if (!round) {
+    throw new Error('Round not found');
+  }
+
+  const record = await ResultRecord.findOne({ drawRoundId: round._id, isPublished: true }).lean();
+  const items = await BetItem.find({ drawRoundId: round._id, status: 'submitted' }).lean();
+  const ledgerEntries = await CreditLedgerEntry.find({
+    entryType: 'settlement',
+    'metadata.roundId': round._id.toString()
+  }).lean();
+
+  const payoutNetByItem = new Map();
+  for (const entry of ledgerEntries) {
+    const betItemId = String(entry.metadata?.betItemId || '');
+    if (!betItemId) continue;
+    const directionSign = entry.direction === 'credit' ? 1 : -1;
+    payoutNetByItem.set(
+      betItemId,
+      toMoney(payoutNetByItem.get(betItemId)) + directionSign * toMoney(entry.amount)
+    );
+  }
+
+  if (!record) {
+    const unsettledItems = items.filter((item) => item.isLocked || item.result !== 'pending' || toMoney(item.payoutAppliedAmount) !== 0);
+    return {
+      roundId: round._id.toString(),
+      roundCode: round.code,
+      hasPublishedResult: false,
+      totalItems: items.length,
+      matchedItems: items.length - unsettledItems.length,
+      mismatchedItems: unsettledItems.length,
+      mismatches: unsettledItems.slice(0, 20).map((item) => ({
+        betItemId: item._id.toString(),
+        betType: item.betType,
+        number: item.number,
+        reasons: ['unexpected-settlement-without-published-result']
+      }))
+    };
+  }
+
+  const normalized = normalizeResultPayload(record);
+  const mismatches = [];
+  let expectedWonCount = 0;
+  let expectedLostCount = 0;
+  let expectedPayoutTotal = 0;
+  let appliedPayoutTotal = 0;
+
+  for (const item of items) {
+    const isWon = checkItemResult(item, normalized);
+    const expectedResult = isWon ? 'won' : 'lost';
+    const expectedWonAmount = isWon ? toMoney(item.amount) * toMoney(item.payRate) : 0;
+    const appliedPayoutAmount = toMoney(item.payoutAppliedAmount);
+    const ledgerNetAmount = toMoney(payoutNetByItem.get(item._id.toString()));
+    const reasons = [];
+
+    if (item.result !== expectedResult) reasons.push('result-mismatch');
+    if (toMoney(item.wonAmount) !== expectedWonAmount) reasons.push('won-amount-mismatch');
+    if (appliedPayoutAmount !== expectedWonAmount) reasons.push('payout-applied-mismatch');
+    if (item.isLocked !== true) reasons.push('lock-state-mismatch');
+    if (ledgerNetAmount !== appliedPayoutAmount) reasons.push('ledger-net-mismatch');
+
+    if (reasons.length) {
+      mismatches.push({
+        betItemId: item._id.toString(),
+        betType: item.betType,
+        number: item.number,
+        reasons,
+        current: {
+          result: item.result,
+          wonAmount: toMoney(item.wonAmount),
+          payoutAppliedAmount: appliedPayoutAmount,
+          isLocked: Boolean(item.isLocked),
+          ledgerNetAmount
+        },
+        expected: {
+          result: expectedResult,
+          wonAmount: expectedWonAmount,
+          payoutAppliedAmount: expectedWonAmount,
+          isLocked: true
+        }
+      });
+    }
+
+    if (isWon) {
+      expectedWonCount++;
+      expectedPayoutTotal += expectedWonAmount;
+    } else {
+      expectedLostCount++;
+    }
+    appliedPayoutTotal += appliedPayoutAmount;
+  }
+
+  return {
+    roundId: round._id.toString(),
+    roundCode: round.code,
+    hasPublishedResult: true,
+    resultRecordId: record._id.toString(),
+    totalItems: items.length,
+    expectedWonCount,
+    expectedLostCount,
+    expectedPayoutTotal,
+    appliedPayoutTotal,
+    ledgerEntryCount: ledgerEntries.length,
+    matchedItems: items.length - mismatches.length,
+    mismatchedItems: mismatches.length,
+    mismatches: mismatches.slice(0, 20)
+  };
+};
+
+const reverseRoundSettlementById = async (roundId) => {
+  const session = await mongoose.startSession();
+
+  try {
+    let summary = null;
+    await session.withTransaction(async () => {
+      summary = await reverseRoundSettlement(roundId, { session });
+    });
+    return summary;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const rerunRoundSettlementById = async (roundId) => {
+  const session = await mongoose.startSession();
+
+  try {
+    let summary = null;
+    await session.withTransaction(async () => {
+      const reverseSummary = await reverseRoundSettlement(roundId, { session });
+      const settlementSummary = await applyRoundSettlement(roundId, { force: true, session });
+      summary = {
+        roundId: settlementSummary.roundId,
+        roundCode: settlementSummary.roundCode,
+        reverse: reverseSummary,
+        settlement: settlementSummary
+      };
+    });
+    return summary;
+  } finally {
+    await session.endSession();
+  }
+};
+
 const settleRoundById = async (roundId, { force = false } = {}) => {
   const session = await mongoose.startSession();
 
@@ -369,134 +753,7 @@ const settleRoundById = async (roundId, { force = false } = {}) => {
     let summary = null;
 
     await session.withTransaction(async () => {
-      const round = await DrawRound.findById(roundId).session(session);
-      if (!round) {
-        throw new Error('Round not found');
-      }
-
-      const record = await ResultRecord.findOne({ drawRoundId: round._id, isPublished: true }).session(session);
-      if (!record) {
-        throw new Error('Published result not found for this round');
-      }
-
-      const normalized = normalizeResultPayload(record.toObject());
-      const itemFilter = {
-        drawRoundId: round._id,
-        status: 'submitted'
-      };
-
-      if (!force) {
-        itemFilter.isLocked = false;
-      }
-
-      const items = await BetItem.find(itemFilter).session(session);
-      const customerIds = [...new Set(items.map((item) => toIdString(item.customerId)).filter(Boolean))];
-      const customers = await User.find({ _id: { $in: customerIds } }).session(session);
-      const customerMap = new Map(customers.map((customer) => [toIdString(customer), customer]));
-      const settlementGroupId = makeSettlementGroupId(round.code);
-      const payoutUpdatedAt = new Date();
-      const ledgerEntries = [];
-
-      let totalWon = 0;
-      let totalLost = 0;
-      let wonCount = 0;
-      let lostCount = 0;
-      let payoutEntryCount = 0;
-      let payoutNetDelta = 0;
-
-      for (const item of items) {
-        const isWon = checkItemResult(item, normalized);
-        const nextWonAmount = isWon ? toMoney(item.amount) * toMoney(item.payRate) : 0;
-        const previousAppliedAmount = toMoney(item.payoutAppliedAmount);
-        const payoutDelta = nextWonAmount - previousAppliedAmount;
-
-        item.result = isWon ? 'won' : 'lost';
-        item.wonAmount = nextWonAmount;
-        item.isLocked = true;
-
-        if (payoutDelta !== 0) {
-          const customer = customerMap.get(toIdString(item.customerId));
-          if (!customer) {
-            throw new Error(`Customer not found for payout reconciliation (${item.customerId})`);
-          }
-
-          const balanceBefore = toMoney(customer.creditBalance);
-          const balanceAfter = balanceBefore + payoutDelta;
-          customer.creditBalance = balanceAfter;
-
-          ledgerEntries.push({
-            groupId: settlementGroupId,
-            entryType: 'settlement',
-            direction: payoutDelta > 0 ? 'credit' : 'debit',
-            userId: customer._id,
-            counterpartyUserId: null,
-            performedByUserId: null,
-            performedByRole: 'system',
-            amount: Math.abs(payoutDelta),
-            balanceBefore,
-            balanceAfter,
-            reasonCode: payoutDelta > 0 ? 'bet_result_payout' : 'bet_result_reversal',
-            note: payoutDelta > 0
-              ? `Prize payout for round ${round.code}`
-              : `Prize reversal for round ${round.code}`,
-            metadata: {
-              roundId: round._id.toString(),
-              roundCode: round.code,
-              resultRecordId: record._id.toString(),
-              slipId: toIdString(item.slipId),
-              betItemId: item._id.toString(),
-              previousAppliedAmount,
-              nextWonAmount
-            }
-          });
-
-          item.payoutAppliedAmount = nextWonAmount;
-          item.payoutLedgerGroupId = settlementGroupId;
-          item.payoutUpdatedAt = payoutUpdatedAt;
-          payoutEntryCount++;
-          payoutNetDelta += payoutDelta;
-        }
-
-        await item.save({ session });
-
-        if (isWon) {
-          totalWon += item.wonAmount;
-          wonCount++;
-        } else {
-          totalLost += item.amount;
-          lostCount++;
-        }
-      }
-
-      await Promise.all(
-        [...customerMap.values()]
-          .filter((customer) => customer.isModified('creditBalance'))
-          .map((customer) => customer.save({ session }))
-      );
-
-      if (ledgerEntries.length) {
-        await CreditLedgerEntry.insertMany(ledgerEntries, { session });
-      }
-
-      const legacyGovernmentResult = await LotteryResult.findOne({ roundDate: round.code }).session(session);
-      if (legacyGovernmentResult) {
-        legacyGovernmentResult.isCalculated = true;
-        await legacyGovernmentResult.save({ session });
-      }
-
-      summary = {
-        roundId: round._id.toString(),
-        roundCode: round.code,
-        totalItems: items.length,
-        wonCount,
-        lostCount,
-        totalWon,
-        totalLost,
-        netProfit: totalLost - totalWon,
-        payoutEntryCount,
-        payoutNetDelta,
-        payoutGroupId: ledgerEntries.length ? settlementGroupId : ''
-      };
+      summary = await applyRoundSettlement(roundId, { force, session });
     });
 
     return summary;
@@ -563,6 +820,9 @@ module.exports = {
   validatePublishedResultPayload,
   upsertRoundResult,
   syncLegacyThaiGovernmentResult,
+  reconcileRoundSettlementById,
+  reverseRoundSettlementById,
+  rerunRoundSettlementById,
   settleRoundById,
   settleRoundByCode,
   getRoundResult

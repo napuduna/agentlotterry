@@ -169,12 +169,20 @@ const cleanupRegressionArtifacts = async (created = {}) => {
     created.agentId,
     created.memberId,
     created.slipId,
+    created.roundId,
     created.roundCode,
     ...groupIds
   ].filter(Boolean);
 
   if (groupIds.length) {
     await CreditLedgerEntry.deleteMany({ groupId: { $in: groupIds } });
+  }
+
+  if (created.roundId) {
+    await CreditLedgerEntry.deleteMany({
+      entryType: 'settlement',
+      'metadata.roundId': created.roundId
+    });
   }
 
   if (created.roundId) {
@@ -513,6 +521,54 @@ const main = async () => {
     assert(cancelAfterSettlementResponse.status === 400, 'Settled slip should not be cancellable');
     summary.checks.push('admin-cancel-blocked-after-result');
 
+    const reconcileBeforeReverseResponse = await adminClient.get(`/lottery/rounds/${regressionRound.id}/settlement/reconcile`);
+    expectStatus(reconcileBeforeReverseResponse, 200, 'Reconcile round settlement before reverse');
+    assert(reconcileBeforeReverseResponse.data.mismatchedItems === 0, 'Settlement reconciliation should be clean before reverse');
+    assert(Number(reconcileBeforeReverseResponse.data.appliedPayoutTotal || 0) === 9870, 'Applied payout total should match winning payout before reverse');
+    summary.checks.push('result-reconcile-before-reverse');
+
+    const reverseSettlementResponse = await adminClient.post(`/lottery/rounds/${regressionRound.id}/settlement/reverse`);
+    expectStatus(reverseSettlementResponse, 200, 'Reverse round settlement');
+    assert(Number(reverseSettlementResponse.data.summary?.reversedPayoutTotal || 0) === 9870, 'Reverse settlement should roll back the winning payout');
+    const [memberWalletAfterReverse, settlementLedgerEntriesAfterReverse, rawWinningItemAfterReverse] = await Promise.all([
+      agentClient.get('/wallet/summary', { params: { targetUserId: created.memberId } }),
+      CreditLedgerEntry.find({ userId: created.memberId, entryType: 'settlement' }).sort({ createdAt: 1 }).lean(),
+      BetItem.findOne({ slipId: created.slipId, number: '456' }).lean()
+    ]);
+    expectStatus(memberWalletAfterReverse, 200, 'Member wallet after reverse settlement');
+    assert(Number(memberWalletAfterReverse.data.account?.creditBalance || 0) === 100, 'Reverse settlement should remove the payout from member wallet');
+    assert(settlementLedgerEntriesAfterReverse.length === 2, 'Reverse settlement should add exactly one rollback ledger entry');
+    assert(settlementLedgerEntriesAfterReverse.some((entry) => entry.reasonCode === 'bet_result_rollback' && Number(entry.amount || 0) === 9870), 'Rollback ledger entry should mirror the original payout');
+    assert(rawWinningItemAfterReverse, 'Winning item should still exist after reverse settlement');
+    assert(rawWinningItemAfterReverse.result === 'pending', 'Reverse settlement should reset item result to pending');
+    assert(rawWinningItemAfterReverse.isLocked === false, 'Reverse settlement should unlock the item');
+    assert(Number(rawWinningItemAfterReverse.wonAmount || 0) === 0, 'Reverse settlement should reset won amount');
+    assert(Number(rawWinningItemAfterReverse.payoutAppliedAmount || 0) === 0, 'Reverse settlement should reset applied payout amount');
+    summary.checks.push('result-reversal');
+
+    const reconcileAfterReverseResponse = await adminClient.get(`/lottery/rounds/${regressionRound.id}/settlement/reconcile`);
+    expectStatus(reconcileAfterReverseResponse, 200, 'Reconcile round settlement after reverse');
+    assert(reconcileAfterReverseResponse.data.mismatchedItems >= 1, 'Reconciliation after reverse should detect outstanding settlement mismatches');
+    summary.checks.push('result-reconcile-after-reverse');
+
+    const rerunSettlementResponse = await adminClient.post(`/lottery/rounds/${regressionRound.id}/settlement/rerun`);
+    expectStatus(rerunSettlementResponse, 200, 'Rerun round settlement');
+    assert(Number(rerunSettlementResponse.data.summary?.settlement?.wonCount || 0) >= 1, 'Rerun settlement should settle the winning item again');
+    const [memberWalletAfterRerun, settlementLedgerEntriesAfterRerun, rawWinningItemAfterRerun] = await Promise.all([
+      agentClient.get('/wallet/summary', { params: { targetUserId: created.memberId } }),
+      CreditLedgerEntry.find({ userId: created.memberId, entryType: 'settlement' }).sort({ createdAt: 1 }).lean(),
+      BetItem.findOne({ slipId: created.slipId, number: '456' }).lean()
+    ]);
+    expectStatus(memberWalletAfterRerun, 200, 'Member wallet after rerun settlement');
+    assert(Number(memberWalletAfterRerun.data.account?.creditBalance || 0) === 9970, 'Rerun settlement should repay the winning payout exactly once');
+    assert(settlementLedgerEntriesAfterRerun.length === 3, 'Rerun settlement should add one new settlement entry after rollback');
+    assert(rawWinningItemAfterRerun, 'Winning item should still exist after rerun settlement');
+    assert(rawWinningItemAfterRerun.result === 'won', 'Rerun settlement should restore the winning result');
+    assert(rawWinningItemAfterRerun.isLocked === true, 'Rerun settlement should relock the item');
+    assert(Number(rawWinningItemAfterRerun.wonAmount || 0) === 9870, 'Rerun settlement should restore won amount');
+    assert(Number(rawWinningItemAfterRerun.payoutAppliedAmount || 0) === 9870, 'Rerun settlement should restore applied payout amount');
+    summary.checks.push('result-rerun');
+
     const transferBackResponse = await agentClient.post('/wallet/transfer', {
       memberId: created.memberId,
       amount: 20,
@@ -571,7 +627,7 @@ const main = async () => {
     ]);
     expectStatus(memberWalletAfterResettlement, 200, 'Member wallet after resettlement');
     assert(Number(memberWalletAfterResettlement.data.account?.creditBalance || 0) === 9950, 'Resettlement should not pay the member twice');
-    assert(settlementLedgerEntriesAfterResettlement.length === 1, 'Resettlement should not create duplicate settlement ledger entries');
+    assert(settlementLedgerEntriesAfterResettlement.length === 3, 'Resettlement should not create duplicate settlement ledger entries after rerun');
     summary.checks.push('result-resettlement');
 
     const submitAfterResultResponse = await agentClient.post('/agent/betting/slips', {

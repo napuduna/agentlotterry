@@ -6,10 +6,18 @@ import {
   FiClock,
   FiExternalLink,
   FiRefreshCw,
+  FiRotateCcw,
   FiSlash
 } from 'react-icons/fi';
 import PageSkeleton from '../../components/PageSkeleton';
-import { getCatalogOverview, getMarketOverview } from '../../services/api';
+import {
+  getCatalogOverview,
+  getLotterySyncStatus,
+  getMarketOverview,
+  reconcileLotteryRoundSettlement,
+  rerunLotteryRoundSettlement,
+  reverseLotteryRoundSettlement
+} from '../../services/api';
 import { formatDateTime, formatRoundLabel, formatThaiDate, THAI_TIMEZONE } from '../../utils/formatters';
 import { getLotteryVisual } from '../../utils/lotteryVisuals';
 
@@ -19,6 +27,17 @@ const UI = {
   subtitle: 'แสดงเฉพาะตลาดที่มี API ในระบบ พร้อมสถานะเปิดรับ - ปิดรับ และผลล่าสุดของแต่ละหวยในหน้าเดียว',
   refresh: 'รีเฟรช',
   warningTitle: 'สถานะการเชื่อมต่อผลหวย',
+  syncSummaryTitle: 'ภาพรวมการซิงก์ล่าสุด',
+  syncSummaryEmpty: 'ยังไม่มีประวัติการซิงก์ล่าสุด',
+  syncConfiguredFeeds: 'ฟีดที่ตั้งไว้',
+  syncExplicitFeeds: 'explicit mapping',
+  syncProblemFeeds: 'ฟีดมีปัญหา',
+  syncSettlements: 'settlement ล่าสุด',
+  syncStrictModeOn: 'strict mapping เปิดอยู่',
+  syncStrictModeOff: 'strict mapping ปิดอยู่',
+  syncLastRun: 'ซิงก์ล่าสุด',
+  syncLastError: 'ซิงก์ล่าสุดล้มเหลว',
+  syncFeedIssues: 'ฟีดที่ต้องตรวจเพิ่ม',
   apiNotConfigured: 'ยังไม่ได้ตั้งค่า API หรือผู้ให้บริการผลหวยยังไม่พร้อมใช้งานบางส่วน',
   noData: 'ยังไม่มีตลาดผลหวยที่พร้อมแสดงผล',
   openAt: 'เปิดรับ',
@@ -34,7 +53,16 @@ const UI = {
   updatedAt: 'อัปเดตล่าสุด',
   apiLink: 'เปิดแหล่งข้อมูล',
   providerUnavailable: 'API ยังไม่พร้อม',
-  latestHeadlineFallback: 'รอผลล่าสุด'
+  latestHeadlineFallback: 'รอผลล่าสุด',
+  settlementTitle: 'จัดการ settlement ของงวดนี้',
+  settlementUnavailable: 'ยังไม่มี active round จริงในระบบสำหรับจัดการ settlement',
+  settlementSynthetic: 'งวดนี้เป็นงวดจำลองจากตารางเวลา ใช้จัดการ settlement จริงไม่ได้',
+  settlementReconcile: 'ตรวจสอบ',
+  settlementReverse: 'ย้อนงวด',
+  settlementRerun: 'รันใหม่',
+  settlementHelp: 'ใช้สำหรับตรวจความสอดคล้อง, ย้อน payout, หรือรัน settlement ใหม่ของงวดที่เลือก',
+  settlementBusy: 'กำลังดำเนินการ...',
+  settlementFeedbackEmpty: 'ยังไม่ได้รันคำสั่งจัดการ settlement ในงวดนี้'
 };
 
 const CATALOG_MARKET_ALIASES = {
@@ -460,12 +488,61 @@ const getRecentHistory = (recentResultsMap, resultKeys) => {
     .slice(0, 6);
 };
 
+const formatInteger = (value) => new Intl.NumberFormat('th-TH').format(Number(value || 0));
+
+const buildSettlementFeedback = (action, payload) => {
+  if (!payload) return null;
+
+  if (action === 'reconcile') {
+    const mismatchedItems = Number(payload.mismatchedItems || 0);
+    return {
+      title: 'ตรวจความสอดคล้องล่าสุด',
+      className: mismatchedItems > 0 ? 'is-warning' : 'is-ok',
+      lines: [
+        `รายการทั้งหมด ${formatInteger(payload.totalItems)} รายการ`,
+        `ผิดปกติ ${formatInteger(mismatchedItems)} รายการ`,
+        `ยอดจ่ายที่ใช้จริง ${formatInteger(payload.appliedPayoutTotal)} บาท`
+      ]
+    };
+  }
+
+  if (action === 'reverse') {
+    return {
+      title: 'ย้อน settlement แล้ว',
+      className: 'is-warning',
+      lines: [
+        `รีเซ็ตรายการ ${formatInteger(payload.resetItemCount)} รายการ`,
+        `ยอด rollback ${formatInteger(payload.reversedPayoutTotal)} บาท`,
+        `ledger ที่สร้าง ${formatInteger(payload.reversalEntryCount)} รายการ`
+      ]
+    };
+  }
+
+  if (action === 'rerun') {
+    const settlement = payload.settlement || {};
+    return {
+      title: 'รัน settlement ใหม่แล้ว',
+      className: 'is-ok',
+      lines: [
+        `ผู้ชนะ ${formatInteger(settlement.wonCount)} รายการ`,
+        `ยอดจ่าย ${formatInteger(settlement.totalWon)} บาท`,
+        `กำไรสุทธิ ${formatInteger(settlement.netProfit)} บาท`
+      ]
+    };
+  }
+
+  return null;
+};
+
 const AdminLottery = () => {
   const [catalogOverview, setCatalogOverview] = useState(null);
   const [marketOverview, setMarketOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCode, setSelectedCode] = useState('');
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [settlementBusy, setSettlementBusy] = useState('');
+  const [settlementFeedback, setSettlementFeedback] = useState(null);
 
   const loadData = async ({ silent = false } = {}) => {
     if (silent) {
@@ -474,9 +551,10 @@ const AdminLottery = () => {
       setLoading(true);
     }
 
-    const [catalogResult, marketResult] = await Promise.allSettled([
+    const [catalogResult, marketResult, syncResult] = await Promise.allSettled([
       getCatalogOverview(),
-      getMarketOverview()
+      getMarketOverview(),
+      getLotterySyncStatus()
     ]);
 
     if (catalogResult.status === 'fulfilled') {
@@ -495,6 +573,20 @@ const AdminLottery = () => {
       setMarketOverview({ provider: { configured: false }, warnings: [] });
     }
 
+    if (syncResult.status === 'fulfilled') {
+      setSyncStatus(syncResult.value.data || null);
+    } else {
+      console.error(syncResult.reason);
+      toast.error('โหลดสถานะซิงก์ผลหวยไม่สำเร็จ');
+      setSyncStatus({
+        running: false,
+        lastError: syncResult.reason?.message || 'โหลดสถานะซิงก์ไม่สำเร็จ',
+        lastSummary: null,
+        mappingCoverage: null,
+        feeds: []
+      });
+    }
+
     setLoading(false);
     setRefreshing(false);
   };
@@ -502,6 +594,10 @@ const AdminLottery = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setSettlementFeedback(null);
+  }, [selectedCode]);
 
   const displaySections = useMemo(() => {
     const catalogLotteryMap = buildCatalogLotteryMap(catalogOverview);
@@ -573,12 +669,45 @@ const AdminLottery = () => {
 
   const selectedResult = selectedCard?.latestResult || selectedHistory[0] || null;
   const SelectedStatusIcon = selectedCard?.statusIcon || FiAlertCircle;
+  const syncSummary = syncStatus?.lastSummary || null;
+  const syncCoverage = syncStatus?.mappingCoverage || syncSummary?.mappingCoverage || null;
+  const syncFeedIssues = useMemo(
+    () => (syncSummary?.feedSummaries || []).filter((feed) => feed.status !== 'ok'),
+    [syncSummary]
+  );
+  const syncMetrics = useMemo(() => ([
+    {
+      label: UI.syncConfiguredFeeds,
+      value: syncCoverage ? formatInteger(syncCoverage.configuredCount) : '-',
+      note: syncStatus?.feeds?.length ? `${formatInteger(syncStatus.feeds.length)} feeds` : UI.syncSummaryEmpty
+    },
+    {
+      label: UI.syncExplicitFeeds,
+      value: syncCoverage ? `${formatInteger(syncCoverage.explicitCount)}/${formatInteger(syncCoverage.configuredCount)}` : '-',
+      note: syncCoverage?.strictMode ? UI.syncStrictModeOn : UI.syncStrictModeOff
+    },
+    {
+      label: UI.syncProblemFeeds,
+      value: syncSummary ? formatInteger((syncSummary.warningFeeds || 0) + (syncSummary.errorFeeds || 0)) : '-',
+      note: syncStatus?.lastError ? UI.syncLastError : UI.syncSummaryTitle
+    },
+    {
+      label: UI.syncSettlements,
+      value: syncSummary ? formatInteger(syncSummary.settlements) : '-',
+      note: syncSummary?.syncedAt ? `${UI.syncLastRun} ${formatUpdatedAt(syncSummary.syncedAt)}` : UI.syncSummaryEmpty
+    }
+  ]), [syncCoverage, syncStatus, syncSummary]);
+  const settlementRoundId = selectedCard?.activeRound?.isSynthetic ? '' : (selectedCard?.activeRound?.id || '');
+  const settlementUnavailableReason = selectedCard?.activeRound?.isSynthetic
+    ? UI.settlementSynthetic
+    : (!settlementRoundId ? UI.settlementUnavailable : '');
   const pageWarnings = useMemo(() => {
     const cards = displaySections.flatMap((section) => section.cards);
 
     return [
       ...(marketOverview?.warnings || []),
-      ...(marketOverview?.provider?.configured === false ? [UI.apiNotConfigured] : [])
+      ...(marketOverview?.provider?.configured === false ? [UI.apiNotConfigured] : []),
+      ...(syncStatus?.lastError ? [`${UI.syncLastError}: ${syncStatus.lastError}`] : [])
     ]
       .filter(Boolean)
       .filter((warning) => {
@@ -598,8 +727,15 @@ const AdminLottery = () => {
 
         return !(hasVisibleResult || hasResolvedStatus);
       });
-  }, [displaySections, marketOverview]);
+  }, [displaySections, marketOverview, syncStatus]);
   const connectionStatus = useMemo(() => {
+    if (syncStatus?.lastError) {
+      return {
+        label: UI.syncLastError,
+        className: 'is-warning',
+        note: syncStatus.lastError
+      };
+    }
     const fallbackOnly = pageWarnings.length === 1 && /fallback|สำรอง/i.test(pageWarnings[0] || '');
     if (fallbackOnly) {
       return {
@@ -622,7 +758,44 @@ const AdminLottery = () => {
       className: 'is-ok',
       note: 'ระบบเชื่อมต่อข้อมูลผลหวยได้ตามปกติ'
     };
-  }, [pageWarnings]);
+  }, [pageWarnings, syncStatus]);
+
+  const handleSettlementAction = async (action) => {
+    if (!settlementRoundId) {
+      toast.error(settlementUnavailableReason || UI.settlementUnavailable);
+      return;
+    }
+
+    setSettlementBusy(action);
+
+    try {
+      let response;
+      if (action === 'reconcile') {
+        response = await reconcileLotteryRoundSettlement(settlementRoundId);
+      } else if (action === 'reverse') {
+        response = await reverseLotteryRoundSettlement(settlementRoundId);
+      } else {
+        response = await rerunLotteryRoundSettlement(settlementRoundId);
+      }
+
+      const payload = action === 'reconcile' ? response.data : (response.data?.summary || null);
+      setSettlementFeedback(buildSettlementFeedback(action, payload));
+      await loadData({ silent: true });
+
+      if (action === 'reconcile') {
+        toast.success('ตรวจสอบ settlement สำเร็จ');
+      } else if (action === 'reverse') {
+        toast.success('ย้อน settlement สำเร็จ');
+      } else {
+        toast.success('รัน settlement ใหม่สำเร็จ');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || 'จัดการ settlement ไม่สำเร็จ');
+    } finally {
+      setSettlementBusy('');
+    }
+  };
 
   if (loading) {
     return <PageSkeleton statCount={0} rows={6} sidebar={false} />;
@@ -660,6 +833,33 @@ const AdminLottery = () => {
             {pageWarnings.map((warning, index) => (
               <span key={`${warning}-${index}`} className="warning-chip">{warning}</span>
             ))}
+          </div>
+        ) : null}
+
+        <div className="sync-metrics-grid">
+          {syncMetrics.map((metric) => (
+            <article key={metric.label} className="sync-metric-card">
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+              <small>{metric.note}</small>
+            </article>
+          ))}
+        </div>
+
+        {syncFeedIssues.length > 0 ? (
+          <div className="sync-feed-panel">
+            <div className="sync-feed-title">{UI.syncFeedIssues}</div>
+            <div className="sync-feed-list">
+              {syncFeedIssues.slice(0, 8).map((feed) => (
+                <article key={feed.feedCode} className={`sync-feed-card is-${feed.status}`}>
+                  <div>
+                    <strong>{feed.marketName}</strong>
+                    <span>{feed.feedCode} · {feed.mappingMode}</span>
+                  </div>
+                  <small>{feed.error || feed.warnings[0] || 'ต้องตรวจสอบเพิ่มเติม'}</small>
+                </article>
+              ))}
+            </div>
           </div>
         ) : null}
       </section>
@@ -797,6 +997,65 @@ const AdminLottery = () => {
                     {UI.apiLink}
                   </a>
                 ) : null}
+
+                <section className="settlement-panel">
+                  <div className="settlement-head">
+                    <div>
+                      <div className="history-title">{UI.settlementTitle}</div>
+                      <p className="settlement-note">{UI.settlementHelp}</p>
+                    </div>
+                    {settlementRoundId ? (
+                      <span className="settlement-round-pill">{selectedCard.activeRound?.code || selectedCard.activeRound?.title || '-'}</span>
+                    ) : null}
+                  </div>
+
+                  {settlementUnavailableReason ? (
+                    <div className="detail-empty compact">{settlementUnavailableReason}</div>
+                  ) : (
+                    <div className="settlement-actions">
+                      <button
+                        type="button"
+                        className="button button-secondary settlement-button"
+                        onClick={() => handleSettlementAction('reconcile')}
+                        disabled={Boolean(settlementBusy)}
+                      >
+                        <FiCheckCircle />
+                        {settlementBusy === 'reconcile' ? UI.settlementBusy : UI.settlementReconcile}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary settlement-button is-warning"
+                        onClick={() => handleSettlementAction('reverse')}
+                        disabled={Boolean(settlementBusy)}
+                      >
+                        <FiSlash />
+                        {settlementBusy === 'reverse' ? UI.settlementBusy : UI.settlementReverse}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-secondary settlement-button is-accent"
+                        onClick={() => handleSettlementAction('rerun')}
+                        disabled={Boolean(settlementBusy)}
+                      >
+                        <FiRotateCcw />
+                        {settlementBusy === 'rerun' ? UI.settlementBusy : UI.settlementRerun}
+                      </button>
+                    </div>
+                  )}
+
+                  {settlementFeedback ? (
+                    <article className={`settlement-feedback ${settlementFeedback.className || ''}`}>
+                      <strong>{settlementFeedback.title}</strong>
+                      <div className="settlement-feedback-lines">
+                        {settlementFeedback.lines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </div>
+                    </article>
+                  ) : (
+                    <div className="settlement-empty">{UI.settlementFeedbackEmpty}</div>
+                  )}
+                </section>
 
                 <div className="history-head">
                   <div className="history-title">{UI.recentHistoryTitle}</div>
@@ -958,6 +1217,87 @@ const AdminLottery = () => {
           border: 1px solid rgba(251, 191, 36, 0.45);
           color: #7c2d12;
           font-size: 0.92rem;
+        }
+
+        .sync-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .sync-metric-card {
+          padding: 14px 16px;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.82);
+          border: 1px solid rgba(251, 191, 36, 0.25);
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .sync-metric-card span {
+          font-size: 0.84rem;
+          color: #9a3412;
+        }
+
+        .sync-metric-card strong {
+          font-size: 1.4rem;
+          letter-spacing: -0.03em;
+          color: #431407;
+        }
+
+        .sync-metric-card small {
+          color: #9a3412;
+          opacity: 0.86;
+        }
+
+        .sync-feed-panel {
+          margin-top: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .sync-feed-title {
+          font-weight: 800;
+          color: #9a3412;
+        }
+
+        .sync-feed-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .sync-feed-card {
+          padding: 12px 14px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.82);
+          border: 1px solid rgba(148, 163, 184, 0.24);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .sync-feed-card.is-warning {
+          border-color: rgba(245, 158, 11, 0.36);
+        }
+
+        .sync-feed-card.is-error {
+          border-color: rgba(239, 68, 68, 0.28);
+          background: rgba(254, 242, 242, 0.84);
+        }
+
+        .sync-feed-card strong {
+          display: block;
+          color: #431407;
+        }
+
+        .sync-feed-card span,
+        .sync-feed-card small {
+          color: #7c2d12;
+          font-size: 0.88rem;
         }
 
         .lottery-grid-layout {
@@ -1258,6 +1598,111 @@ const AdminLottery = () => {
           font-size: 0.92rem;
         }
 
+        .settlement-panel {
+          margin-top: 18px;
+          padding: 16px;
+          border-radius: 22px;
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 248, 0.96));
+          border: 1px solid rgba(244, 114, 182, 0.14);
+        }
+
+        .settlement-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .settlement-note {
+          margin: 6px 0 0;
+          color: var(--text-muted);
+          font-size: 0.92rem;
+        }
+
+        .settlement-round-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(254, 242, 242, 0.9);
+          border: 1px solid rgba(248, 113, 113, 0.2);
+          color: #991b1b;
+          font-size: 0.84rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .settlement-actions {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 14px;
+        }
+
+        .settlement-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 46px;
+          font-weight: 800;
+        }
+
+        .settlement-button.is-warning {
+          color: #9a3412;
+          border-color: rgba(245, 158, 11, 0.3);
+          background: rgba(255, 251, 235, 0.92);
+        }
+
+        .settlement-button.is-accent {
+          color: #1d4ed8;
+          border-color: rgba(96, 165, 250, 0.26);
+          background: rgba(239, 246, 255, 0.94);
+        }
+
+        .settlement-feedback,
+        .settlement-empty {
+          margin-top: 14px;
+          padding: 14px 16px;
+          border-radius: 18px;
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          background: rgba(255, 255, 255, 0.82);
+        }
+
+        .settlement-feedback.is-ok {
+          border-color: rgba(34, 197, 94, 0.28);
+          background: rgba(236, 253, 245, 0.88);
+        }
+
+        .settlement-feedback.is-warning {
+          border-color: rgba(245, 158, 11, 0.32);
+          background: rgba(255, 251, 235, 0.9);
+        }
+
+        .settlement-feedback strong {
+          display: block;
+          margin-bottom: 8px;
+        }
+
+        .settlement-feedback-lines {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          color: var(--text-muted);
+          font-size: 0.92rem;
+        }
+
+        .settlement-empty {
+          color: var(--text-muted);
+          font-size: 0.92rem;
+        }
+
+        .detail-empty.compact {
+          margin-top: 14px;
+          padding: 14px 16px;
+        }
+
         .history-head {
           display: flex;
           align-items: center;
@@ -1344,6 +1789,12 @@ const AdminLottery = () => {
           .warning-head {
             flex-direction: column;
             align-items: flex-start;
+          }
+
+          .sync-metrics-grid,
+          .sync-feed-list,
+          .settlement-actions {
+            grid-template-columns: 1fr;
           }
         }
 

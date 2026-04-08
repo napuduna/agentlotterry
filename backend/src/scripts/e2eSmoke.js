@@ -390,9 +390,13 @@ const main = async () => {
       params: { lotteryId: visibleLotteries[0].id }
     });
     expectStatus(roundsResponse, 200, 'Operator rounds');
-    const selectedRound = (roundsResponse.data || []).find((round) => round.id === visibleLotteries[0].activeRound?.id)
-      || (roundsResponse.data || [])[0];
+    const availableRounds = roundsResponse.data || [];
+    const selectedRound = availableRounds.find((round) => round.status === 'open')
+      || availableRounds.find((round) => round.id === visibleLotteries[0].activeRound?.id && round.status === 'open')
+      || availableRounds.find((round) => round.id === visibleLotteries[0].activeRound?.id)
+      || availableRounds[0];
     assert(selectedRound, 'No round available for selected lottery');
+    assert(selectedRound.status === 'open', `Expected an open round for selected lottery, got ${selectedRound.status || 'unknown'}`);
     summary.checks.push('operator-rounds');
 
     const selectedRateProfileId = visibleLotteries[0].defaultRateProfileId;

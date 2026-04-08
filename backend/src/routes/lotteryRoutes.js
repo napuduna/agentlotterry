@@ -9,6 +9,11 @@ const { fetchLotteryResult, saveLotteryResult, getLatestResult } = require('../s
 const { getMarketOverview } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
 const { BET_TYPES } = require('../constants/betting');
+const {
+  reconcileRoundSettlementById,
+  reverseRoundSettlementById,
+  rerunRoundSettlementById
+} = require('../services/resultService');
 
 const router = express.Router();
 const getErrorStatus = (error, fallback = 500) => {
@@ -168,6 +173,45 @@ router.put('/rounds/:roundId/closed-bet-types', auth, authorize('admin'), async 
   } catch (error) {
     console.error('Update round closed bet types error:', error);
     res.status(500).json({ message: error.message || 'Failed to update round closed bet types' });
+  }
+});
+
+router.get('/rounds/:roundId/settlement/reconcile', auth, authorize('admin'), async (req, res) => {
+  try {
+    const summary = await reconcileRoundSettlementById(req.params.roundId);
+    await createAuditLog(req.user._id, 'RECONCILE_ROUND_SETTLEMENT', req.params.roundId, summary);
+    res.json(summary);
+  } catch (error) {
+    console.error('Reconcile round settlement error:', error);
+    res.status(getErrorStatus(error)).json({ message: error.message || 'Failed to reconcile round settlement' });
+  }
+});
+
+router.post('/rounds/:roundId/settlement/reverse', auth, authorize('admin'), async (req, res) => {
+  try {
+    const summary = await reverseRoundSettlementById(req.params.roundId);
+    await createAuditLog(req.user._id, 'REVERSE_ROUND_SETTLEMENT', req.params.roundId, summary);
+    res.json({
+      message: 'Round settlement reversed successfully',
+      summary
+    });
+  } catch (error) {
+    console.error('Reverse round settlement error:', error);
+    res.status(getErrorStatus(error)).json({ message: error.message || 'Failed to reverse round settlement' });
+  }
+});
+
+router.post('/rounds/:roundId/settlement/rerun', auth, authorize('admin'), async (req, res) => {
+  try {
+    const summary = await rerunRoundSettlementById(req.params.roundId);
+    await createAuditLog(req.user._id, 'RERUN_ROUND_SETTLEMENT', req.params.roundId, summary);
+    res.json({
+      message: 'Round settlement rerun successfully',
+      summary
+    });
+  } catch (error) {
+    console.error('Rerun round settlement error:', error);
+    res.status(getErrorStatus(error)).json({ message: error.message || 'Failed to rerun round settlement' });
   }
 });
 

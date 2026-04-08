@@ -12,6 +12,101 @@ const MANYCAI_FEED_BASE_URL = (
   (legacyApiKey ? `${legacyBaseUrl}/${legacyApiKey}` : 'http://vip.manycai.com/K269c291856f58e')
 ).replace(/\/$/, '');
 const RESULT_SYNC_TIMEOUT_MS = Number(process.env.RESULT_SYNC_TIMEOUT_MS || 12000);
+const STRICT_FEED_MAPPING = String(process.env.STRICT_FEED_MAPPING || '1') !== '0';
+
+const defaultMappedDigits = (value) => String(value || '').replace(/\D/g, '');
+const defaultMappedList = (value) => {
+  const flatten = (input) => Array.isArray(input) ? input.flatMap(flatten) : [input];
+  return [...new Set(flatten(value).map(defaultMappedDigits).filter(Boolean))];
+};
+
+const scalarField = (path, transform = defaultMappedDigits) => ({ path, transform });
+const listField = (path, transform = defaultMappedList) => ({ path, transform, isList: true });
+
+const governmentFeedMapping = () => ({
+  kind: 'government',
+  firstPrize: scalarField('code.code'),
+  threeFrontHits: listField('code.code1'),
+  threeBottomHits: listField('code.code2'),
+  twoBottom: scalarField('code.code3')
+});
+
+const stockFeedMapping = () => ({
+  kind: 'generic',
+  firstPrize: scalarField('code.code'),
+  threeTop: scalarField('code.code'),
+  twoTop: scalarField('code.code', (value) => tailDigits(value, 2)),
+  twoBottom: scalarField('code.code1')
+});
+
+const hanoiFiveDigitFeedMapping = () => ({
+  kind: 'generic',
+  firstPrize: scalarField('code.code'),
+  threeTop: scalarField('code.code', (value) => tailDigits(value, 3)),
+  twoTop: scalarField('code.code', (value) => tailDigits(value, 2)),
+  twoBottom: scalarField('code.code1', (value) => tailDigits(value, 2))
+});
+
+const fourDigitPre2FeedMapping = () => ({
+  kind: 'generic',
+  firstPrize: scalarField('code.code'),
+  threeTop: scalarField('code.code_last3'),
+  twoTop: scalarField('code.code_last2'),
+  twoBottom: scalarField('code.code_pre2')
+});
+
+const fiveDigitCode2FeedMapping = () => ({
+  kind: 'generic',
+  firstPrize: scalarField('code.code'),
+  threeTop: scalarField('code.code_last3'),
+  twoTop: scalarField('code.code_last2'),
+  twoBottom: scalarField('code.code2')
+});
+
+const yikiMid2FeedMapping = () => ({
+  kind: 'generic',
+  firstPrize: scalarField('code.code'),
+  threeTop: scalarField('code.code_last3'),
+  twoTop: scalarField('code.code', (value) => tailDigits(value, 2)),
+  twoBottom: scalarField('code.code_mid2')
+});
+
+const baacFeedMapping = () => ({
+  kind: 'generic',
+  firstPrize: scalarField('code.code'),
+  threeTop: scalarField('code.code', (value) => tailDigits(value, 3)),
+  twoTop: scalarField('code.code', (value) => tailDigits(value, 2)),
+  twoBottom: scalarField('code.code', (value) => middleDigits(value, 2))
+});
+
+const EXPLICIT_FEED_MAPPINGS = {
+  hnvip: hanoiFiveDigitFeedMapping(),
+  tlzc: fourDigitPre2FeedMapping(),
+  tykc: yikiMid2FeedMapping(),
+  tgfc: governmentFeedMapping(),
+  baac: baacFeedMapping(),
+  gshka: stockFeedMapping(),
+  gshkp: stockFeedMapping(),
+  bfhn: hanoiFiveDigitFeedMapping(),
+  gstw: stockFeedMapping(),
+  gsjpa: stockFeedMapping(),
+  gsjpp: stockFeedMapping(),
+  gskr: stockFeedMapping(),
+  gscna: stockFeedMapping(),
+  gscnp: stockFeedMapping(),
+  gssg: stockFeedMapping(),
+  gsth: stockFeedMapping(),
+  gsin: stockFeedMapping(),
+  gseg: stockFeedMapping(),
+  gsru: stockFeedMapping(),
+  gsde: stockFeedMapping(),
+  gsuk: stockFeedMapping(),
+  gsus: stockFeedMapping(),
+  cqhn: hanoiFiveDigitFeedMapping(),
+  zcvip: fiveDigitCode2FeedMapping(),
+  ynhn: fourDigitPre2FeedMapping(),
+  ynma: fourDigitPre2FeedMapping()
+};
 
 const FEED_CONFIGS = [
   { feedCode: 'hnvip', lotteryCode: 'hnvip', marketName: 'ฮานอย VIP', parser: 'simple', syncToResults: true },
@@ -41,6 +136,22 @@ const FEED_CONFIGS = [
   { feedCode: 'ynhn', lotteryCode: 'ynhn', marketName: 'ฮานอยธรรมดา', parser: 'simple', syncToResults: true },
   { feedCode: 'ynma', lotteryCode: 'ynma', marketName: 'มาเลย์', parser: 'simple', syncToResults: true }
 ];
+
+const getFeedMappingMode = (feedCode) => EXPLICIT_FEED_MAPPINGS[feedCode] ? 'explicit' : 'legacy-fallback';
+
+const getMappingCoverageSummary = () => {
+  const configuredFeedCodes = FEED_CONFIGS.map((config) => config.feedCode);
+  const explicitFeedCodes = configuredFeedCodes.filter((feedCode) => Boolean(EXPLICIT_FEED_MAPPINGS[feedCode]));
+  const missingFeedCodes = configuredFeedCodes.filter((feedCode) => !EXPLICIT_FEED_MAPPINGS[feedCode]);
+
+  return {
+    strictMode: STRICT_FEED_MAPPING,
+    configuredCount: configuredFeedCodes.length,
+    explicitCount: explicitFeedCodes.length,
+    missingCount: missingFeedCodes.length,
+    missingFeedCodes
+  };
+};
 
 const syncState = {
   running: false,
@@ -92,6 +203,23 @@ const parseBangkokDateTime = (value) => {
   );
 };
 
+const getValueByPath = (source, path) => path
+  .split('.')
+  .reduce((current, segment) => current == null ? undefined : current[segment], source);
+
+const readMappedScalar = (row, fieldConfig) => {
+  if (!fieldConfig?.path) return '';
+  const value = getValueByPath(row, fieldConfig.path);
+  return fieldConfig.transform ? fieldConfig.transform(value, row) : joinDigits(value);
+};
+
+const readMappedList = (row, fieldConfig) => {
+  if (!fieldConfig?.path) return [];
+  const value = getValueByPath(row, fieldConfig.path);
+  const result = fieldConfig.transform ? fieldConfig.transform(value, row) : uniqueDigits(value);
+  return Array.isArray(result) ? result.filter(Boolean) : uniqueDigits(result);
+};
+
 const toHeadline = (...candidates) => {
   for (const candidate of candidates) {
     const value = joinDigits(candidate);
@@ -103,11 +231,11 @@ const toHeadline = (...candidates) => {
 const buildRunDigits = (values) => [...new Set(values.join('').split('').filter(Boolean))];
 const getSettlementSafety = (config) => Boolean(config.syncToResults);
 
-const buildGovernmentSnapshot = (config, row) => {
-  const firstPrize = joinDigits(row?.code?.code);
-  const frontThreeHits = uniqueDigits(row?.code?.code1);
-  const backThreeHits = uniqueDigits(row?.code?.code2);
-  const twoBottom = joinDigits(row?.code?.code3);
+const buildGovernmentSnapshot = (config, row, mapping = EXPLICIT_FEED_MAPPINGS[config.feedCode]) => {
+  const firstPrize = readMappedScalar(row, mapping?.firstPrize) || joinDigits(row?.code?.code);
+  const frontThreeHits = readMappedList(row, mapping?.threeFrontHits);
+  const backThreeHits = readMappedList(row, mapping?.threeBottomHits);
+  const twoBottom = readMappedScalar(row, mapping?.twoBottom) || joinDigits(row?.code?.code3);
   const threeTop = tailDigits(firstPrize, 3);
   const twoTop = tailDigits(firstPrize, 2);
 
@@ -144,6 +272,50 @@ const buildGovernmentSnapshot = (config, row) => {
       runBottom: buildRunDigits(twoBottom ? [twoBottom] : []),
       fetchedAt: new Date()
     }
+  };
+};
+
+const buildGenericSnapshot = (config, row, mapping) => {
+  const firstPrize = readMappedScalar(row, mapping.firstPrize);
+  const threeTop = readMappedScalar(row, mapping.threeTop);
+  const threeFront = readMappedScalar(row, mapping.threeFront);
+  const twoTop = readMappedScalar(row, mapping.twoTop);
+  const twoBottom = readMappedScalar(row, mapping.twoBottom);
+  const threeBottom = readMappedScalar(row, mapping.threeBottom);
+  const threeTopHits = readMappedList(row, mapping.threeTopHits);
+  const twoTopHits = readMappedList(row, mapping.twoTopHits);
+  const twoBottomHits = readMappedList(row, mapping.twoBottomHits);
+  const threeFrontHits = readMappedList(row, mapping.threeFrontHits);
+  const threeBottomHits = readMappedList(row, mapping.threeBottomHits);
+  const normalizedThreeTopHits = threeTopHits.length ? threeTopHits : (threeTop ? [threeTop] : []);
+  const normalizedTwoTopHits = twoTopHits.length ? twoTopHits : (twoTop ? [twoTop] : []);
+  const normalizedTwoBottomHits = twoBottomHits.length ? twoBottomHits : (twoBottom ? [twoBottom] : []);
+  const normalizedThreeFrontHits = threeFrontHits.length ? threeFrontHits : (threeFront ? [threeFront] : []);
+  const normalizedThreeBottomHits = threeBottomHits.length ? threeBottomHits : (threeBottom ? [threeBottom] : []);
+
+  return {
+    lotteryCode: config.lotteryCode,
+    feedCode: config.feedCode,
+    marketName: config.marketName,
+    roundCode: parseIssueToRoundCode(row?.officialissue || row?.issue),
+    headline: toHeadline(firstPrize, threeTop, twoBottom, twoTop),
+    firstPrize,
+    threeTop,
+    threeFront,
+    twoTop,
+    twoBottom,
+    threeBottom,
+    threeTopHits: normalizedThreeTopHits,
+    twoTopHits: normalizedTwoTopHits,
+    twoBottomHits: normalizedTwoBottomHits,
+    threeFrontHits: normalizedThreeFrontHits,
+    threeBottomHits: normalizedThreeBottomHits,
+    runTop: buildRunDigits(normalizedThreeTopHits),
+    runBottom: buildRunDigits(normalizedTwoBottomHits),
+    resultPublishedAt: parseBangkokDateTime(row?.opendate),
+    isSettlementSafe: getSettlementSafety(config),
+    sourceUrl: `${MANYCAI_FEED_BASE_URL}/${config.feedCode}.json`,
+    rawPayload: row
   };
 };
 
@@ -267,7 +439,18 @@ const fetchFeedRows = async (feedCode) => {
   return response.data;
 };
 
-const buildSnapshot = (config, row) => {
+const buildSnapshot = (config, row, { strict = STRICT_FEED_MAPPING } = {}) => {
+  const mapping = EXPLICIT_FEED_MAPPINGS[config.feedCode];
+  if (!mapping && strict) {
+    throw new Error(`Missing explicit mapping for feed ${config.feedCode}`);
+  }
+  if (mapping?.kind === 'government') {
+    return buildGovernmentSnapshot(config, row, mapping);
+  }
+  if (mapping?.kind === 'generic') {
+    return buildGenericSnapshot(config, row, mapping);
+  }
+
   const builder = snapshotBuilders[config.parser];
   if (!builder) {
     throw new Error(`Parser "${config.parser}" is not supported`);
@@ -392,15 +575,40 @@ const syncLatestExternalResults = async () => {
       syncedResults: 0,
       settlements: 0,
       skipped: 0,
-      warnings: []
+      warnings: [],
+      strictMapping: STRICT_FEED_MAPPING,
+      mappingCoverage: getMappingCoverageSummary(),
+      feedSummaries: []
     };
 
     for (const config of FEED_CONFIGS) {
+      const feedSummary = {
+        feedCode: config.feedCode,
+        lotteryCode: config.lotteryCode,
+        marketName: config.marketName,
+        parser: config.parser,
+        mappingMode: getFeedMappingMode(config.feedCode),
+        syncToResults: Boolean(config.syncToResults),
+        fetchedRows: 0,
+        processedRounds: 0,
+        savedSnapshots: 0,
+        syncedResults: 0,
+        settlements: 0,
+        warnings: [],
+        status: 'ok',
+        error: ''
+      };
+      summary.feedSummaries.push(feedSummary);
+
       try {
         const rows = await fetchFeedRows(config.feedCode);
+        feedSummary.fetchedRows = rows.length;
         if (!rows.length) {
           summary.skipped++;
-          summary.warnings.push(`No data in feed ${config.feedCode}`);
+          const warning = `No data in feed ${config.feedCode}`;
+          summary.warnings.push(warning);
+          feedSummary.warnings.push(warning);
+          feedSummary.status = 'warning';
           continue;
         }
 
@@ -417,6 +625,7 @@ const syncLatestExternalResults = async () => {
           await upsertSnapshot(snapshot, lotteryType);
           summary.fetched++;
           summary.savedSnapshots++;
+          feedSummary.savedSnapshots++;
 
           if (snapshot.lotteryCode === 'thai_government') {
             await upsertLegacyGovernmentResult(snapshot);
@@ -426,21 +635,37 @@ const syncLatestExternalResults = async () => {
             const result = await syncSnapshotToResults(snapshot, lotteryType);
             if (result.synced) {
               summary.syncedResults++;
+              feedSummary.syncedResults++;
             }
             if (result.settlement) {
               summary.settlements++;
+              feedSummary.settlements++;
             }
           }
         }
 
+        feedSummary.processedRounds = processedRounds.size;
         if (!processedRounds.size) {
           summary.skipped++;
-          summary.warnings.push(`Incomplete snapshot for ${config.feedCode}`);
+          const warning = `Incomplete snapshot for ${config.feedCode}`;
+          summary.warnings.push(warning);
+          feedSummary.warnings.push(warning);
+          feedSummary.status = 'warning';
+        } else if (feedSummary.warnings.length) {
+          feedSummary.status = 'warning';
         }
       } catch (error) {
-        summary.warnings.push(`${config.feedCode}: ${error.message}`);
+        const warning = `${config.feedCode}: ${error.message}`;
+        summary.warnings.push(warning);
+        feedSummary.warnings.push(warning);
+        feedSummary.status = 'error';
+        feedSummary.error = error.message;
       }
     }
+
+    summary.okFeeds = summary.feedSummaries.filter((feed) => feed.status === 'ok').length;
+    summary.warningFeeds = summary.feedSummaries.filter((feed) => feed.status === 'warning').length;
+    summary.errorFeeds = summary.feedSummaries.filter((feed) => feed.status === 'error').length;
 
     syncState.lastCompletedAt = new Date().toISOString();
     syncState.lastSummary = summary;
@@ -493,7 +718,17 @@ const getStoredLatestExternalResults = async ({ lotteryId = null, limit = 50 } =
 
 const getExternalSyncState = () => ({
   ...syncState,
-  feedBaseUrl: MANYCAI_FEED_BASE_URL
+  feedBaseUrl: MANYCAI_FEED_BASE_URL,
+  strictMapping: STRICT_FEED_MAPPING,
+  mappingCoverage: getMappingCoverageSummary(),
+  feeds: FEED_CONFIGS.map((config) => ({
+    feedCode: config.feedCode,
+    lotteryCode: config.lotteryCode,
+    marketName: config.marketName,
+    parser: config.parser,
+    syncToResults: Boolean(config.syncToResults),
+    mappingMode: getFeedMappingMode(config.feedCode)
+  }))
 });
 
 const startExternalResultAutoSync = (intervalMs) => {
@@ -531,6 +766,9 @@ const fetchThaiGovernmentResultByRoundCode = async (roundCode) => {
 module.exports = {
   MANYCAI_FEED_BASE_URL,
   FEED_CONFIGS,
+  EXPLICIT_FEED_MAPPINGS,
+  STRICT_FEED_MAPPING,
+  buildSnapshot,
   fetchFeedRows,
   fetchThaiGovernmentResultByRoundCode,
   syncLatestExternalResults,
