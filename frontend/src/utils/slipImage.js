@@ -181,6 +181,8 @@ const TYPE = {
   groupMeta: 0.68 * REM,
   groupTotal: 0.92 * REM,
   numbers: 0.92 * REM,
+  winningLabel: 0.76 * REM,
+  winningText: 0.82 * REM,
   noteLabel: 0.84 * REM,
   noteText: 0.92 * REM,
   empty: 0.92 * REM
@@ -205,6 +207,13 @@ const NOTE = {
   paddingX: 9,
   paddingY: 7,
   lineHeight: TYPE.noteText * 1.35
+};
+
+const WINNING = {
+  gapTop: 6,
+  paddingX: 9,
+  paddingY: 7,
+  lineHeight: TYPE.winningText * 1.3
 };
 
 const wrapText = (ctx, text, maxWidth) => {
@@ -369,7 +378,7 @@ const buildPreviewImagePayload = ({
 });
 
 const buildSavedSlipImagePayload = ({ slip }) => {
-  const groups = slip?.displayGroups?.length ? slip.displayGroups : buildSlipDisplayGroups(slip?.items || []);
+  const groups = slip?.items?.length ? buildSlipDisplayGroups(slip.items) : (slip?.displayGroups || []);
   const totalAmount =
     Number(slip?.totalAmount) ||
     Number(slip?.totalStake) ||
@@ -390,6 +399,7 @@ const buildSavedSlipImagePayload = ({ slip }) => {
 };
 
 const measureImageLayout = (ctx, payload) => {
+  const winningItemLabel = '\u0e1a\u0e32\u0e17';
   const contentWidth = MODAL_WIDTH - (MODAL_PADDING_X * 2);
   const groupBodyWidth =
     contentWidth -
@@ -399,6 +409,7 @@ const measureImageLayout = (ctx, payload) => {
 
   ctx.font = `700 ${TYPE.numbers}px sans-serif`;
   const groups = (payload.groups || []).map((group) => {
+    const groupHeadHeight = Math.ceil(TYPE.groupTotal * 1.2) + GROUP.bodyGap;
     const numberLines = wrapText(
       ctx,
       group.numbersText,
@@ -408,13 +419,31 @@ const measureImageLayout = (ctx, payload) => {
       GROUP.numbersMinHeight,
       (GROUP.numbersPaddingY * 2) + (numberLines.length * GROUP.numbersLineHeight)
     );
-    const bodyHeight = Math.ceil(TYPE.groupTotal * 1.2) + GROUP.bodyGap + numbersHeight;
+    ctx.font = `700 ${TYPE.winningText}px sans-serif`;
+    const winningText = (group.winningEntries || [])
+      .map((entry) => `${entry.number} = ${money(entry.wonAmount || 0)} ${winningItemLabel}`)
+      .join(' • ');
+    const winningLines = winningText
+      ? wrapText(ctx, winningText, groupBodyWidth - (WINNING.paddingX * 2))
+      : [];
+    const winningHeight = winningLines.length
+      ? (WINNING.paddingY * 2) + TYPE.winningLabel + 4 + (winningLines.length * WINNING.lineHeight)
+      : 0;
+    ctx.font = `700 ${TYPE.numbers}px sans-serif`;
+    const bodyHeight =
+      groupHeadHeight +
+      numbersHeight +
+      (winningHeight ? WINNING.gapTop + winningHeight : 0);
     const contentHeight = Math.max(GROUP.badgeMinHeight, bodyHeight);
     const cardHeight = (GROUP.cardPaddingY * 2) + contentHeight;
 
     return {
       ...group,
       numberLines,
+      numbersHeight,
+      groupHeadHeight,
+      winningLines,
+      winningHeight,
       cardHeight
     };
   });
@@ -467,6 +496,8 @@ const measureImageLayout = (ctx, payload) => {
 };
 
 const renderGroupedSlipImage = (payload) => {
+  const winningLabel = '\u0e16\u0e39\u0e01\u0e23\u0e32\u0e07\u0e27\u0e31\u0e25';
+  const bahtLabel = '\u0e1a\u0e32\u0e17';
   const ratio = window.devicePixelRatio > 1 ? 2 : 1;
   const measureCanvas = document.createElement('canvas');
   const measureCtx = measureCanvas.getContext('2d');
@@ -606,8 +637,47 @@ const renderGroupedSlipImage = (payload) => {
       ctx.font = `700 ${TYPE.groupTotal}px sans-serif`;
       ctx.fillText(`${money(group.totalAmount)} บาท`, bodyX, badgeY + 18);
 
-      const numbersBoxY = badgeY + 24;
-      const numbersBoxHeight = group.cardHeight - (GROUP.cardPaddingY * 2) - 24;
+      const winningBoxY = badgeY;
+      const headY = group.winningLines?.length
+        ? winningBoxY + group.winningHeight + WINNING.gapTop
+        : badgeY;
+      const numbersBoxY = headY + group.groupHeadHeight;
+      const numbersBoxHeight = group.numbersHeight;
+      if (group.winningLines?.length) {
+        drawRoundedRect(
+          ctx,
+          bodyX,
+          winningBoxY,
+          bodyWidth,
+          group.winningHeight,
+          12,
+          'rgba(236, 253, 245, 0.98)',
+          'rgba(16, 185, 129, 0.18)'
+        );
+
+        ctx.fillStyle = '#047857';
+        ctx.font = `700 ${TYPE.winningLabel}px sans-serif`;
+        ctx.fillText(
+          `${winningLabel} +${money(group.totalWonAmount || 0)} ${bahtLabel}`,
+          bodyX + WINNING.paddingX,
+          winningBoxY + WINNING.paddingY + TYPE.winningLabel
+        );
+
+        ctx.font = `700 ${TYPE.winningText}px sans-serif`;
+        group.winningLines.forEach((line, lineIndex) => {
+          ctx.fillText(
+            line,
+            bodyX + WINNING.paddingX,
+            winningBoxY + WINNING.paddingY + TYPE.winningLabel + 4 + TYPE.winningText + (lineIndex * WINNING.lineHeight)
+          );
+        });
+      }
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = `700 ${TYPE.groupTotal}px sans-serif`;
+      ctx.fillText(`${money(group.totalAmount)} à¸šà¸²à¸—`, bodyX, headY + 18);
+
       drawRoundedRect(
         ctx,
         bodyX,
@@ -669,6 +739,7 @@ const renderGroupedSlipImageWithBottomSummary = (payload) => {
   const roundLabel = '\u0e07\u0e27\u0e14';
   const emptyItemsLabel = '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e43\u0e19\u0e42\u0e1e\u0e22\u0e19\u0e35\u0e49';
   const noteTitle = '\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e0a\u0e48\u0e27\u0e22\u0e08\u0e33';
+  const winningLabel = '\u0e16\u0e39\u0e01\u0e23\u0e32\u0e07\u0e27\u0e31\u0e25';
   const bahtLabel = '\u0e1a\u0e32\u0e17';
   const renderErrorLabel = '\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e23\u0e39\u0e1b\u0e42\u0e1e\u0e22\u0e44\u0e14\u0e49';
   const colors = getSlipThemeColors(payload.marketKey || payload.marketName);
@@ -805,8 +876,47 @@ const renderGroupedSlipImageWithBottomSummary = (payload) => {
       ctx.font = `700 ${TYPE.groupTotal}px sans-serif`;
       ctx.fillText(`${money(group.totalAmount)} ${bahtLabel}`, bodyX, badgeY + 18);
 
-      const numbersBoxY = badgeY + 24;
-      const numbersBoxHeight = group.cardHeight - (GROUP.cardPaddingY * 2) - 24;
+      const winningBoxY = badgeY;
+      const headY = group.winningLines?.length
+        ? winningBoxY + group.winningHeight + WINNING.gapTop
+        : badgeY;
+      const numbersBoxY = headY + group.groupHeadHeight;
+      const numbersBoxHeight = group.numbersHeight;
+      if (group.winningLines?.length) {
+        drawRoundedRect(
+          ctx,
+          bodyX,
+          winningBoxY,
+          bodyWidth,
+          group.winningHeight,
+          12,
+          'rgba(236, 253, 245, 0.98)',
+          'rgba(16, 185, 129, 0.18)'
+        );
+
+        ctx.fillStyle = '#047857';
+        ctx.font = `700 ${TYPE.winningLabel}px sans-serif`;
+        ctx.fillText(
+          `${winningLabel} +${money(group.totalWonAmount || 0)} ${bahtLabel}`,
+          bodyX + WINNING.paddingX,
+          winningBoxY + WINNING.paddingY + TYPE.winningLabel
+        );
+
+        ctx.font = `700 ${TYPE.winningText}px sans-serif`;
+        group.winningLines.forEach((line, lineIndex) => {
+          ctx.fillText(
+            line,
+            bodyX + WINNING.paddingX,
+            winningBoxY + WINNING.paddingY + TYPE.winningLabel + 4 + TYPE.winningText + (lineIndex * WINNING.lineHeight)
+          );
+        });
+      }
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = colors.textPrimary;
+      ctx.font = `700 ${TYPE.groupTotal}px sans-serif`;
+      ctx.fillText(`${money(group.totalAmount)} ${bahtLabel}`, bodyX, headY + 18);
+
       drawRoundedRect(
         ctx,
         bodyX,

@@ -697,10 +697,13 @@ const AdminLottery = () => {
       note: syncSummary?.syncedAt ? `${UI.syncLastRun} ${formatUpdatedAt(syncSummary.syncedAt)}` : UI.syncSummaryEmpty
     }
   ]), [syncCoverage, syncStatus, syncSummary]);
-  const settlementRoundId = selectedCard?.activeRound?.isSynthetic ? '' : (selectedCard?.activeRound?.id || '');
-  const settlementUnavailableReason = selectedCard?.activeRound?.isSynthetic
-    ? UI.settlementSynthetic
-    : (!settlementRoundId ? UI.settlementUnavailable : '');
+  const settlementRoundId = selectedResult?.roundId
+    || (selectedCard?.activeRound?.isSynthetic ? '' : (selectedCard?.activeRound?.id || ''));
+  const settlementUnavailableReason = selectedResult && !selectedResult?.roundId
+    ? UI.settlementUnavailable
+    : (selectedCard?.activeRound?.isSynthetic
+      ? UI.settlementSynthetic
+      : (!settlementRoundId ? UI.settlementUnavailable : ''));
   const pageWarnings = useMemo(() => {
     const cards = displaySections.flatMap((section) => section.cards);
 
@@ -1005,7 +1008,7 @@ const AdminLottery = () => {
                       <p className="settlement-note">{UI.settlementHelp}</p>
                     </div>
                     {settlementRoundId ? (
-                      <span className="settlement-round-pill">{selectedCard.activeRound?.code || selectedCard.activeRound?.title || '-'}</span>
+                      <span className="settlement-round-pill">{selectedResult?.roundCode || selectedCard.activeRound?.code || selectedCard.activeRound?.title || '-'}</span>
                     ) : null}
                   </div>
 

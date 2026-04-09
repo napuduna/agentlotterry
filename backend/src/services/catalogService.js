@@ -259,6 +259,7 @@ const getRecentResults = async ({ lotteryId = null, limit = 50 } = {}) => {
     lotteryName: record.lotteryTypeId?.name,
     lotteryShortName: record.lotteryTypeId?.shortName,
     provider: record.lotteryTypeId?.provider || '',
+    roundId: record.drawRoundId?._id?.toString?.() || '',
     roundCode: record.drawRoundId?.code || '',
     roundTitle: record.drawRoundId?.title || '',
     drawAt: record.drawRoundId?.drawAt,

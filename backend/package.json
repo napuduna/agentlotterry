@@ -13,6 +13,7 @@
     "e2e:smoke": "node src/scripts/e2eSmoke.js",
     "e2e:regression": "node src/scripts/e2eRegression.js",
     "test:feed-mapping": "node src/scripts/testFeedMappings.js",
+    "test:settlement-rules": "node src/scripts/testSettlementRules.js",
     "legacy:cleanup": "node src/scripts/cleanupLegacyData.js",
     "legacy:cleanup:dry": "node src/scripts/cleanupLegacyData.js --mode=dry-run",
     "legacy:cleanup:validate": "node src/scripts/cleanupLegacyData.js --mode=validate",

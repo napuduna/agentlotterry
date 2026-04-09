@@ -1780,7 +1780,12 @@ input, select, textarea {
   justify-content: flex-start;
 }
 
+.operator-slip-winning {
+  order: 0;
+}
+
 .operator-slip-group-head {
+  order: 1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1789,6 +1794,7 @@ input, select, textarea {
 }
 
 .operator-slip-numbers {
+  order: 2;
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--lottery-border) 88%, white 12%);
@@ -1806,6 +1812,78 @@ input, select, textarea {
   border-radius: 14px;
   font-size: 0.95rem;
   line-height: 1.38;
+}
+
+.operator-slip-winning {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.98), rgba(220, 252, 231, 0.92));
+}
+
+.operator-slip-winning-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.operator-slip-winning-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #047857;
+}
+
+.operator-slip-winning-total {
+  font-size: 0.82rem;
+  color: #047857;
+}
+
+.operator-slip-winning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.operator-slip-winning-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.operator-slip-winning-number {
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.operator-slip-winning-amount {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #047857;
+}
+
+.operator-slip-group-card-dense .operator-slip-winning {
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.operator-slip-group-card-dense .operator-slip-winning-chip {
+  padding: 5px 8px;
+}
+
+.operator-slip-group-card-dense .operator-slip-winning-title,
+.operator-slip-group-card-dense .operator-slip-winning-amount,
+.operator-slip-group-card-dense .operator-slip-winning-total {
+  font-size: 0.74rem;
 }
 
 .operator-working-slip-flat {
@@ -2279,6 +2357,11 @@ input, select, textarea {
 }
 
 @media (max-width: 760px) {
+  .operator-select-grid {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
   .operator-selected-grid,
   .operator-preview-summary,
   .operator-fast-entry-row,
@@ -2331,12 +2414,12 @@ input, select, textarea {
   }
 
   .operator-market-trigger-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .operator-market-pin {
-    width: 100%;
-    min-height: 44px;
+    width: 48px;
+    min-height: 58px;
   }
 
   .operator-market-option,
