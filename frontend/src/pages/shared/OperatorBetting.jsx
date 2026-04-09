@@ -43,12 +43,25 @@ import {
   searchAdminBettingMembers,
   searchAgentBettingMembers
 } from '../../services/api';
-import { formatMoney as money, formatRoundLabel } from '../../utils/formatters';
+import { formatDateTime, formatMoney as money, formatRoundLabel } from '../../utils/formatters';
 import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySlipPreviewImage } from '../../utils/slipImage';
 import { copyPreviewSlipText } from '../../utils/slipText';
 
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
+const RECENT_MARKETS_LIMIT = 6;
+const CLOSING_SOON_LIMIT = 6;
+const FAVORITE_MARKETS_LIMIT = 8;
+const MARKET_CATEGORY_ORDER = ['main', 'stock_am', 'stock_pm', 'vip', 'foreign', 'daily', 'other'];
+const MARKET_CATEGORY_LABELS = {
+  main: 'หวยหลัก',
+  stock_am: 'หุ้นเช้า',
+  stock_pm: 'หุ้นบ่าย',
+  vip: 'VIP / พิเศษ',
+  foreign: 'ต่างประเทศ',
+  daily: 'ลาว / รายวัน',
+  other: 'อื่น ๆ'
+};
 const doubleSetCounts = {
   1: 10,
   2: 10,
@@ -285,6 +298,99 @@ const getLotteryThemeStyle = (lottery) => {
 };
 const getLotteryRoundStatus = (lottery) => lottery?.activeRound?.status || lottery?.status || 'missing';
 const isLotteryOpen = (lottery) => getLotteryRoundStatus(lottery) === 'open';
+const buildRecentMarketStorageKey = (role, userId) => `operator:recent-markets:${role}:${userId || 'anonymous'}`;
+const buildFavoriteMarketStorageKey = (role, userId) => `operator:favorite-markets:${role}:${userId || 'anonymous'}`;
+const normalizeMarketSearchToken = (value = '') => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const STOCK_AM_KEYWORDS = ['เช้า', 'นิเคอิเช้า', 'ฮั่งเส็งเช้า', 'หุ้นจีนเช้า', 'หุ้นไต้หวัน', 'หุ้นเกาหลี', 'หุ้นสิงคโปร์', 'หุ้นไทย'];
+const STOCK_PM_KEYWORDS = ['บ่าย', 'นิเคอิบ่าย', 'จีนบ่าย', 'ฮั่งเส็งบ่าย', 'ดาวโจนส์', 'อังกฤษ', 'เยอรมัน', 'รัสเซีย', 'อียิปต์', 'อินเดีย'];
+const getLotteryCloseAt = (lottery) => {
+  const rawValue = lottery?.activeRound?.closeAt || lottery?.activeRound?.displayCloseAt || '';
+  if (!rawValue) return null;
+  const parsed = new Date(rawValue);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+const matchesLotterySearch = (lottery, query) => {
+  const normalizedQuery = normalizeMarketSearchToken(query);
+  if (!normalizedQuery) return true;
+
+  const searchableValues = [
+    lottery?.name,
+    lottery?.leagueName,
+    lottery?.code,
+    lottery?.activeRound?.code,
+    lottery?.activeRound?.title,
+    `${lottery?.leagueName || ''} ${lottery?.name || ''}`
+  ]
+    .map(normalizeMarketSearchToken)
+    .filter(Boolean);
+
+  return searchableValues.some((value) => value.includes(normalizedQuery));
+};
+const sortLotteriesForPicker = (left, right) => {
+  const leftOpen = isLotteryOpen(left) ? 1 : 0;
+  const rightOpen = isLotteryOpen(right) ? 1 : 0;
+  if (leftOpen !== rightOpen) {
+    return rightOpen - leftOpen;
+  }
+
+  const leftCloseAt = getLotteryCloseAt(left)?.getTime() || Number.MAX_SAFE_INTEGER;
+  const rightCloseAt = getLotteryCloseAt(right)?.getTime() || Number.MAX_SAFE_INTEGER;
+  if (leftCloseAt !== rightCloseAt) {
+    return leftCloseAt - rightCloseAt;
+  }
+
+  const leagueDiff = String(left?.leagueName || '').localeCompare(String(right?.leagueName || ''), 'th');
+  if (leagueDiff !== 0) return leagueDiff;
+  return String(left?.name || '').localeCompare(String(right?.name || ''), 'th');
+};
+const getLotteryPickerCategory = (lottery) => {
+  const league = normalizeMarketSearchToken(lottery?.leagueName);
+  const name = normalizeMarketSearchToken(lottery?.name);
+
+  if (league.includes('รัฐบาล') || name.includes('ธกส') || name.includes('ออมสิน')) {
+    return 'main';
+  }
+
+  if (league.includes('หุ้น')) {
+    if (STOCK_AM_KEYWORDS.some((keyword) => name.includes(normalizeMarketSearchToken(keyword)))) {
+      return 'stock_am';
+    }
+    return 'stock_pm';
+  }
+
+  if (league.includes('vip') || name.includes('vip') || name.includes('พิเศษ') || name.includes('extra') || name.includes('ยี่กี')) {
+    return 'vip';
+  }
+
+  if (league.includes('ต่างประเทศ') || name.includes('ฮานอย') || name.includes('มาเลย์')) {
+    return 'foreign';
+  }
+
+  if (league.includes('รายวัน') || name.includes('ลาว')) {
+    return 'daily';
+  }
+
+  return 'other';
+};
+const groupLotteriesByCategory = (lotteries = []) => {
+  const groups = new Map();
+  MARKET_CATEGORY_ORDER.forEach((key) => groups.set(key, []));
+
+  lotteries.forEach((lottery) => {
+    const category = getLotteryPickerCategory(lottery);
+    const current = groups.get(category) || [];
+    current.push(lottery);
+    groups.set(category, current);
+  });
+
+  return MARKET_CATEGORY_ORDER
+    .map((key) => ({
+      key,
+      label: MARKET_CATEGORY_LABELS[key],
+      items: (groups.get(key) || []).sort(sortLotteriesForPicker)
+    }))
+    .filter((group) => group.items.length);
+};
 const buildEmptyGridRow = () => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, number: '', amounts: buildEmptyGridAmounts() });
 const buildInitialGridRows = () => Array.from({ length: 2 }, buildEmptyGridRow);
 const cloneGridRows = (rows = []) =>
@@ -908,6 +1014,9 @@ const OperatorBetting = () => {
   const [searching, setSearching] = useState(false);
   const [memberPickerOpen, setMemberPickerOpen] = useState(true);
   const [marketPickerOpen, setMarketPickerOpen] = useState(false);
+  const [marketSearchText, setMarketSearchText] = useState('');
+  const [favoriteMarketIds, setFavoriteMarketIds] = useState([]);
+  const [recentMarketIds, setRecentMarketIds] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -943,6 +1052,7 @@ const OperatorBetting = () => {
   const fastAmountRefs = useRef({});
   const memberPickerRef = useRef(null);
   const marketPickerRef = useRef(null);
+  const marketSearchInputRef = useRef(null);
   const searchInputRef = useRef(null);
   const fastInputRef = useRef(null);
   const draftHydratingRef = useRef(false);
@@ -955,7 +1065,68 @@ const OperatorBetting = () => {
   const selectedRound = useMemo(() => rounds.find((item) => item.id === selection.roundId) || selectedLottery?.activeRound || null, [rounds, selection.roundId, selectedLottery]);
   const selectedLotteryStatus = useMemo(() => getLotteryRoundStatus(selectedLottery), [selectedLottery]);
   const selectedLotteryThemeStyle = useMemo(() => getLotteryThemeStyle(selectedLottery), [selectedLottery]);
+  const favoriteMarketStorageKey = useMemo(
+    () => buildFavoriteMarketStorageKey(role, user?.id || user?._id || user?.username),
+    [role, user?.id, user?._id, user?.username]
+  );
+  const recentMarketStorageKey = useMemo(
+    () => buildRecentMarketStorageKey(role, user?.id || user?._id || user?.username),
+    [role, user?.id, user?._id, user?.username]
+  );
   const sortedSearchResults = useMemo(() => sortMembersByActivity(searchResults), [searchResults]);
+  const filteredLotteries = useMemo(
+    () => flatLotteries.filter((lottery) => matchesLotterySearch(lottery, marketSearchText)).sort(sortLotteriesForPicker),
+    [flatLotteries, marketSearchText]
+  );
+  const favoriteLotteries = useMemo(() => {
+    const seen = new Set();
+    return favoriteMarketIds
+      .map((lotteryId) => flatLotteries.find((lottery) => lottery.id === lotteryId))
+      .filter((lottery) => {
+        if (!lottery || seen.has(lottery.id) || !matchesLotterySearch(lottery, marketSearchText)) {
+          return false;
+        }
+        seen.add(lottery.id);
+        return true;
+      })
+      .slice(0, FAVORITE_MARKETS_LIMIT);
+  }, [favoriteMarketIds, flatLotteries, marketSearchText]);
+  const favoriteLotteryIdSet = useMemo(() => new Set(favoriteLotteries.map((lottery) => lottery.id)), [favoriteLotteries]);
+  const recentLotteries = useMemo(() => {
+    const seen = new Set();
+    return recentMarketIds
+      .map((lotteryId) => flatLotteries.find((lottery) => lottery.id === lotteryId))
+      .filter((lottery) => {
+        if (!lottery || favoriteLotteryIdSet.has(lottery.id) || seen.has(lottery.id) || !matchesLotterySearch(lottery, marketSearchText)) {
+          return false;
+        }
+        seen.add(lottery.id);
+        return true;
+      })
+      .slice(0, RECENT_MARKETS_LIMIT);
+  }, [favoriteLotteryIdSet, flatLotteries, marketSearchText, recentMarketIds]);
+  const recentLotteryIdSet = useMemo(() => new Set(recentLotteries.map((lottery) => lottery.id)), [recentLotteries]);
+  const closingSoonLotteries = useMemo(
+    () =>
+      filteredLotteries
+        .filter((lottery) => !favoriteLotteryIdSet.has(lottery.id) && !recentLotteryIdSet.has(lottery.id) && isLotteryOpen(lottery) && getLotteryCloseAt(lottery))
+        .sort((left, right) => getLotteryCloseAt(left).getTime() - getLotteryCloseAt(right).getTime())
+        .slice(0, CLOSING_SOON_LIMIT),
+    [favoriteLotteryIdSet, filteredLotteries, recentLotteryIdSet]
+  );
+  const highlightedLotteryIdSet = useMemo(
+    () => new Set([...favoriteLotteries, ...recentLotteries, ...closingSoonLotteries].map((lottery) => lottery.id)),
+    [closingSoonLotteries, favoriteLotteries, recentLotteries]
+  );
+  const remainingLotteries = useMemo(
+    () => filteredLotteries.filter((lottery) => !highlightedLotteryIdSet.has(lottery.id)),
+    [filteredLotteries, highlightedLotteryIdSet]
+  );
+  const groupedRemainingLotteries = useMemo(
+    () => groupLotteriesByCategory(remainingLotteries),
+    [remainingLotteries]
+  );
+  const firstMarketSearchMatch = favoriteLotteries[0] || recentLotteries[0] || closingSoonLotteries[0] || remainingLotteries[0] || null;
   const selectableRounds = useMemo(() => {
     const visible = rounds.filter((item) => !hiddenRoundStatuses.has(item.status));
     return visible.length ? visible : rounds;
@@ -1576,6 +1747,61 @@ const OperatorBetting = () => {
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [marketPickerOpen]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const rawValue = window.localStorage.getItem(favoriteMarketStorageKey);
+      const parsed = JSON.parse(rawValue || '[]');
+      setFavoriteMarketIds(Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []);
+    } catch {
+      setFavoriteMarketIds([]);
+    }
+  }, [favoriteMarketStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      window.localStorage.setItem(favoriteMarketStorageKey, JSON.stringify(favoriteMarketIds.slice(0, FAVORITE_MARKETS_LIMIT)));
+    } catch {
+      // ignore local storage write failures
+    }
+  }, [favoriteMarketIds, favoriteMarketStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const rawValue = window.localStorage.getItem(recentMarketStorageKey);
+      const parsed = JSON.parse(rawValue || '[]');
+      setRecentMarketIds(Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string') : []);
+    } catch {
+      setRecentMarketIds([]);
+    }
+  }, [recentMarketStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      window.localStorage.setItem(recentMarketStorageKey, JSON.stringify(recentMarketIds.slice(0, RECENT_MARKETS_LIMIT)));
+    } catch {
+      // ignore local storage write failures
+    }
+  }, [recentMarketIds, recentMarketStorageKey]);
+
+  useEffect(() => {
+    if (!marketPickerOpen) {
+      setMarketSearchText('');
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      marketSearchInputRef.current?.focus();
+    });
+  }, [marketPickerOpen]);
+
   const handleLotteryChange = async (lotteryId) => {
     const nextLottery = flatLotteries.find((item) => item.id === lotteryId);
     if (!nextLottery || nextLottery.id === selection.lotteryId) return;
@@ -1588,7 +1814,35 @@ const OperatorBetting = () => {
       roundId: nextLottery.activeRound?.id || '',
       rateProfileId: nextLottery.defaultRateProfileId || nextLottery.rateProfiles?.[0]?.id || ''
     });
+    setRecentMarketIds((current) => [nextLottery.id, ...current.filter((id) => id !== nextLottery.id)].slice(0, RECENT_MARKETS_LIMIT));
     setMarketPickerOpen(false);
+  };
+
+  const toggleFavoriteMarket = (lotteryId) => {
+    if (!lotteryId) return;
+    setFavoriteMarketIds((current) =>
+      current.includes(lotteryId)
+        ? current.filter((id) => id !== lotteryId)
+        : [lotteryId, ...current.filter((id) => id !== lotteryId)].slice(0, FAVORITE_MARKETS_LIMIT)
+    );
+  };
+
+  const handleMarketSearchKeyDown = async (event) => {
+    if (event.key === 'Escape') {
+      setMarketPickerOpen(false);
+      return;
+    }
+
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (!firstMarketSearchMatch) return;
+
+    if (firstMarketSearchMatch.id === selectedLottery?.id) {
+      setMarketPickerOpen(false);
+      return;
+    }
+
+    await handleLotteryChange(firstMarketSearchMatch.id);
   };
 
   const handleRoundChange = async (roundId) => {
@@ -2263,6 +2517,52 @@ const OperatorBetting = () => {
     });
   }, [catalogLoading, mode, selectedMember?.id]);
 
+  const renderMarketOption = (lottery) => {
+    const isSelected = lottery.id === selectedLottery?.id;
+    const isFavorite = favoriteLotteryIdSet.has(lottery.id);
+    const lotteryStatus = getLotteryRoundStatus(lottery);
+    const closeAt = getLotteryCloseAt(lottery);
+    const closeLabel =
+      lotteryStatus === 'open' && closeAt
+        ? `ปิด ${formatDateTime(closeAt, { fallback: '-', options: { hour: '2-digit', minute: '2-digit' } })}`
+        : '';
+
+    return (
+      <button
+        key={lottery.id}
+        type="button"
+        className={`operator-market-option ${isSelected ? 'is-selected' : ''}`}
+        style={getLotteryThemeStyle(lottery)}
+        onClick={async () => {
+          if (isSelected) {
+            setMarketPickerOpen(false);
+            return;
+          }
+
+          await handleLotteryChange(lottery.id);
+        }}
+      >
+        <div className="operator-market-option-copy">
+          <div className="operator-market-option-title">
+            <strong>{lottery.leagueName} • {lottery.name}</strong>
+            {isFavorite ? (
+              <span className="operator-market-option-marker" aria-label="ปักหมุดแล้ว" title="ปักหมุดแล้ว">
+                <FiStar />
+              </span>
+            ) : null}
+          </div>
+          <small>
+            {lottery.activeRound ? formatRoundLabel(lottery.activeRound.title || lottery.activeRound.code) : 'ยังไม่มีงวดปัจจุบัน'}
+            {closeLabel ? ` • ${closeLabel}` : ''}
+          </small>
+        </div>
+        <span className={`operator-market-status ${lotteryStatus === 'open' ? 'is-open' : 'is-closed'}`}>
+          {getRoundStatusLabel(lotteryStatus)}
+        </span>
+      </button>
+    );
+  };
+
   if (catalogLoading && !selectedMember) return <PageSkeleton statCount={3} rows={5} sidebar compactSidebar />;
 
   return (
@@ -2315,51 +2615,121 @@ const OperatorBetting = () => {
                 <div className="operator-select-grid">
                   <div className="operator-market-picker" ref={marketPickerRef}>
                     <label className="form-label">{copyText.marketLabel}</label>
-                    <button
-                      type="button"
-                      className={`operator-market-trigger ${marketPickerOpen ? 'is-open' : ''}`}
-                      style={selectedLotteryThemeStyle}
-                      onClick={() => setMarketPickerOpen((value) => !value)}
-                    >
-                      <div className="operator-market-trigger-copy">
-                        <strong>{selectedLottery ? `${selectedLottery.leagueName} • ${selectedLottery.name}` : copyText.marketLabel}</strong>
-                        <span className={`operator-market-status ${selectedLottery && isLotteryOpen(selectedLottery) ? 'is-open' : 'is-closed'}`}>
-                          {selectedLottery ? getRoundStatusLabel(selectedLotteryStatus) : 'ยังไม่เลือกตลาด'}
-                        </span>
-                      </div>
-                      <FiChevronDown className={`operator-search-chevron ${marketPickerOpen ? 'is-open' : ''}`} />
-                    </button>
+                    <div className="operator-market-trigger-row">
+                      <button
+                        type="button"
+                        className={`operator-market-trigger ${marketPickerOpen ? 'is-open' : ''}`}
+                        style={selectedLotteryThemeStyle}
+                        onClick={() => setMarketPickerOpen((value) => !value)}
+                      >
+                        <div className="operator-market-trigger-copy">
+                          <strong>{selectedLottery ? `${selectedLottery.leagueName} • ${selectedLottery.name}` : copyText.marketLabel}</strong>
+                          <span className={`operator-market-status ${selectedLottery && isLotteryOpen(selectedLottery) ? 'is-open' : 'is-closed'}`}>
+                            {selectedLottery ? getRoundStatusLabel(selectedLotteryStatus) : 'ยังไม่เลือกตลาด'}
+                          </span>
+                        </div>
+                        <FiChevronDown className={`operator-search-chevron ${marketPickerOpen ? 'is-open' : ''}`} />
+                      </button>
+                      {selectedLottery ? (
+                        <button
+                          type="button"
+                          className={`operator-market-pin ${favoriteLotteryIdSet.has(selectedLottery.id) ? 'is-active' : ''}`}
+                          style={selectedLotteryThemeStyle}
+                          onClick={() => toggleFavoriteMarket(selectedLottery.id)}
+                          aria-label={favoriteLotteryIdSet.has(selectedLottery.id) ? 'เอาออกจากปักหมุด' : 'ปักหมุดหวยนี้'}
+                          title={favoriteLotteryIdSet.has(selectedLottery.id) ? 'เอาออกจากปักหมุด' : 'ปักหมุดหวยนี้'}
+                        >
+                          <FiStar />
+                        </button>
+                      ) : null}
+                    </div>
                     {marketPickerOpen ? (
                       <div className="operator-market-dropdown">
-                        {flatLotteries.map((lottery) => {
-                          const isSelected = lottery.id === selectedLottery?.id;
-                          const lotteryStatus = getLotteryRoundStatus(lottery);
+                        <div className="operator-market-search">
+                          <FiSearch />
+                          <input
+                            ref={marketSearchInputRef}
+                            type="text"
+                            value={marketSearchText}
+                            onChange={(event) => setMarketSearchText(event.target.value)}
+                            onKeyDown={handleMarketSearchKeyDown}
+                            placeholder="ค้นหาหวย เช่น ดาวโจนส์, ลาว VIP"
+                          />
+                        </div>
 
-                          return (
-                            <button
-                              key={lottery.id}
-                              type="button"
-                              className={`operator-market-option ${isSelected ? 'is-selected' : ''}`}
-                              style={getLotteryThemeStyle(lottery)}
-                              onClick={async () => {
-                                if (isSelected) {
-                                  setMarketPickerOpen(false);
-                                  return;
-                                }
+                        {favoriteLotteries.length ? (
+                          <div className="operator-market-section">
+                            <div className="operator-market-section-head">
+                              <strong>ปักหมุด</strong>
+                              <span>{favoriteLotteries.length} รายการ</span>
+                            </div>
+                            <div className="operator-market-section-list">
+                              {favoriteLotteries.map((lottery) => renderMarketOption(lottery))}
+                            </div>
+                          </div>
+                        ) : null}
 
-                                await handleLotteryChange(lottery.id);
-                              }}
-                            >
-                              <div className="operator-market-option-copy">
-                                <strong>{lottery.leagueName} • {lottery.name}</strong>
-                                <small>{lottery.activeRound ? formatRoundLabel(lottery.activeRound.title || lottery.activeRound.code) : 'ยังไม่มีงวดปัจจุบัน'}</small>
-                              </div>
-                              <span className={`operator-market-status ${lotteryStatus === 'open' ? 'is-open' : 'is-closed'}`}>
-                                {getRoundStatusLabel(lotteryStatus)}
-                              </span>
-                            </button>
-                          );
-                        })}
+                        {recentLotteries.length ? (
+                          <div className="operator-market-section">
+                            <div className="operator-market-section-head">
+                              <strong>ล่าสุดที่ใช้</strong>
+                              <span>{recentLotteries.length} รายการ</span>
+                            </div>
+                            <div className="operator-market-section-list">
+                              {recentLotteries.map((lottery) => renderMarketOption(lottery))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {closingSoonLotteries.length ? (
+                          <div className="operator-market-section">
+                            <div className="operator-market-section-head">
+                              <strong>ปิดรับใกล้สุด</strong>
+                              <span>เปิดรับอยู่</span>
+                            </div>
+                            <div className="operator-market-section-list">
+                              {closingSoonLotteries.map((lottery) => renderMarketOption(lottery))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {marketSearchText && remainingLotteries.length ? (
+                          <div className="operator-market-section">
+                            <div className="operator-market-section-head">
+                              <strong>ผลการค้นหา</strong>
+                              <span>{remainingLotteries.length} รายการ</span>
+                            </div>
+                            <div className="operator-market-section-list">
+                              {remainingLotteries.map((lottery) => renderMarketOption(lottery))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {!marketSearchText && groupedRemainingLotteries.length ? (
+                          <div className="operator-market-section">
+                            <div className="operator-market-section-head">
+                              <strong>ตลาดทั้งหมด</strong>
+                              <span>{remainingLotteries.length} รายการ</span>
+                            </div>
+                            <div className="operator-market-group-list">
+                              {groupedRemainingLotteries.map((group) => (
+                                <section key={group.key} className="operator-market-group">
+                                  <div className="operator-market-group-head">
+                                    <strong>{group.label}</strong>
+                                    <span>{group.items.length}</span>
+                                  </div>
+                                  <div className="operator-market-section-list">
+                                    {group.items.map((lottery) => renderMarketOption(lottery))}
+                                  </div>
+                                </section>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {!favoriteLotteries.length && !recentLotteries.length && !closingSoonLotteries.length && !remainingLotteries.length ? (
+                          <div className="operator-market-empty">ไม่พบตลาดที่ตรงกับคำค้น</div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

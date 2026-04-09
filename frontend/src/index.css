@@ -948,6 +948,13 @@ input, select, textarea {
   position: relative;
 }
 
+.operator-market-trigger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
 .operator-market-trigger {
   width: 100%;
   min-height: 58px;
@@ -984,6 +991,32 @@ input, select, textarea {
   text-align: left;
 }
 
+.operator-market-pin {
+  width: 52px;
+  min-height: 58px;
+  border-radius: 14px;
+  border: 1px solid var(--lottery-border, rgba(220, 38, 38, 0.22));
+  background: color-mix(in srgb, var(--lottery-bg, #fff8f8) 82%, white 18%);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.operator-market-pin:hover {
+  color: var(--lottery-accent, var(--primary));
+  border-color: var(--lottery-accent, var(--primary));
+  transform: translateY(-1px);
+}
+
+.operator-market-pin.is-active {
+  color: var(--lottery-accent, var(--primary));
+  border-color: var(--lottery-accent, var(--primary));
+  background: color-mix(in srgb, var(--lottery-soft, rgba(220, 38, 38, 0.12)) 78%, white 22%);
+}
+
 .operator-market-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -1000,6 +1033,121 @@ input, select, textarea {
   box-shadow: 0 22px 40px rgba(127, 29, 29, 0.14);
   max-height: 420px;
   overflow: auto;
+}
+
+.operator-market-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  background: rgba(255, 250, 250, 0.98);
+}
+
+.operator-market-search svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.operator-market-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.operator-market-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.operator-market-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.operator-market-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.operator-market-section-head strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.operator-market-section-head span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.operator-market-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.operator-market-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.operator-market-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(220, 38, 38, 0.035);
+  border: 1px solid rgba(220, 38, 38, 0.08);
+}
+
+.operator-market-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.operator-market-group-head strong {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.operator-market-group-head span {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--primary-dark);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.operator-market-empty {
+  padding: 18px 12px;
+  border-radius: 14px;
+  background: rgba(220, 38, 38, 0.04);
+  color: var(--text-secondary);
+  text-align: center;
+  font-weight: 600;
 }
 
 .operator-market-option {
@@ -1030,11 +1178,35 @@ input, select, textarea {
   gap: 4px;
 }
 
+.operator-market-option-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .operator-market-option-copy strong {
   color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 800;
   line-height: 1.2;
+}
+
+.operator-market-option-title strong {
+  min-width: 0;
+  flex: 1;
+}
+
+.operator-market-option-marker {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lottery-soft, rgba(220, 38, 38, 0.12)) 78%, white 22%);
+  color: var(--lottery-accent, var(--primary));
 }
 
 .operator-market-option-copy small {
@@ -2156,6 +2328,15 @@ input, select, textarea {
 
   .recent-slip-card-summary {
     grid-template-columns: 1fr;
+  }
+
+  .operator-market-trigger-row {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-market-pin {
+    width: 100%;
+    min-height: 44px;
   }
 
   .operator-market-option,
