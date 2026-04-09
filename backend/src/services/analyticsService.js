@@ -125,12 +125,31 @@ const mapBetItemToLegacyShape = (item) => ({
   amount: item.amount,
   payRate: item.payRate,
   potentialPayout: item.potentialPayout,
+  sequence: Number.isFinite(Number(item.sequence)) ? Number(item.sequence) : null,
   result: item.result,
   wonAmount: item.wonAmount || 0,
   isLocked: item.isLocked,
   createdAt: item.createdAt,
   updatedAt: item.updatedAt
 });
+
+const sortSlipItemsForDisplay = (items = []) =>
+  [...items].sort((left, right) => {
+    const leftSequence = Number.isFinite(Number(left.sequence)) ? Number(left.sequence) : Number.MAX_SAFE_INTEGER;
+    const rightSequence = Number.isFinite(Number(right.sequence)) ? Number(right.sequence) : Number.MAX_SAFE_INTEGER;
+
+    if (leftSequence !== rightSequence) {
+      return leftSequence - rightSequence;
+    }
+
+    const leftCreatedAt = new Date(left.createdAt || 0).getTime();
+    const rightCreatedAt = new Date(right.createdAt || 0).getTime();
+    if (leftCreatedAt !== rightCreatedAt) {
+      return leftCreatedAt - rightCreatedAt;
+    }
+
+    return String(left._id || '').localeCompare(String(right._id || ''));
+  });
 
 const getBetTotals = async ({ agentId, customerId, startDate, endDate } = {}) => {
   const summary = await BetItem.aggregate([
@@ -615,17 +634,48 @@ const listAgentBetItems = async ({ agentId, roundDate, customerId, marketId, lim
     return [];
   }
 
-  const items = await BetItem.find({
+  const recentItems = await BetItem.find({
     ...buildSubmittedItemMatch({ agentId, customerId }),
     slipId: { $in: slipIds.map((item) => item._id) }
   })
-    .sort({ createdAt: -1 })
+    .sort({ createdAt: -1, _id: -1 })
     .limit(limit)
+    .select('slipId');
+
+  if (!recentItems.length) {
+    return [];
+  }
+
+  const orderedSlipIds = [];
+  const seenSlipIds = new Set();
+  recentItems.forEach((item) => {
+    const slipId = item.slipId?.toString?.() || String(item.slipId || '');
+    if (!slipId || seenSlipIds.has(slipId)) return;
+    seenSlipIds.add(slipId);
+    orderedSlipIds.push(slipId);
+  });
+
+  const items = await BetItem.find({
+    ...buildSubmittedItemMatch({ agentId, customerId }),
+    slipId: { $in: orderedSlipIds }
+  })
     .populate('customerId', 'name username')
     .populate('agentId', 'name username')
     .populate('slipId', 'slipNumber lotteryCode lotteryName roundCode roundTitle memo');
 
-  return items.map(mapBetItemToLegacyShape);
+  const itemsBySlip = new Map();
+  items.forEach((item) => {
+    const slipId = item.slipId?._id?.toString?.() || item.slipId?.toString?.() || '';
+    if (!slipId) return;
+    if (!itemsBySlip.has(slipId)) {
+      itemsBySlip.set(slipId, []);
+    }
+    itemsBySlip.get(slipId).push(item);
+  });
+
+  return orderedSlipIds.flatMap((slipId) =>
+    sortSlipItemsForDisplay(itemsBySlip.get(slipId) || []).map(mapBetItemToLegacyShape)
+  );
 };
 
 const listBettingRecentItems = async ({

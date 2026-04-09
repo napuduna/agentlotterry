@@ -13,6 +13,62 @@ const betTypeMeta = {
 
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
 
+const sortSlipItemsForDisplay = (items = []) =>
+  [...items].sort((left, right) => {
+    const leftSequence = Number.isFinite(Number(left?.sequence)) ? Number(left.sequence) : Number.MAX_SAFE_INTEGER;
+    const rightSequence = Number.isFinite(Number(right?.sequence)) ? Number(right.sequence) : Number.MAX_SAFE_INTEGER;
+
+    if (leftSequence !== rightSequence) {
+      return leftSequence - rightSequence;
+    }
+
+    const leftCreatedAt = new Date(left?.createdAt || 0).getTime();
+    const rightCreatedAt = new Date(right?.createdAt || 0).getTime();
+    if (leftCreatedAt !== rightCreatedAt) {
+      return leftCreatedAt - rightCreatedAt;
+    }
+
+    return String(left?._id || '').localeCompare(String(right?._id || ''));
+  });
+
+const aggregateWinningEntries = (items = []) => {
+  const grouped = new Map();
+
+  (items || []).forEach((item) => {
+    const number = String(item?.number || '').trim();
+    const wonAmount = Number(item?.wonAmount || 0);
+    const result = String(item?.result || '').trim().toLowerCase();
+
+    if (!number || result !== 'won' || wonAmount <= 0) return;
+
+    const current = grouped.get(number) || {
+      number,
+      wonAmount: 0,
+      hitCount: 0
+    };
+
+    current.wonAmount += wonAmount;
+    current.hitCount += 1;
+    grouped.set(number, current);
+  });
+
+  return [...grouped.values()].sort((left, right) => left.number.localeCompare(right.number));
+};
+
+const prioritizeWinningNumbers = (numbers = [], winningEntries = []) => {
+  const winningSet = new Set((winningEntries || []).map((entry) => String(entry?.number || '').trim()).filter(Boolean));
+  return [...numbers].sort((left, right) => {
+    const leftWon = winningSet.has(String(left || '').trim()) ? 1 : 0;
+    const rightWon = winningSet.has(String(right || '').trim()) ? 1 : 0;
+
+    if (leftWon !== rightWon) {
+      return rightWon - leftWon;
+    }
+
+    return 0;
+  });
+};
+
 const orderOccurrenceItems = (items = []) =>
   [...items]
     .filter((item) => betTypeMeta[item.betType])
@@ -64,14 +120,17 @@ const summarizeOccurrence = ({ number, items }) => {
     number: String(number || ''),
     totalAmount: ordered.reduce((sum, item) => sum + Number(item.amount || 0), 0),
     potentialPayout: ordered.reduce((sum, item) => sum + (Number(item.amount || 0) * Number(item.payRate || 0)), 0),
+    totalWonAmount: ordered.reduce((sum, item) => sum + Number(item.wonAmount || 0), 0),
+    winningEntries: aggregateWinningEntries(ordered),
     items: ordered
   };
 };
 
 export const buildSlipDisplayGroups = (items = []) => {
   const grouped = new Map();
+  const orderedItems = sortSlipItemsForDisplay(items);
 
-  buildOccurrenceBlocks(items).forEach((occurrence) => {
+  buildOccurrenceBlocks(orderedItems).forEach((occurrence) => {
     const summary = summarizeOccurrence(occurrence);
     if (!summary) return;
 
@@ -83,20 +142,53 @@ export const buildSlipDisplayGroups = (items = []) => {
       numbers: [],
       totalAmount: 0,
       potentialPayout: 0,
+      totalWonAmount: 0,
+      winningEntries: [],
       items: []
     };
 
     current.numbers.push(summary.number);
     current.totalAmount += summary.totalAmount;
     current.potentialPayout += summary.potentialPayout;
+    current.totalWonAmount += summary.totalWonAmount;
+    current.winningEntries.push(...summary.winningEntries);
     current.items.push(...summary.items);
     grouped.set(summary.signature, current);
   });
 
-  return [...grouped.values()].map((group, index) => ({
-    ...group,
-    key: `${group.key}-${index}`,
-    numbersText: group.numbers.join(' '),
-    itemCount: group.items.length
-  }));
+  return [...grouped.values()].map((group, index) => {
+    const winningEntries = aggregateWinningEntries(
+      group.winningEntries.map((entry) => ({
+        number: entry.number,
+        wonAmount: entry.wonAmount,
+        result: 'won'
+      }))
+    );
+    const orderedNumbers = prioritizeWinningNumbers(group.numbers, winningEntries);
+    const sortOrder = Math.min(
+      ...group.items
+        .map((item) => betTypeMeta[item.betType]?.order)
+        .filter((value) => Number.isFinite(value))
+    );
+
+    return {
+      ...group,
+      key: `${group.key}-${index}`,
+      numbersText: orderedNumbers.join(' '),
+      itemCount: group.items.length,
+      winningEntries,
+      hasWinningEntries: winningEntries.length > 0,
+      sortOrder: Number.isFinite(sortOrder) ? sortOrder : 999
+    };
+  }).sort((left, right) => {
+    if (left.hasWinningEntries !== right.hasWinningEntries) {
+      return left.hasWinningEntries ? -1 : 1;
+    }
+
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.key.localeCompare(right.key);
+  });
 };
