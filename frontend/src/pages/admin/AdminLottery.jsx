@@ -17,7 +17,8 @@ import {
   getMarketOverview,
   reconcileLotteryRoundSettlement,
   rerunLotteryRoundSettlement,
-  reverseLotteryRoundSettlement
+  reverseLotteryRoundSettlement,
+  syncLatestLottery
 } from '../../services/api';
 import { formatDateTime, formatRoundLabel, formatThaiDate, THAI_TIMEZONE } from '../../utils/formatters';
 import { getLotteryVisual } from '../../utils/lotteryVisuals';
@@ -32,6 +33,11 @@ const UI = {
   syncSummaryEmpty: 'ยังไม่มีประวัติการซิงก์ล่าสุด',
   syncConfiguredFeeds: 'ฟีดที่ตั้งไว้',
   syncExplicitFeeds: 'explicit mapping',
+  syncLatest: 'Sync latest',
+  syncLatestBusy: 'Syncing...',
+  syncLatestSuccess: 'Latest results synced successfully',
+  syncLatestSkipped: 'A sync is already running, so this request was skipped',
+  syncLatestError: 'Failed to sync latest results',
   syncProblemFeeds: 'ฟีดมีปัญหา',
   syncSettlements: 'settlement ล่าสุด',
   syncStrictModeOn: 'strict mapping เปิดอยู่',
@@ -57,6 +63,7 @@ const UI = {
   latestHeadlineFallback: 'รอผลล่าสุด',
   settlementTitle: 'จัดการ settlement ของงวดนี้',
   settlementUnavailable: 'ยังไม่มี active round จริงในระบบสำหรับจัดการ settlement',
+  settlementPendingPublish: 'ผลงวดนี้ยังเป็นข้อมูลจาก feed และยังไม่ได้ publish เข้าระบบ จึงยังจัดการ settlement ไม่ได้',
   settlementSynthetic: 'งวดนี้เป็นงวดจำลองจากตารางเวลา ใช้จัดการ settlement จริงไม่ได้',
   settlementReconcile: 'ตรวจสอบ',
   settlementReverse: 'ย้อนงวด',
@@ -541,6 +548,7 @@ const AdminLottery = () => {
   const [marketOverview, setMarketOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncingLatest, setSyncingLatest] = useState(false);
   const [selectedCode, setSelectedCode] = useState('');
   const [syncStatus, setSyncStatus] = useState(null);
   const [settlementBusy, setSettlementBusy] = useState('');
@@ -600,6 +608,25 @@ const AdminLottery = () => {
   useEffect(() => {
     setSettlementFeedback(null);
   }, [selectedCode]);
+
+  const handleSyncLatest = async () => {
+    setSyncingLatest(true);
+    try {
+      const response = await syncLatestLottery();
+      const summary = response.data?.summary || null;
+      if (summary?.skipped) {
+        toast.success(UI.syncLatestSkipped);
+      } else {
+        toast.success(UI.syncLatestSuccess);
+      }
+      await loadData({ silent: true });
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || UI.syncLatestError);
+    } finally {
+      setSyncingLatest(false);
+    }
+  };
 
   const requestedMarketKey = useMemo(
     () => normalizeKey(searchParams.get('marketId') || searchParams.get('marketName') || searchParams.get('market') || ''),
@@ -753,10 +780,10 @@ const AdminLottery = () => {
   const settlementRoundId = selectedResult?.roundId
     || (selectedCard?.activeRound?.isSynthetic ? '' : (selectedCard?.activeRound?.id || ''));
   const settlementUnavailableReason = selectedResult && !selectedResult?.roundId
-    ? UI.settlementUnavailable
-    : (selectedCard?.activeRound?.isSynthetic
-      ? UI.settlementSynthetic
-      : (!settlementRoundId ? UI.settlementUnavailable : ''));
+    ? UI.settlementPendingPublish
+    : (!settlementRoundId
+      ? (selectedCard?.activeRound?.isSynthetic ? UI.settlementSynthetic : UI.settlementUnavailable)
+      : '');
   const pageWarnings = useMemo(() => {
     const cards = displaySections.flatMap((section) => section.cards);
 
@@ -865,15 +892,26 @@ const AdminLottery = () => {
           <h1 className="page-title">{UI.title}</h1>
           <p className="page-subtitle">{UI.subtitle}</p>
         </div>
-        <button
-          type="button"
-          className="button button-secondary refresh-button"
-          onClick={() => loadData({ silent: true })}
-          disabled={refreshing}
-        >
-          <FiRefreshCw className={refreshing ? 'spin' : ''} />
-          {UI.refresh}
-        </button>
+        <div className="lottery-hero-actions">
+          <button
+            type="button"
+            className="button button-secondary refresh-button sync-button"
+            onClick={handleSyncLatest}
+            disabled={refreshing || syncingLatest || Boolean(syncStatus?.running)}
+          >
+            <FiRefreshCw className={(syncingLatest || syncStatus?.running) ? 'spin' : ''} />
+            {syncingLatest || syncStatus?.running ? UI.syncLatestBusy : UI.syncLatest}
+          </button>
+          <button
+            type="button"
+            className="button button-secondary refresh-button"
+            onClick={() => loadData({ silent: true })}
+            disabled={refreshing || syncingLatest}
+          >
+            <FiRefreshCw className={refreshing ? 'spin' : ''} />
+            {UI.refresh}
+          </button>
+        </div>
       </section>
 
       <section className="card warning-panel">
@@ -1162,6 +1200,14 @@ const AdminLottery = () => {
           gap: 10px;
         }
 
+        .lottery-hero-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
         .lottery-hero .page-title {
           margin: 0;
           font-size: clamp(2.2rem, 4vw, 3.4rem);
@@ -1198,6 +1244,16 @@ const AdminLottery = () => {
 
         .refresh-button:disabled {
           opacity: 0.72;
+        }
+
+        .sync-button {
+          border-color: rgba(14, 165, 233, 0.2);
+          background: linear-gradient(135deg, rgba(240, 249, 255, 0.98), rgba(224, 242, 254, 0.96));
+          color: #0f766e;
+        }
+
+        .sync-button:hover:not(:disabled) {
+          border-color: rgba(14, 165, 233, 0.32);
         }
 
         .spin {
@@ -1858,6 +1914,14 @@ const AdminLottery = () => {
           .lottery-hero {
             flex-direction: column;
             align-items: stretch;
+          }
+
+          .lottery-hero-actions {
+            justify-content: stretch;
+          }
+
+          .lottery-hero-actions .refresh-button {
+            width: 100%;
           }
 
           .market-card {

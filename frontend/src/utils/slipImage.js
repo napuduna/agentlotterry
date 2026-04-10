@@ -873,11 +873,6 @@ const renderGroupedSlipImageWithBottomSummary = (payload) => {
       const bodyX = badgeX + GROUP.badgeWidth + GROUP.cardGap;
       const bodyWidth = layout.contentWidth - (GROUP.cardPaddingX * 2) - GROUP.badgeWidth - GROUP.cardGap;
 
-      ctx.textAlign = 'left';
-      ctx.fillStyle = colors.textPrimary;
-      ctx.font = `700 ${TYPE.groupTotal}px sans-serif`;
-      ctx.fillText(`${money(group.totalAmount)} ${bahtLabel}`, bodyX, badgeY + 18);
-
       const winningBoxY = badgeY;
       const headY = group.winningLines?.length
         ? winningBoxY + group.winningHeight + WINNING.gapTop

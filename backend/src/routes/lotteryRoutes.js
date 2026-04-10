@@ -1,6 +1,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
+const cronAuth = require('../middleware/cronAuth');
 const DrawRound = require('../models/DrawRound');
 const LotteryType = require('../models/LotteryType');
 const LotteryResult = require('../models/LotteryResult');
@@ -67,6 +68,20 @@ router.post('/sync-latest', auth, authorize('admin'), async (req, res) => {
     });
   } catch (error) {
     console.error('Sync latest results error:', error);
+    res.status(500).json({ message: error.message || 'Failed to sync latest results' });
+  }
+});
+
+router.post('/sync-latest/cron', cronAuth, async (req, res) => {
+  try {
+    const summary = await syncLatestExternalResults();
+    res.json({
+      message: 'Latest results synced successfully',
+      trigger: req.cronAuth?.trigger || 'external-cron',
+      summary
+    });
+  } catch (error) {
+    console.error('Cron sync latest results error:', error);
     res.status(500).json({ message: error.message || 'Failed to sync latest results' });
   }
 });

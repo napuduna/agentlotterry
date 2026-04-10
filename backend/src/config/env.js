@@ -36,6 +36,7 @@ const backupDir = path.resolve(process.cwd(), toText(process.env.BACKUP_DIR, './
 const manyCaiFeedBaseUrl = toText(process.env.MANYCAI_FEED_BASE_URL, 'http://vip.manycai.com/K269c291856f58e');
 const autoSyncResults = parseBoolean(process.env.AUTO_SYNC_RESULTS, true);
 const resultSyncIntervalMs = Number(process.env.RESULT_SYNC_INTERVAL_MS || 300000);
+const cronSyncToken = toText(process.env.CRON_SYNC_TOKEN);
 
 const validateEnv = () => {
   const issues = [];
@@ -76,6 +77,10 @@ const validateEnv = () => {
     issues.push('RESULT_SYNC_INTERVAL_MS must be a number >= 60000');
   }
 
+  if (cronSyncToken && cronSyncToken.length < 24) {
+    issues.push('CRON_SYNC_TOKEN must be at least 24 characters long when set');
+  }
+
   if (issues.length) {
     const error = new Error(`Environment validation failed: ${issues.join('; ')}`);
     error.validationIssues = issues;
@@ -95,7 +100,8 @@ const getEnvSummary = () => ({
   backupDir,
   manyCaiFeedBaseUrlConfigured: Boolean(manyCaiFeedBaseUrl),
   autoSyncResults,
-  resultSyncIntervalMs
+  resultSyncIntervalMs,
+  cronSyncTokenConfigured: Boolean(cronSyncToken)
 });
 
 module.exports = {
@@ -113,6 +119,7 @@ module.exports = {
   manyCaiFeedBaseUrl,
   autoSyncResults,
   resultSyncIntervalMs,
+  cronSyncToken,
   validateEnv,
   getEnvSummary
 };

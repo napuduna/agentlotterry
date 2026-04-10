@@ -112,6 +112,7 @@ export const getRecentMarketResults = (params) => api.get('/results/recent', { p
 // Lottery
 export const getMarketOverview = () => api.get('/lottery/markets');
 export const getLotterySyncStatus = () => api.get('/lottery/sync-status');
+export const syncLatestLottery = () => api.post('/lottery/sync-latest');
 export const getLatestLottery = () => api.get('/lottery/latest');
 export const getLotteryResults = () => api.get('/lottery/results');
 export const fetchLottery = (data) => api.post('/lottery/fetch', data);
