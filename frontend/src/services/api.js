@@ -118,6 +118,7 @@ export const getLotteryResults = () => api.get('/lottery/results');
 export const fetchLottery = (data) => api.post('/lottery/fetch', data);
 export const manualLottery = (data) => api.post('/lottery/manual', data);
 export const updateRoundClosedBetTypes = (roundId, data) => api.put(`/lottery/rounds/${roundId}/closed-bet-types`, data);
+export const updateRoundBettingOverride = (roundId, data) => api.put(`/lottery/rounds/${roundId}/betting-override`, data);
 export const reconcileLotteryRoundSettlement = (roundId) => api.get(`/lottery/rounds/${roundId}/settlement/reconcile`);
 export const reverseLotteryRoundSettlement = (roundId) => api.post(`/lottery/rounds/${roundId}/settlement/reverse`);
 export const rerunLotteryRoundSettlement = (roundId) => api.post(`/lottery/rounds/${roundId}/settlement/rerun`);

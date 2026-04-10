@@ -19,6 +19,7 @@ import AgentDashboard from './pages/agent/AgentDashboard';
 import AgentCustomers from './pages/agent/AgentCustomers';
 import AgentMemberDetail from './pages/agent/AgentMemberDetail';
 import AgentBets from './pages/agent/AgentBets';
+import AgentLottery from './pages/agent/AgentLottery';
 import AgentReports from './pages/agent/AgentReports';
 import OperatorBetting from './pages/shared/OperatorBetting';
 
@@ -125,6 +126,11 @@ function App() {
             <Route path="/agent/bets" element={
               <ProtectedRoute roles={['agent']}>
                 <AppLayout><AgentBets /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/agent/lottery" element={
+              <ProtectedRoute roles={['agent']}>
+                <AppLayout><AgentLottery /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/agent/betting" element={

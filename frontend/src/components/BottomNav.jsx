@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
+  FiAward,
   FiDollarSign,
   FiFileText,
   FiHome,
@@ -22,15 +23,22 @@ const BottomNav = () => {
   const { user } = useAuth();
   const location = useLocation();
   const items = navItems[user?.role] || null;
+  const visibleItems = user?.role === 'agent' && items
+    ? [
+      ...items.slice(0, 4),
+      { path: '/agent/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
+      ...items.slice(4)
+    ]
+    : items;
 
   const isActivePath = (path) =>
     location.pathname === path || (path !== `/${user?.role}` && location.pathname.startsWith(`${path}/`));
 
-  if (!items) return null;
+  if (!visibleItems) return null;
 
   return (
     <nav className="bottom-nav">
-      {items.map((item) => {
+      {visibleItems.map((item) => {
         const isActive = isActivePath(item.path);
 
         return (

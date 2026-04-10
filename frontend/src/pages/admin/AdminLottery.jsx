@@ -19,7 +19,8 @@ import {
   reconcileLotteryRoundSettlement,
   rerunLotteryRoundSettlement,
   reverseLotteryRoundSettlement,
-  syncLatestLottery
+  syncLatestLottery,
+  updateRoundBettingOverride
 } from '../../services/api';
 import { formatDateTime, formatRoundLabel, formatThaiDate, THAI_TIMEZONE } from '../../utils/formatters';
 import { getLotteryVisual } from '../../utils/lotteryVisuals';
@@ -70,8 +71,26 @@ const UI = {
   settlementReverse: 'ย้อนงวด',
   settlementRerun: 'รันใหม่',
   settlementHelp: 'ใช้สำหรับตรวจความสอดคล้อง, ย้อน payout, หรือรัน settlement ใหม่ของงวดที่เลือก',
-  settlementBusy: 'กำลังดำเนินการ...',
-  settlementFeedbackEmpty: 'ยังไม่ได้รันคำสั่งจัดการ settlement ในงวดนี้'
+  settlementBusy: '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23...',
+  settlementFeedbackEmpty: '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e19\u0e04\u0e33\u0e2a\u0e31\u0e48\u0e07\u0e08\u0e31\u0e14\u0e01\u0e32\u0e23 settlement \u0e43\u0e19\u0e07\u0e27\u0e14\u0e19\u0e35\u0e49'
+};
+
+const BETTING_TOGGLE_UI = {
+  title: '\u0e40\u0e1b\u0e34\u0e14-\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22\u0e02\u0e2d\u0e07\u0e07\u0e27\u0e14\u0e1b\u0e31\u0e08\u0e08\u0e38\u0e1a\u0e31\u0e19',
+  help: '\u0e43\u0e0a\u0e49\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e2a\u0e31\u0e48\u0e07\u0e1a\u0e31\u0e07\u0e04\u0e31\u0e1a\u0e40\u0e1b\u0e34\u0e14\u0e2b\u0e23\u0e37\u0e2d\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22\u0e02\u0e2d\u0e07 active round \u0e41\u0e25\u0e30\u0e01\u0e25\u0e31\u0e1a\u0e44\u0e1b\u0e15\u0e32\u0e21\u0e40\u0e27\u0e25\u0e32\u0e44\u0e14\u0e49',
+  unavailable: '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35 active round \u0e08\u0e23\u0e34\u0e07\u0e43\u0e19\u0e23\u0e30\u0e1a\u0e1a\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e2a\u0e31\u0e48\u0e07\u0e40\u0e1b\u0e34\u0e14-\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22',
+  synthetic: '\u0e07\u0e27\u0e14\u0e19\u0e35\u0e49\u0e40\u0e1b\u0e47\u0e19\u0e07\u0e27\u0e14\u0e08\u0e33\u0e25\u0e2d\u0e07\u0e08\u0e32\u0e01\u0e15\u0e32\u0e23\u0e32\u0e07\u0e40\u0e27\u0e25\u0e32 \u0e08\u0e36\u0e07\u0e22\u0e31\u0e07\u0e40\u0e1b\u0e34\u0e14-\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22\u0e08\u0e23\u0e34\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49',
+  resulted: '\u0e07\u0e27\u0e14\u0e19\u0e35\u0e49\u0e1b\u0e23\u0e30\u0e01\u0e32\u0e28\u0e1c\u0e25\u0e41\u0e25\u0e49\u0e27 \u0e08\u0e36\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22\u0e44\u0e14\u0e49',
+  auto: '\u0e15\u0e32\u0e21\u0e40\u0e27\u0e25\u0e32',
+  forcedOpen: '\u0e1a\u0e31\u0e07\u0e04\u0e31\u0e1a\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
+  forcedClosed: '\u0e1a\u0e31\u0e07\u0e04\u0e31\u0e1a\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
+  reset: '\u0e01\u0e25\u0e31\u0e1a\u0e44\u0e1b\u0e15\u0e32\u0e21\u0e40\u0e27\u0e25\u0e32',
+  busy: '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15...',
+  open: '\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
+  closed: '\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
+  updated: '\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22\u0e41\u0e25\u0e49\u0e27',
+  error: '\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e23\u0e31\u0e1a\u0e42\u0e1e\u0e22\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',
+  resetDone: '\u0e01\u0e25\u0e31\u0e1a\u0e44\u0e1b\u0e43\u0e0a\u0e49\u0e40\u0e27\u0e25\u0e32\u0e2d\u0e31\u0e15\u0e42\u0e19\u0e21\u0e31\u0e15\u0e34\u0e41\u0e25\u0e49\u0e27'
 };
 
 const CATALOG_MARKET_ALIASES = {
@@ -549,7 +568,8 @@ const buildSettlementFeedback = (action, payload) => {
   return null;
 };
 
-const AdminLottery = () => {
+const AdminLottery = ({ viewerRole = 'admin' }) => {
+  const isAdmin = viewerRole === 'admin';
   const [searchParams] = useSearchParams();
   const [catalogOverview, setCatalogOverview] = useState(null);
   const [marketOverview, setMarketOverview] = useState(null);
@@ -558,6 +578,7 @@ const AdminLottery = () => {
   const [syncingLatest, setSyncingLatest] = useState(false);
   const [selectedCode, setSelectedCode] = useState('');
   const [syncStatus, setSyncStatus] = useState(null);
+  const [bettingOverrideBusy, setBettingOverrideBusy] = useState('');
   const [settlementBusy, setSettlementBusy] = useState('');
   const [settlementFeedback, setSettlementFeedback] = useState(null);
   const [marketHistoryCache, setMarketHistoryCache] = useState({});
@@ -572,7 +593,7 @@ const AdminLottery = () => {
     const [catalogResult, marketResult, syncResult] = await Promise.allSettled([
       getCatalogOverview(),
       getMarketOverview(),
-      getLotterySyncStatus()
+      isAdmin ? getLotterySyncStatus() : Promise.resolve({ data: null })
     ]);
 
     if (catalogResult.status === 'fulfilled') {
@@ -593,7 +614,7 @@ const AdminLottery = () => {
 
     if (syncResult.status === 'fulfilled') {
       setSyncStatus(syncResult.value.data || null);
-    } else {
+    } else if (isAdmin) {
       console.error(syncResult.reason);
       toast.error('โหลดสถานะซิงก์ผลหวยไม่สำเร็จ');
       setSyncStatus({
@@ -603,6 +624,8 @@ const AdminLottery = () => {
         mappingCoverage: null,
         feeds: []
       });
+    } else {
+      setSyncStatus(null);
     }
 
     setLoading(false);
@@ -633,6 +656,47 @@ const AdminLottery = () => {
       toast.error(error?.response?.data?.message || UI.syncLatestError);
     } finally {
       setSyncingLatest(false);
+    }
+  };
+
+  const handleBettingToggle = async () => {
+    if (!activeRoundId) {
+      toast.error(bettingToggleUnavailableReason || BETTING_TOGGLE_UI.unavailable);
+      return;
+    }
+
+    const nextOverride = bettingToggleChecked ? 'closed' : 'open';
+    setBettingOverrideBusy(nextOverride);
+
+    try {
+      await updateRoundBettingOverride(activeRoundId, { bettingOverride: nextOverride });
+      toast.success(BETTING_TOGGLE_UI.updated);
+      await loadData({ silent: true });
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || BETTING_TOGGLE_UI.error);
+    } finally {
+      setBettingOverrideBusy('');
+    }
+  };
+
+  const handleBettingReset = async () => {
+    if (!activeRoundId) {
+      toast.error(bettingToggleUnavailableReason || BETTING_TOGGLE_UI.unavailable);
+      return;
+    }
+
+    setBettingOverrideBusy('auto');
+
+    try {
+      await updateRoundBettingOverride(activeRoundId, { bettingOverride: 'auto' });
+      toast.success(BETTING_TOGGLE_UI.resetDone);
+      await loadData({ silent: true });
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || BETTING_TOGGLE_UI.error);
+    } finally {
+      setBettingOverrideBusy('');
     }
   };
 
@@ -810,6 +874,19 @@ const AdminLottery = () => {
         ? formatThaiDate(selectedCard.apiMarket.resultDate, { fallback: selectedCard.apiMarket.resultDate })
         : UI.noRound));
   const SelectedStatusIcon = selectedCard?.statusIcon || FiAlertCircle;
+  const activeRound = selectedCard?.activeRound || null;
+  const activeRoundStatus = activeRound?.status || selectedCard?.status || 'missing';
+  const activeRoundStatusMeta = resolveStatusMeta(activeRoundStatus);
+  const ActiveRoundStatusIcon = activeRoundStatusMeta.icon;
+  const activeRoundId = activeRound?.isSynthetic ? '' : (activeRound?.id || '');
+  const activeRoundBettingOverride = activeRound?.bettingOverride || 'auto';
+  const activeRoundOverrideLabel = activeRoundBettingOverride === 'open'
+    ? BETTING_TOGGLE_UI.forcedOpen
+    : (activeRoundBettingOverride === 'closed' ? BETTING_TOGGLE_UI.forcedClosed : BETTING_TOGGLE_UI.auto);
+  const bettingToggleUnavailableReason = !activeRoundId
+    ? (activeRound?.isSynthetic ? BETTING_TOGGLE_UI.synthetic : BETTING_TOGGLE_UI.unavailable)
+    : (activeRoundStatus === 'resulted' ? BETTING_TOGGLE_UI.resulted : '');
+  const bettingToggleChecked = activeRoundStatus === 'open';
   const syncSummary = syncStatus?.lastSummary || null;
   const syncCoverage = syncStatus?.mappingCoverage || syncSummary?.mappingCoverage || null;
   const syncFeedIssues = useMemo(
@@ -954,15 +1031,17 @@ const AdminLottery = () => {
           <p className="page-subtitle">{UI.subtitle}</p>
         </div>
         <div className="lottery-hero-actions">
-          <button
-            type="button"
-            className="button button-secondary refresh-button sync-button"
-            onClick={handleSyncLatest}
-            disabled={refreshing || syncingLatest || Boolean(syncStatus?.running)}
-          >
-            <FiRefreshCw className={(syncingLatest || syncStatus?.running) ? 'spin' : ''} />
-            {syncingLatest || syncStatus?.running ? UI.syncLatestBusy : UI.syncLatest}
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              className="button button-secondary refresh-button sync-button"
+              onClick={handleSyncLatest}
+              disabled={refreshing || syncingLatest || Boolean(syncStatus?.running)}
+            >
+              <FiRefreshCw className={(syncingLatest || syncStatus?.running) ? 'spin' : ''} />
+              {syncingLatest || syncStatus?.running ? UI.syncLatestBusy : UI.syncLatest}
+            </button>
+          ) : null}
           <button
             type="button"
             className="button button-secondary refresh-button"
@@ -991,6 +1070,8 @@ const AdminLottery = () => {
           </div>
         ) : null}
 
+        {isAdmin ? (
+          <>
         <div className="sync-metrics-grid">
           {syncMetrics.map((metric) => (
             <article key={metric.label} className="sync-metric-card">
@@ -1016,6 +1097,8 @@ const AdminLottery = () => {
               ))}
             </div>
           </div>
+        ) : null}
+          </>
         ) : null}
       </section>
 
@@ -1111,6 +1194,65 @@ const AdminLottery = () => {
                   </span>
                 </div>
 
+                {isAdmin ? (
+                  <section className="round-toggle-panel">
+                    <div className="settlement-head">
+                      <div>
+                        <div className="history-title">{BETTING_TOGGLE_UI.title}</div>
+                        <p className="settlement-note">{BETTING_TOGGLE_UI.help}</p>
+                      </div>
+                      {activeRound ? (
+                        <span className={`detail-status-pill ${activeRoundStatusMeta.cardClass}`}>
+                          <ActiveRoundStatusIcon />
+                          {activeRoundStatusMeta.label}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {bettingToggleUnavailableReason ? (
+                      <div className="detail-empty compact">{bettingToggleUnavailableReason}</div>
+                    ) : (
+                      <div className="round-toggle-body">
+                        <div className="round-toggle-copy">
+                          <strong>{activeRoundOverrideLabel}</strong>
+                          <span>{activeRound?.title || activeRound?.code || UI.noRound}</span>
+                        </div>
+
+                        <label className={`round-toggle-switch ${bettingToggleChecked ? 'is-checked' : ''} ${bettingOverrideBusy ? 'is-disabled' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={bettingToggleChecked}
+                            onChange={handleBettingToggle}
+                            disabled={Boolean(bettingOverrideBusy)}
+                          />
+                          <span className="round-toggle-track">
+                            <span className="round-toggle-thumb" />
+                          </span>
+                          <span className="round-toggle-text">
+                            {bettingOverrideBusy && bettingOverrideBusy !== 'auto'
+                              ? BETTING_TOGGLE_UI.busy
+                              : (bettingToggleChecked ? BETTING_TOGGLE_UI.open : BETTING_TOGGLE_UI.closed)}
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    {activeRoundId ? (
+                      <div className="round-toggle-footer">
+                        <span className="round-toggle-pill">{activeRound?.code || activeRound?.title || '-'}</span>
+                        <button
+                          type="button"
+                          className="button button-secondary round-toggle-reset"
+                          onClick={handleBettingReset}
+                          disabled={Boolean(bettingOverrideBusy) || activeRoundBettingOverride === 'auto' || Boolean(bettingToggleUnavailableReason)}
+                        >
+                          {bettingOverrideBusy === 'auto' ? BETTING_TOGGLE_UI.busy : BETTING_TOGGLE_UI.reset}
+                        </button>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
                 <section className="detail-result-hero">
                   <div className="detail-result-label">{UI.latestResult}</div>
                   <div className="detail-result-headline">{selectedResult?.headline || '-'}</div>
@@ -1151,7 +1293,8 @@ const AdminLottery = () => {
                   </a>
                 ) : null}
 
-                <section className="settlement-panel">
+                {isAdmin ? (
+                  <section className="settlement-panel">
                   <div className="settlement-head">
                     <div>
                       <div className="history-title">{UI.settlementTitle}</div>
@@ -1208,7 +1351,8 @@ const AdminLottery = () => {
                   ) : (
                     <div className="settlement-empty">{UI.settlementFeedbackEmpty}</div>
                   )}
-                </section>
+                  </section>
+                ) : null}
 
                 <div className="history-head">
                   <div className="history-title">{UI.recentHistoryTitle}</div>
@@ -1769,6 +1913,115 @@ const AdminLottery = () => {
           font-size: 0.92rem;
         }
 
+        .round-toggle-panel {
+          margin-top: 18px;
+          padding: 16px;
+          border-radius: 22px;
+          background: linear-gradient(135deg, rgba(236, 253, 245, 0.96), rgba(240, 253, 250, 0.92));
+          border: 1px solid rgba(16, 185, 129, 0.18);
+        }
+
+        .round-toggle-body {
+          margin-top: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .round-toggle-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .round-toggle-copy strong {
+          font-size: 1rem;
+        }
+
+        .round-toggle-copy span,
+        .round-toggle-text {
+          color: var(--text-muted);
+          font-size: 0.92rem;
+        }
+
+        .round-toggle-switch {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          cursor: pointer;
+          user-select: none;
+          font-weight: 800;
+          color: #0f172a;
+        }
+
+        .round-toggle-switch input {
+          position: absolute;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .round-toggle-track {
+          width: 64px;
+          height: 36px;
+          border-radius: 999px;
+          background: rgba(148, 163, 184, 0.34);
+          padding: 4px;
+          transition: background .18s ease;
+        }
+
+        .round-toggle-thumb {
+          display: block;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: white;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+          transition: transform .18s ease;
+        }
+
+        .round-toggle-switch.is-checked .round-toggle-track {
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.92), rgba(5, 150, 105, 0.92));
+        }
+
+        .round-toggle-switch.is-checked .round-toggle-thumb {
+          transform: translateX(28px);
+        }
+
+        .round-toggle-switch.is-disabled {
+          opacity: 0.68;
+          cursor: not-allowed;
+        }
+
+        .round-toggle-footer {
+          margin-top: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .round-toggle-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.88);
+          border: 1px solid rgba(16, 185, 129, 0.22);
+          color: #047857;
+          font-size: 0.84rem;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .round-toggle-reset {
+          min-height: 42px;
+          font-weight: 800;
+        }
+
         .settlement-panel {
           margin-top: 18px;
           padding: 16px;
@@ -1997,6 +2250,8 @@ const AdminLottery = () => {
           }
 
           .detail-top,
+          .round-toggle-body,
+          .round-toggle-footer,
           .history-item,
           .market-card-top {
             flex-direction: column;
@@ -2009,3 +2264,4 @@ const AdminLottery = () => {
 };
 
 export default AdminLottery;
+

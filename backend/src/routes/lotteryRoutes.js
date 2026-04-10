@@ -10,6 +10,7 @@ const { fetchLotteryResult, saveLotteryResult, getLatestResult } = require('../s
 const { getMarketOverview } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
 const { BET_TYPES } = require('../constants/betting');
+const { getRoundStatus } = require('../services/catalogService');
 const {
   reconcileRoundSettlementById,
   reverseRoundSettlementById,
@@ -17,6 +18,7 @@ const {
 } = require('../services/resultService');
 
 const router = express.Router();
+const ROUND_BETTING_OVERRIDES = ['auto', 'open', 'closed'];
 const getErrorStatus = (error, fallback = 500) => {
   const statusCode = Number(error?.statusCode);
   return Number.isInteger(statusCode) && statusCode >= 400 ? statusCode : fallback;
@@ -188,6 +190,57 @@ router.put('/rounds/:roundId/closed-bet-types', auth, authorize('admin'), async 
   } catch (error) {
     console.error('Update round closed bet types error:', error);
     res.status(500).json({ message: error.message || 'Failed to update round closed bet types' });
+  }
+});
+
+router.put('/rounds/:roundId/betting-override', auth, authorize('admin'), async (req, res) => {
+  try {
+    const bettingOverride = String(req.body?.bettingOverride || '').trim().toLowerCase();
+    if (!ROUND_BETTING_OVERRIDES.includes(bettingOverride)) {
+      return res.status(400).json({ message: 'bettingOverride must be auto, open, or closed' });
+    }
+
+    const round = await DrawRound.findById(req.params.roundId);
+    if (!round) {
+      return res.status(404).json({ message: 'Round not found' });
+    }
+
+    if (round.resultPublishedAt) {
+      return res.status(400).json({ message: 'This round already has published results' });
+    }
+
+    const lottery = await LotteryType.findById(round.lotteryTypeId).select('name code');
+    if (!lottery) {
+      return res.status(404).json({ message: 'Lottery type not found' });
+    }
+
+    const previousOverride = round.bettingOverride || 'auto';
+    round.bettingOverride = bettingOverride;
+
+    const statusMeta = getRoundStatus(round);
+    round.status = statusMeta.status;
+    await round.save();
+
+    await createAuditLog(req.user._id, 'UPDATE_ROUND_BETTING_OVERRIDE', round._id.toString(), {
+      lotteryCode: lottery.code,
+      roundCode: round.code,
+      previousOverride,
+      bettingOverride,
+      effectiveStatus: statusMeta.status
+    });
+
+    res.json({
+      id: round._id.toString(),
+      roundCode: round.code,
+      lotteryCode: lottery.code,
+      lotteryName: lottery.name,
+      bettingOverride,
+      status: statusMeta.status,
+      isManualOverride: statusMeta.isManualOverride
+    });
+  } catch (error) {
+    console.error('Update round betting override error:', error);
+    res.status(500).json({ message: error.message || 'Failed to update round betting override' });
   }
 });
 

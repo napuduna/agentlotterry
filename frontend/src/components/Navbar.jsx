@@ -45,6 +45,13 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const items = menuItems[user?.role] || [];
+  const visibleItems = user?.role === 'agent'
+    ? [
+      ...items.slice(0, 4),
+      { path: '/agent/lottery', label: 'ผลรางวัล', icon: <FiAward /> },
+      ...items.slice(4)
+    ]
+    : items;
   const roleLabel = user?.displayRole || roleLabels[user?.role] || '-';
 
   const isItemActive = (path) =>
@@ -70,7 +77,7 @@ const Navbar = () => {
         </div>
 
         <div className="navbar-center">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -110,7 +117,7 @@ const Navbar = () => {
               </div>
             </div>
 
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}

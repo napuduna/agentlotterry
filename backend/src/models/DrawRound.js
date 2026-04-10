@@ -38,6 +38,11 @@ const drawRoundSchema = new mongoose.Schema({
     enum: ['upcoming', 'open', 'closed', 'resulted'],
     default: 'upcoming'
   },
+  bettingOverride: {
+    type: String,
+    enum: ['auto', 'open', 'closed'],
+    default: 'auto'
+  },
   closedBetTypes: [{
     type: String,
     enum: BET_TYPES

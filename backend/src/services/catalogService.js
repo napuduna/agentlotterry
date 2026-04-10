@@ -25,6 +25,7 @@ const {
 const DAY_MS = 24 * 60 * 60 * 1000;
 let catalogSeedPromise = null;
 const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() || '';
+const normalizeBettingOverride = (value) => (value === 'open' || value === 'closed' ? value : 'auto');
 const normalizeRateMap = (value = {}, fallbackRates = {}) =>
   BET_TYPES.reduce((acc, betType) => {
     acc[betType] = Number(value?.[betType] ?? fallbackRates?.[betType] ?? DEFAULT_GLOBAL_RATES[betType] ?? 0);
@@ -46,7 +47,9 @@ const getRoundStatus = (round, now = new Date()) => {
     return {
       status: 'missing',
       label: 'ยังไม่มีงวด',
-      countdownSeconds: null
+      countdownSeconds: null,
+      bettingOverride: 'auto',
+      isManualOverride: false
     };
   }
 
@@ -54,7 +57,30 @@ const getRoundStatus = (round, now = new Date()) => {
     return {
       status: 'resulted',
       label: 'ประกาศผลแล้ว',
-      countdownSeconds: 0
+      countdownSeconds: 0,
+      bettingOverride: normalizeBettingOverride(round.bettingOverride),
+      isManualOverride: false
+    };
+  }
+
+  const bettingOverride = normalizeBettingOverride(round.bettingOverride);
+  if (bettingOverride === 'open') {
+    return {
+      status: 'open',
+      label: '\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a\u0e40\u0e14\u0e34\u0e21\u0e1e\u0e31\u0e19',
+      countdownSeconds: Math.max(0, Math.floor((round.closeAt - now) / 1000)),
+      bettingOverride,
+      isManualOverride: true
+    };
+  }
+
+  if (bettingOverride === 'closed') {
+    return {
+      status: 'closed',
+      label: '\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a \u0e23\u0e2d\u0e1c\u0e25',
+      countdownSeconds: Math.max(0, Math.floor((round.drawAt - now) / 1000)),
+      bettingOverride,
+      isManualOverride: true
     };
   }
 
@@ -62,7 +88,9 @@ const getRoundStatus = (round, now = new Date()) => {
     return {
       status: 'upcoming',
       label: 'กำลังจะเปิดรับ',
-      countdownSeconds: Math.max(0, Math.floor((round.openAt - now) / 1000))
+      countdownSeconds: Math.max(0, Math.floor((round.openAt - now) / 1000)),
+      bettingOverride,
+      isManualOverride: false
     };
   }
 
@@ -70,14 +98,18 @@ const getRoundStatus = (round, now = new Date()) => {
     return {
       status: 'open',
       label: 'เปิดรับเดิมพัน',
-      countdownSeconds: Math.max(0, Math.floor((round.closeAt - now) / 1000))
+      countdownSeconds: Math.max(0, Math.floor((round.closeAt - now) / 1000)),
+      bettingOverride,
+      isManualOverride: false
     };
   }
 
   return {
     status: 'closed',
     label: 'ปิดรับ รอผล',
-    countdownSeconds: Math.max(0, Math.floor((round.drawAt - now) / 1000))
+    countdownSeconds: Math.max(0, Math.floor((round.drawAt - now) / 1000)),
+    bettingOverride,
+    isManualOverride: false
   };
 };
 
@@ -417,6 +449,11 @@ const getCatalogOverview = async (viewer = null) => {
         openAt: activeRound.openAt,
         closeAt: activeRound.closeAt,
         drawAt: activeRound.drawAt,
+        status: statusMeta.status,
+        statusLabel: statusMeta.label,
+        countdownSeconds: statusMeta.countdownSeconds,
+        bettingOverride: statusMeta.bettingOverride,
+        isManualOverride: statusMeta.isManualOverride,
         closedBetTypes: activeRound.closedBetTypes || [],
         displayDate: formatBangkokDate(activeRound.drawAt),
         displayDrawAt: formatBangkokDateTime(activeRound.drawAt),
@@ -545,18 +582,24 @@ const getRoundsByLottery = async (lotteryId, viewer = null) => {
   }
 
   const rounds = await DrawRound.find({ lotteryTypeId: lotteryId, isActive: true }).sort({ drawAt: 1 }).limit(20);
-  return rounds.map((round) => ({
-    id: round._id.toString(),
-    code: round.code,
-    title: round.title,
-    openAt: round.openAt,
-    closeAt: round.closeAt,
-    drawAt: round.drawAt,
-    closedBetTypes: round.closedBetTypes || [],
-    displayDate: formatBangkokDate(round.drawAt),
-    displayCloseAt: formatBangkokDateTime(round.closeAt),
-    ...getRoundStatus(round)
-  }));
+  return rounds.map((round) => {
+    const statusMeta = getRoundStatus(round);
+
+    return {
+      id: round._id.toString(),
+      code: round.code,
+      title: round.title,
+      openAt: round.openAt,
+      closeAt: round.closeAt,
+      drawAt: round.drawAt,
+      bettingOverride: statusMeta.bettingOverride,
+      isManualOverride: statusMeta.isManualOverride,
+      closedBetTypes: round.closedBetTypes || [],
+      displayDate: formatBangkokDate(round.drawAt),
+      displayCloseAt: formatBangkokDateTime(round.closeAt),
+      ...statusMeta
+    };
+  });
 };
 
 module.exports = {
@@ -568,3 +611,4 @@ module.exports = {
   getRoundStatus,
   markAnnouncementRead
 };
+
