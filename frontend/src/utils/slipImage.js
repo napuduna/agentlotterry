@@ -1,4 +1,4 @@
-import { buildSlipDisplayGroups } from './slipGrouping';
+import { buildSlipDisplayGroups, sortSlipDisplayGroups } from './slipGrouping';
 import { formatMoney as money } from './formatters';
 
 const REM = 16;
@@ -372,13 +372,15 @@ const buildPreviewImagePayload = ({
   marketKey: selectedLottery?.code || selectedLottery?.id || selectedLottery?.name || preview?.lottery?.name || '-',
   roundLabel: formatThaiDate(selectedRound?.title || preview?.round?.title || selectedRound?.code || preview?.round?.code || '-'),
   totalAmount: Number(preview?.summary?.totalAmount || 0),
-  groups: buildSlipDisplayGroups(preview?.items || []),
+  groups: sortSlipDisplayGroups(buildSlipDisplayGroups(preview?.items || [])),
   note: preview?.memo || '',
   showEmptyNote: false
 });
 
 const buildSavedSlipImagePayload = ({ slip }) => {
-  const groups = slip?.items?.length ? buildSlipDisplayGroups(slip.items) : (slip?.displayGroups || []);
+  const groups = sortSlipDisplayGroups(
+    slip?.items?.length ? buildSlipDisplayGroups(slip.items) : (slip?.displayGroups || [])
+  );
   const totalAmount =
     Number(slip?.totalAmount) ||
     Number(slip?.totalStake) ||

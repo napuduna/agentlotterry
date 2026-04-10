@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FiActivity,
   FiCalendar,
   FiClock,
   FiCopy,
   FiDollarSign,
+  FiExternalLink,
   FiLayers,
   FiRotateCcw,
   FiSearch,
@@ -24,6 +25,7 @@ const getCustomerId = (customer) => String(customer?.id || customer?._id || cust
 const getAgentId = (agent) => String(agent?.id || agent?._id || agent || '');
 
 const ui = {
+  openResultAction: 'เปิดผลรางวัลงวดนี้',
   eyebrow: 'พื้นที่ติดตามโพย',
   title: 'โพยสมาชิก',
   subtitle: 'ดูรายการโพยย้อนหลังของสมาชิกทั้งระบบ กรองตามเจ้ามือผู้ดูแล และจัดการโพยที่ยังรอผลได้จากหน้าเดียว',
@@ -109,6 +111,7 @@ const groupBetsBySlip = (bets = []) => {
       slipNumber: bet.slipNumber || '',
       customer: bet.customerId,
       agent: bet.agentId,
+      marketId: bet.marketId || '',
       marketName: bet.marketName || ui.defaultMarket,
       roundDate: bet.roundDate,
       roundLabel: formatRoundLabel(bet.roundTitle || bet.roundDate || '-'),
@@ -136,6 +139,7 @@ const groupBetsBySlip = (bets = []) => {
 };
 
 const AdminBets = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [bets, setBets] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -231,6 +235,14 @@ const AdminBets = () => {
     } finally {
       setCancellingSlipId('');
     }
+  };
+
+  const handleOpenRoundResult = (group) => {
+    const params = new URLSearchParams();
+    if (group?.marketId) params.set('marketId', group.marketId);
+    if (group?.marketName) params.set('marketName', group.marketName);
+    if (group?.roundDate) params.set('roundCode', group.roundDate);
+    navigate(`/admin/lottery${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
   const slipGroups = useMemo(() => groupBetsBySlip(bets), [bets]);
@@ -506,6 +518,14 @@ const AdminBets = () => {
               </div>
 
               <div className="ag-bet-card-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleOpenRoundResult(group)}
+                >
+                  <FiExternalLink />
+                  {ui.openResultAction}
+                </button>
                 {group.canCancel ? (
                   <button
                     type="button"

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { buildSlipDisplayGroups } from '../utils/slipGrouping';
+import { buildSlipDisplayGroups, sortSlipDisplayGroups } from '../utils/slipGrouping';
 import { formatMoney as money } from '../utils/formatters';
 
 const ui = {
@@ -9,34 +9,10 @@ const ui = {
   wonLabel: '\u0e16\u0e39\u0e01\u0e23\u0e32\u0e07\u0e27\u0e31\u0e25'
 };
 
-const sortDisplayGroups = (groups = []) =>
-  [...groups].sort((left, right) => {
-    const leftWon = (left?.winningEntries?.length || 0) > 0;
-    const rightWon = (right?.winningEntries?.length || 0) > 0;
-
-    if (leftWon !== rightWon) {
-      return leftWon ? -1 : 1;
-    }
-
-    const leftWonAmount = Number(left?.totalWonAmount || 0);
-    const rightWonAmount = Number(right?.totalWonAmount || 0);
-    if (leftWonAmount !== rightWonAmount) {
-      return rightWonAmount - leftWonAmount;
-    }
-
-    const leftSortOrder = Number(left?.sortOrder ?? 999);
-    const rightSortOrder = Number(right?.sortOrder ?? 999);
-    if (leftSortOrder !== rightSortOrder) {
-      return leftSortOrder - rightSortOrder;
-    }
-
-    return String(left?.key || '').localeCompare(String(right?.key || ''));
-  });
-
 const GroupedSlipSummary = ({ slip, dense = false, showMemo = false, className = '', summaryBlock = null }) => {
   const groups = useMemo(() => {
     const baseGroups = slip?.items?.length ? buildSlipDisplayGroups(slip.items) : (slip?.displayGroups || []);
-    return sortDisplayGroups(baseGroups);
+    return sortSlipDisplayGroups(baseGroups);
   }, [slip]);
 
   const memoText = String(slip?.memo || '').trim();

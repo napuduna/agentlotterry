@@ -55,6 +55,30 @@ const aggregateWinningEntries = (items = []) => {
   return [...grouped.values()].sort((left, right) => left.number.localeCompare(right.number));
 };
 
+export const sortSlipDisplayGroups = (groups = []) =>
+  [...groups].sort((left, right) => {
+    const leftWon = (left?.winningEntries?.length || 0) > 0;
+    const rightWon = (right?.winningEntries?.length || 0) > 0;
+
+    if (leftWon !== rightWon) {
+      return leftWon ? -1 : 1;
+    }
+
+    const leftWonAmount = Number(left?.totalWonAmount || 0);
+    const rightWonAmount = Number(right?.totalWonAmount || 0);
+    if (leftWonAmount !== rightWonAmount) {
+      return rightWonAmount - leftWonAmount;
+    }
+
+    const leftSortOrder = Number(left?.sortOrder ?? 999);
+    const rightSortOrder = Number(right?.sortOrder ?? 999);
+    if (leftSortOrder !== rightSortOrder) {
+      return leftSortOrder - rightSortOrder;
+    }
+
+    return String(left?.key || '').localeCompare(String(right?.key || ''));
+  });
+
 const prioritizeWinningNumbers = (numbers = [], winningEntries = []) => {
   const winningSet = new Set((winningEntries || []).map((entry) => String(entry?.number || '').trim()).filter(Boolean));
   return [...numbers].sort((left, right) => {
@@ -156,7 +180,7 @@ export const buildSlipDisplayGroups = (items = []) => {
     grouped.set(summary.signature, current);
   });
 
-  return [...grouped.values()].map((group, index) => {
+  return sortSlipDisplayGroups([...grouped.values()].map((group, index) => {
     const winningEntries = aggregateWinningEntries(
       group.winningEntries.map((entry) => ({
         number: entry.number,
@@ -180,15 +204,5 @@ export const buildSlipDisplayGroups = (items = []) => {
       hasWinningEntries: winningEntries.length > 0,
       sortOrder: Number.isFinite(sortOrder) ? sortOrder : 999
     };
-  }).sort((left, right) => {
-    if (left.hasWinningEntries !== right.hasWinningEntries) {
-      return left.hasWinningEntries ? -1 : 1;
-    }
-
-    if (left.sortOrder !== right.sortOrder) {
-      return left.sortOrder - right.sortOrder;
-    }
-
-    return left.key.localeCompare(right.key);
-  });
+  }));
 };

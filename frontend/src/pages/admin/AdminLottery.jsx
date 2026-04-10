@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -535,6 +536,7 @@ const buildSettlementFeedback = (action, payload) => {
 };
 
 const AdminLottery = () => {
+  const [searchParams] = useSearchParams();
   const [catalogOverview, setCatalogOverview] = useState(null);
   const [marketOverview, setMarketOverview] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -599,6 +601,15 @@ const AdminLottery = () => {
     setSettlementFeedback(null);
   }, [selectedCode]);
 
+  const requestedMarketKey = useMemo(
+    () => normalizeKey(searchParams.get('marketId') || searchParams.get('marketName') || searchParams.get('market') || ''),
+    [searchParams]
+  );
+  const requestedRoundKey = useMemo(
+    () => normalizeKey(searchParams.get('roundCode') || searchParams.get('roundDate') || searchParams.get('round') || ''),
+    [searchParams]
+  );
+
   const displaySections = useMemo(() => {
     const catalogLotteryMap = buildCatalogLotteryMap(catalogOverview);
     const recentResultsMap = buildRecentResultsMap(catalogOverview);
@@ -650,9 +661,33 @@ const AdminLottery = () => {
       return;
     }
 
-    const availableCodes = displaySections.flatMap((section) => section.cards.map((card) => card.selectionKey));
+    const cards = displaySections.flatMap((section) => section.cards);
+    const availableCodes = cards.map((card) => card.selectionKey);
+
+    if (requestedMarketKey) {
+      const matchedCard = cards.find((card) => {
+        const candidates = [
+          card.selectionKey,
+          card.id,
+          card.code,
+          card.name,
+          card.shortName,
+          card.apiMarket?.id,
+          card.apiMarket?.name
+        ]
+          .map((value) => normalizeKey(value))
+          .filter(Boolean);
+        return candidates.includes(requestedMarketKey);
+      });
+
+      if (matchedCard) {
+        setSelectedCode(matchedCard.selectionKey);
+        return;
+      }
+    }
+
     setSelectedCode((current) => (availableCodes.includes(current) ? current : availableCodes[0]));
-  }, [displaySections]);
+  }, [displaySections, requestedMarketKey]);
 
   const selectedCard = useMemo(
     () => displaySections.flatMap((section) => section.cards).find((card) => card.selectionKey === selectedCode) || null,
@@ -667,7 +702,25 @@ const AdminLottery = () => {
     [catalogOverview, selectedCard]
   );
 
-  const selectedResult = selectedCard?.latestResult || selectedHistory[0] || null;
+  const selectedResult = useMemo(() => {
+    const candidates = [selectedCard?.latestResult, ...selectedHistory].filter(Boolean);
+    if (!candidates.length) return null;
+    if (!requestedRoundKey) return candidates[0];
+
+    return (
+      candidates.find((result) => {
+        const roundCandidates = [
+          result.roundCode,
+          result.drawAt,
+          result.resultPublishedAt,
+          formatRoundLabel(result.drawAt || result.roundCode, { fallback: '' })
+        ]
+          .map((value) => normalizeKey(value))
+          .filter(Boolean);
+        return roundCandidates.includes(requestedRoundKey);
+      }) || candidates[0]
+    );
+  }, [requestedRoundKey, selectedCard, selectedHistory]);
   const SelectedStatusIcon = selectedCard?.statusIcon || FiAlertCircle;
   const syncSummary = syncStatus?.lastSummary || null;
   const syncCoverage = syncStatus?.mappingCoverage || syncSummary?.mappingCoverage || null;
