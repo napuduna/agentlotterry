@@ -339,11 +339,14 @@ const AdminReports = () => {
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
-        .admin-report-overview-wide {
+        .admin-report-overview.admin-report-overview-wide {
+          display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
+          align-items: stretch;
         }
 
-        .admin-report-overview .ops-overview-card {
+        .admin-report-overview.admin-report-overview-wide .ops-overview-card {
+          min-width: 0;
           min-height: 100%;
         }
 
@@ -458,14 +461,14 @@ const AdminReports = () => {
         }
 
         @media (max-width: 1100px) {
-          .admin-report-overview-wide,
+          .admin-report-overview.admin-report-overview-wide,
           .admin-report-filter-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
 
         @media (max-width: 760px) {
-          .admin-report-overview-wide,
+          .admin-report-overview.admin-report-overview-wide,
           .admin-report-filter-grid {
             grid-template-columns: 1fr;
           }

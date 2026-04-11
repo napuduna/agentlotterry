@@ -373,7 +373,7 @@ const AdminBets = () => {
 
       <section className="card ops-section ag-bets-filter">
         <div className="ops-toolbar ag-bets-toolbar">
-          <div className="ag-bets-toolbar-controls">
+          <div className="ag-bets-filter-grid">
             <label className="ag-bets-search-field">
               <FiSearch />
               <input
@@ -424,29 +424,6 @@ const AdminBets = () => {
               </select>
             </label>
 
-            {memberId ? (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  const nextParams = new URLSearchParams(searchParams);
-                  nextParams.delete('memberId');
-                  nextParams.delete('memberName');
-                  setSearchParams(nextParams);
-                }}
-              >
-                <FiRotateCcw />
-                {ui.clearMemberFilter}
-              </button>
-            ) : null}
-
-            {searchTerm ? (
-              <button type="button" className="btn btn-secondary" onClick={() => setSearchTerm('')}>
-                <FiRotateCcw />
-                {ui.clearSearch}
-              </button>
-            ) : null}
-
             <label className="ag-bets-date-field">
               <FiCalendar />
               <input
@@ -456,14 +433,41 @@ const AdminBets = () => {
                 onChange={(event) => setRoundDate(event.target.value)}
               />
             </label>
-
-            {roundDate ? (
-              <button type="button" className="btn btn-secondary" onClick={() => setRoundDate('')}>
-                <FiRotateCcw />
-                {ui.clearRoundFilter}
-              </button>
-            ) : null}
           </div>
+
+          {memberId || searchTerm || roundDate ? (
+            <div className="ag-bets-filter-actions">
+              {memberId ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const nextParams = new URLSearchParams(searchParams);
+                    nextParams.delete('memberId');
+                    nextParams.delete('memberName');
+                    setSearchParams(nextParams);
+                  }}
+                >
+                  <FiRotateCcw />
+                  {ui.clearMemberFilter}
+                </button>
+              ) : null}
+
+              {searchTerm ? (
+                <button type="button" className="btn btn-secondary" onClick={() => setSearchTerm('')}>
+                  <FiRotateCcw />
+                  {ui.clearSearch}
+                </button>
+              ) : null}
+
+              {roundDate ? (
+                <button type="button" className="btn btn-secondary" onClick={() => setRoundDate('')}>
+                  <FiRotateCcw />
+                  {ui.clearRoundFilter}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -573,28 +577,36 @@ const AdminBets = () => {
 
         .ag-bets-toolbar {
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          align-items: stretch;
           gap: 14px;
-          flex-wrap: nowrap;
         }
 
-        .ag-bets-toolbar-controls {
+        .ag-bets-filter-grid {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 10px;
+          align-items: stretch;
+          width: 100%;
+        }
+
+        .ag-bets-filter-actions {
           display: flex;
           flex-wrap: wrap;
           gap: 10px;
-          align-items: center;
           justify-content: flex-end;
-          flex: 1 1 auto;
         }
 
         .ag-bets-search-field,
         .ag-bets-select-field,
         .ag-bets-date-field {
-          min-width: 220px;
-          display: inline-flex;
+          min-width: 0;
+          width: 100%;
+          display: flex;
           align-items: center;
           gap: 10px;
           padding: 0 14px;
+          min-height: 52px;
           border-radius: 16px;
           border: 1px solid var(--border);
           background: var(--bg-input);
@@ -602,13 +614,15 @@ const AdminBets = () => {
         }
 
         .ag-bets-search-field {
-          min-width: min(420px, 100%);
-          flex: 1 1 320px;
+          flex: 0 0 auto;
         }
 
         .ag-bets-select-field {
-          flex: 0 1 220px;
-          padding-right: 10px;
+          padding-right: 12px;
+        }
+
+        .ag-bets-date-field {
+          padding-right: 12px;
         }
 
         .ag-bets-search-field .form-input,
@@ -806,7 +820,6 @@ const AdminBets = () => {
         }
 
         @media (max-width: 980px) {
-          .ag-bets-toolbar,
           .ag-bet-card-top,
           .ag-bet-card-bottom {
             flex-direction: column;
@@ -825,17 +838,18 @@ const AdminBets = () => {
           .ag-bet-card-actions {
             justify-content: flex-start;
           }
+
+          .ag-bets-filter-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
 
         @media (max-width: 720px) {
-          .ag-bets-search-field,
-          .ag-bets-select-field,
-          .ag-bets-date-field {
-            width: 100%;
-            min-width: 0;
+          .ag-bets-filter-grid {
+            grid-template-columns: 1fr;
           }
 
-          .ag-bets-toolbar-controls .btn {
+          .ag-bets-filter-actions .btn {
             width: 100%;
             justify-content: center;
           }

@@ -2096,6 +2096,18 @@ input, select, textarea {
   grid-column: 1 / -1;
 }
 
+.operator-preview-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.8fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.operator-preview-overview .operator-preview-meta,
+.operator-preview-overview .operator-preview-summary {
+  margin-top: 0;
+}
+
 .operator-preview-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2115,6 +2127,17 @@ input, select, textarea {
   margin-top: 2px;
   font-size: 1rem;
   line-height: 1.18;
+}
+
+.operator-preview-summary.operator-preview-summary-single {
+  grid-template-columns: 1fr;
+}
+
+.operator-preview-summary.operator-preview-summary-single .card {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .operator-preview-list > .card {
@@ -2203,7 +2226,10 @@ input, select, textarea {
 }
 
 .operator-preview-modal-actions {
-  align-items: center;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .operator-preview-stat-label,
@@ -2363,6 +2389,7 @@ input, select, textarea {
   }
 
   .operator-selected-grid,
+  .operator-preview-overview,
   .operator-preview-summary,
   .operator-fast-entry-row,
   .operator-fast-grid,

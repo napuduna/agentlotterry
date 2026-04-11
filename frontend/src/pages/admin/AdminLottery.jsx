@@ -84,7 +84,7 @@ const BETTING_TOGGLE_UI = {
   auto: '\u0e15\u0e32\u0e21\u0e40\u0e27\u0e25\u0e32',
   forcedOpen: '\u0e1a\u0e31\u0e07\u0e04\u0e31\u0e1a\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
   forcedClosed: '\u0e1a\u0e31\u0e07\u0e04\u0e31\u0e1a\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
-  reset: '\u0e01\u0e25\u0e31\u0e1a\u0e44\u0e1b\u0e15\u0e32\u0e21\u0e40\u0e27\u0e25\u0e32',
+  reset: '\u0e01\u0e25\u0e31\u0e1a\u0e2a\u0e39\u0e48\u0e40\u0e27\u0e25\u0e32\u0e2d\u0e31\u0e15\u0e42\u0e19\u0e21\u0e31\u0e15\u0e34',
   busy: '\u0e01\u0e33\u0e25\u0e31\u0e07\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15...',
   open: '\u0e40\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
   closed: '\u0e1b\u0e34\u0e14\u0e23\u0e31\u0e1a',
@@ -1996,18 +1996,18 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
 
         .round-toggle-footer {
           margin-top: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          align-items: stretch;
           gap: 12px;
-          flex-wrap: wrap;
         }
 
         .round-toggle-pill {
           display: inline-flex;
           align-items: center;
-          justify-content: center;
-          padding: 8px 12px;
+          justify-content: flex-start;
+          min-height: 48px;
+          padding: 0 16px;
           border-radius: 999px;
           background: rgba(255, 255, 255, 0.88);
           border: 1px solid rgba(16, 185, 129, 0.22);
@@ -2015,11 +2015,30 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
           font-size: 0.84rem;
           font-weight: 800;
           white-space: nowrap;
+          box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.06);
         }
 
         .round-toggle-reset {
-          min-height: 42px;
+          min-height: 48px;
+          padding: 0 18px;
+          border-radius: 16px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 249, 255, 0.94));
+          color: #0f172a;
           font-weight: 800;
+          box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+          transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        }
+
+        .round-toggle-reset:hover:not(:disabled) {
+          transform: translateY(-1px);
+          border-color: rgba(14, 116, 144, 0.26);
+          box-shadow: 0 14px 24px rgba(14, 116, 144, 0.14);
+        }
+
+        .round-toggle-reset:disabled {
+          opacity: 0.6;
+          box-shadow: none;
         }
 
         .settlement-panel {
@@ -2251,11 +2270,19 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
 
           .detail-top,
           .round-toggle-body,
-          .round-toggle-footer,
           .history-item,
           .market-card-top {
             flex-direction: column;
             align-items: flex-start;
+          }
+
+          .round-toggle-footer {
+            grid-template-columns: 1fr;
+          }
+
+          .round-toggle-reset {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>

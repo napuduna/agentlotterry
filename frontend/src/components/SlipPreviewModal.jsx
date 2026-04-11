@@ -58,7 +58,8 @@ const SlipPreviewModal = ({
           </div>
         </div>
 
-        <div className="card operator-preview-meta">
+        <div className="operator-preview-overview">
+          <div className="card operator-preview-meta">
           <div>
             <strong>{copy.memberLabel}:</strong> {slip.customer?.name || unknownMember}
           </div>
@@ -67,11 +68,13 @@ const SlipPreviewModal = ({
           </div>
         </div>
 
-        <div className="operator-preview-summary operator-preview-summary-single">
+          <div className="operator-preview-summary operator-preview-summary-single">
           <div className="card">
             <div className="ops-table-note operator-preview-stat-label">{copy.totalAmountLabel}</div>
             <strong>{money(slip.totalAmount)} บาท</strong>
           </div>
+        </div>
+
         </div>
 
         <div className="operator-preview-list">

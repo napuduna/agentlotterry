@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FiActivity,
   FiCalendar,
   FiClock,
   FiCopy,
   FiDollarSign,
+  FiExternalLink,
   FiLayers,
   FiSearch,
   FiRotateCcw
@@ -20,6 +21,7 @@ import { copySavedSlipImage } from '../../utils/slipImage';
 const getCustomerId = (customer) => String(customer?.id || customer?._id || customer || '');
 
 const ui = {
+  openResultAction: 'เปิดผลรางวัลงวดนี้',
   eyebrow: 'พื้นที่ติดตามโพย',
   title: 'โพยที่ซื้อแทน',
   subtitle: 'รวมรายการที่อยู่ในเลขอ้างอิงเดียวกันไว้ในการ์ดเดียว และแสดงผลแบบเดียวกับรีวิวโพยก่อนส่งรายการซื้อ',
@@ -59,7 +61,6 @@ const ui = {
   createImageSuccess: 'สร้างไฟล์รูปโพยแล้ว',
   copyImageError: 'คัดลอกโพยเป็นรูปไม่สำเร็จ',
   openFootnote: 'โพยนี้ยังรอผลอยู่',
-  adminOnlyFootnote: 'ยกเลิกโพยได้โดยแอดมินเท่านั้น',
   closedFootnote: 'โพยนี้ปิดการยกเลิกแล้ว',
   empty: 'ยังไม่มีข้อมูลโพยในงวดที่เลือก',
   unknownMember: 'ไม่ระบุสมาชิก',
@@ -97,6 +98,7 @@ const groupBetsBySlip = (bets = []) => {
       slipId: bet.slipId || '',
       slipNumber: bet.slipNumber || '',
       customer: bet.customerId,
+      marketId: bet.marketId || '',
       marketName: bet.marketName || ui.defaultMarket,
       roundDate: bet.roundDate,
       roundLabel: formatRoundLabel(bet.roundTitle || bet.roundDate || '-'),
@@ -124,6 +126,7 @@ const groupBetsBySlip = (bets = []) => {
 };
 
 const AgentBets = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +180,14 @@ const AgentBets = () => {
     } finally {
       setCopyingSlipId('');
     }
+  };
+
+  const handleOpenRoundResult = (group) => {
+    const params = new URLSearchParams();
+    if (group?.marketId) params.set('marketId', group.marketId);
+    if (group?.marketName) params.set('marketName', group.marketName);
+    if (group?.roundDate) params.set('roundCode', group.roundDate);
+    navigate(`/agent/lottery${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
   const slipGroups = useMemo(() => groupBetsBySlip(bets), [bets]);
@@ -392,6 +403,27 @@ const AgentBets = () => {
                   {group.result === 'won' ? ui.statusWon : group.result === 'pending' ? 'รอผล' : 'ไม่ถูกรางวัล'}
                 </span>
                 <small>{ui.itemCount(group.itemCount)}</small>
+
+                <div className="ag-bet-card-actions ag-bet-card-actions-top">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenRoundResult(group)}
+                  >
+                    <FiExternalLink />
+                    {ui.openResultAction}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleCopySlipImage(group)}
+                    disabled={copyingSlipId === (group.slipId || group.key)}
+                  >
+                    <FiCopy />
+                    {copyingSlipId === (group.slipId || group.key) ? ui.copyingImageAction : ui.copyImageAction}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -416,10 +448,19 @@ const AgentBets = () => {
 
             <div className="ag-bet-card-bottom">
               <div className="ag-bet-card-footnote">
-                {group.result === 'pending' ? `${ui.openFootnote} • ${ui.adminOnlyFootnote}` : ui.closedFootnote}
+                {group.result === 'pending' ? ui.openFootnote : ui.closedFootnote}
               </div>
 
               <div className="ag-bet-card-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleOpenRoundResult(group)}
+                >
+                  <FiExternalLink />
+                  {ui.openResultAction}
+                </button>
+
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -566,9 +607,10 @@ const AgentBets = () => {
           display: flex;
           flex-direction: column;
           align-items: flex-end;
-          gap: 4px;
+          gap: 8px;
           color: var(--text-muted);
           font-size: 0.78rem;
+          max-width: min(100%, 720px);
         }
 
         .ag-bet-badge {
@@ -675,6 +717,14 @@ const AgentBets = () => {
           flex-wrap: wrap;
           justify-content: flex-end;
           gap: 10px;
+        }
+
+        .ag-bet-card-top-right .ag-bet-card-actions {
+          justify-content: flex-end;
+        }
+
+        .ag-bet-card-bottom .ag-bet-card-actions {
+          display: none;
         }
 
         @media (max-width: 980px) {
