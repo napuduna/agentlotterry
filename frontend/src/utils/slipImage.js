@@ -735,7 +735,6 @@ const renderGroupedSlipImage = (payload) => {
 };
 
 const renderGroupedSlipImageWithBottomSummary = (payload) => {
-  const memberLabel = '\u0e2a\u0e21\u0e32\u0e0a\u0e34\u0e01';
   const totalLabel = '\u0e22\u0e2d\u0e14\u0e23\u0e27\u0e21';
   const marketLabel = '\u0e15\u0e25\u0e32\u0e14';
   const roundLabel = '\u0e07\u0e27\u0e14';
@@ -809,9 +808,8 @@ const renderGroupedSlipImageWithBottomSummary = (payload) => {
 
   ctx.fillStyle = colors.textPrimary;
   ctx.font = `700 ${TYPE.metaLine}px sans-serif`;
-  ctx.fillText(`${memberLabel}: ${payload.memberName}`, contentX + 16, y + 28);
-  ctx.fillText(`${marketLabel}: ${payload.marketName}`, contentX + 16, y + 58);
-  ctx.fillText(`${roundLabel}: ${payload.roundLabel}`, contentX + 16, y + 88);
+  ctx.fillText(`${marketLabel}: ${payload.marketName}`, contentX + 16, y + 38);
+  ctx.fillText(`${roundLabel}: ${payload.roundLabel}`, contentX + 16, y + 74);
 
   y += layout.metaCardHeight + SECTION_GAP;
 
@@ -942,17 +940,14 @@ const renderGroupedSlipImageWithBottomSummary = (payload) => {
   y += 8;
 
   drawShadowCard(ctx, contentX, y, layout.contentWidth, layout.summaryCardHeight, 16, colors.summarySurface, colors.border);
-  const summaryColWidth = layout.contentWidth / 2;
 
   ctx.fillStyle = colors.textMuted;
   ctx.font = `600 ${TYPE.summaryLabel}px sans-serif`;
-  ctx.fillText(memberLabel, contentX + 18, y + 22);
-  ctx.fillText(totalLabel, contentX + summaryColWidth + 18, y + 22);
+  ctx.fillText(totalLabel, contentX + 18, y + 22);
 
   ctx.fillStyle = colors.textPrimary;
   ctx.font = `700 ${TYPE.summaryValue}px sans-serif`;
-  ctx.fillText(payload.memberName, contentX + 18, y + 48);
-  ctx.fillText(`${money(payload.totalAmount)} ${bahtLabel}`, contentX + summaryColWidth + 18, y + 48);
+  ctx.fillText(`${money(payload.totalAmount)} ${bahtLabel}`, contentX + 18, y + 48);
 
   y += layout.summaryCardHeight;
 

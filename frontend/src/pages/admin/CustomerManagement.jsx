@@ -46,7 +46,7 @@ const wizardCopy = agentCopy.customers;
 const wizardSteps = wizardCopy.steps;
 const statusOptions = ['', 'active', 'inactive'];
 const memberStatusOptions = ['active', 'inactive', 'suspended'];
-const betTypeKeys = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom', 'lao_set4'];
+const betTypeKeys = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', 'run_top', 'run_bottom', 'lao_set4'];
 const sortOptions = [
   { value: 'recent', label: 'อัปเดตล่าสุด' },
   { value: 'sales_desc', label: 'ยอดซื้อสูงสุด' },

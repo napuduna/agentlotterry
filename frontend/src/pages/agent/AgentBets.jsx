@@ -10,11 +10,12 @@ import {
   FiExternalLink,
   FiLayers,
   FiSearch,
-  FiRotateCcw
+  FiRotateCcw,
+  FiXCircle
 } from 'react-icons/fi';
 import GroupedSlipSummary from '../../components/GroupedSlipSummary';
 import PageSkeleton from '../../components/PageSkeleton';
-import { getAgentBets } from '../../services/api';
+import { cancelAgentBettingSlip, getAgentBets } from '../../services/api';
 import { formatMoney as money, formatRoundLabel } from '../../utils/formatters';
 import { buildSlipDisplayGroups } from '../../utils/slipGrouping';
 import { copySavedSlipImage } from '../../utils/slipImage';
@@ -69,6 +70,14 @@ const ui = {
   memoLabel: 'บันทึกช่วยจำ'
 };
 
+Object.assign(ui, {
+  cancelAction: 'ยกเลิกโพย',
+  cancellingAction: 'กำลังยกเลิก...',
+  cancelConfirm: 'ต้องการยกเลิกโพยนี้ใช่หรือไม่',
+  cancelSuccess: 'ยกเลิกโพยแล้ว',
+  cancelError: 'ยกเลิกโพยไม่สำเร็จ'
+});
+
 const groupBetsBySlip = (bets = []) => {
   const grouped = new Map();
 
@@ -119,7 +128,7 @@ const groupBetsBySlip = (bets = []) => {
       displayGroups: buildSlipDisplayGroups(group.items),
       memo: group.memo || 'ไม่มีบันทึกช่วยจำ',
       result: group.hasPending ? 'pending' : group.hasWon ? 'won' : 'lost',
-      canCancel: false,
+      canCancel: group.hasPending && Boolean(group.slipId),
       itemCount: group.items.length
     }))
     .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
@@ -132,6 +141,7 @@ const AgentBets = () => {
   const [loading, setLoading] = useState(true);
   const [roundDate, setRoundDate] = useState('');
   const [copyingSlipId, setCopyingSlipId] = useState('');
+  const [cancellingSlipId, setCancellingSlipId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [resultFilter, setResultFilter] = useState('');
   const [sortBy, setSortBy] = useState('recent');
@@ -188,6 +198,23 @@ const AgentBets = () => {
     if (group?.marketName) params.set('marketName', group.marketName);
     if (group?.roundDate) params.set('roundCode', group.roundDate);
     navigate(`/agent/lottery${params.toString() ? `?${params.toString()}` : ''}`);
+  };
+
+  const handleCancelSlip = async (group) => {
+    if (!group?.slipId || !group.canCancel) return;
+    if (!window.confirm(ui.cancelConfirm)) return;
+
+    setCancellingSlipId(group.slipId);
+    try {
+      await cancelAgentBettingSlip(group.slipId);
+      toast.success(ui.cancelSuccess);
+      await load();
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || ui.cancelError);
+    } finally {
+      setCancellingSlipId('');
+    }
   };
 
   const slipGroups = useMemo(() => groupBetsBySlip(bets), [bets]);
@@ -413,6 +440,18 @@ const AgentBets = () => {
                     <FiExternalLink />
                     {ui.openResultAction}
                   </button>
+
+                  {group.canCancel ? (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleCancelSlip(group)}
+                      disabled={cancellingSlipId === group.slipId}
+                    >
+                      <FiXCircle />
+                      {cancellingSlipId === group.slipId ? ui.cancellingAction : ui.cancelAction}
+                    </button>
+                  ) : null}
 
                   <button
                     type="button"

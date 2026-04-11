@@ -35,8 +35,8 @@ registerBettingRoutes(router, {
     submit: 'AGENT_CREATE_MEMBER_SLIP'
   },
   cancelSlipOptions: {
-    allowCancel: false,
-    forbiddenMessage: 'Only admin can cancel slip'
+    allowCancel: true,
+    auditAction: 'AGENT_CANCEL_MEMBER_SLIP'
   }
 });
 

@@ -1,10 +1,10 @@
 const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('./betting');
 
-const GOVERNMENT_BET_TYPES = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
-const STANDARD_BET_TYPES = ['3top', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
+const GOVERNMENT_BET_TYPES = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
+const STANDARD_BET_TYPES = ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
 const LAO_BET_TYPES = [...STANDARD_BET_TYPES, 'lao_set4'];
-const STOCK_BET_TYPES = ['3top', '3tod', '2top', '2bottom', '2tod', 'run_top', 'run_bottom'];
-const BAAC_BET_TYPES = ['3top', '3tod', '2top', '2bottom', '2tod'];
+const STOCK_BET_TYPES = ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
+const BAAC_BET_TYPES = ['3top', '3tod', '2top', '2bottom'];
 
 const DAILY_ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const WEEKDAYS = [1, 2, 3, 4, 5];

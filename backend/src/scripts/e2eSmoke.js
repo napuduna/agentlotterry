@@ -257,8 +257,8 @@ const main = async () => {
     summary.checks.push('agent-catalog-overview');
 
     const allLotteries = flattenLotteries(agentCatalogResponse.data);
-    const selectedLottery = allLotteries.find((lottery) => lottery.status === 'open' && lottery.supportedBetTypes.includes('3top') && lottery.supportedBetTypes.includes('2tod'))
-      || allLotteries.find((lottery) => lottery.supportedBetTypes.includes('3top') && lottery.supportedBetTypes.includes('2tod'))
+    const selectedLottery = allLotteries.find((lottery) => lottery.status === 'open' && lottery.supportedBetTypes.includes('3top') && lottery.supportedBetTypes.includes('2bottom'))
+      || allLotteries.find((lottery) => lottery.supportedBetTypes.includes('3top') && lottery.supportedBetTypes.includes('2bottom'))
       || allLotteries[0];
 
     assert(selectedLottery, 'No lottery found in catalog overview');
@@ -531,10 +531,10 @@ const main = async () => {
     lockedRoundId = selectedRound.id;
     originalClosedBetTypes = selectedRound.closedBetTypes || [];
     const lockRoundResponse = await adminClient.put(`/lottery/rounds/${selectedRound.id}/closed-bet-types`, {
-      closedBetTypes: ['2tod']
+      closedBetTypes: ['2bottom']
     });
     expectStatus(lockRoundResponse, 200, 'Admin update round closed bet types');
-    assert(lockRoundResponse.data.closedBetTypes?.includes('2tod'), 'Admin route did not persist closed bet types');
+    assert(lockRoundResponse.data.closedBetTypes?.includes('2bottom'), 'Admin route did not persist closed bet types');
     summary.checks.push('admin-update-round-closed-bet-types');
 
     const lockedRoundsResponse = await agentClient.get('/catalog/rounds', {
@@ -542,7 +542,7 @@ const main = async () => {
     });
     expectStatus(lockedRoundsResponse, 200, 'Locked rounds');
     const lockedRound = (lockedRoundsResponse.data || []).find((round) => round.id === selectedRound.id);
-    assert(lockedRound?.closedBetTypes?.includes('2tod'), 'Round-level closed bet types were not exposed');
+    assert(lockedRound?.closedBetTypes?.includes('2bottom'), 'Round-level closed bet types were not exposed');
     summary.checks.push('round-closed-bet-types-visible');
 
     const lockedGridPreviewResponse = await agentClient.post('/agent/betting/slips/parse', {
@@ -551,7 +551,7 @@ const main = async () => {
       roundId: selectedRound.id,
       rateProfileId: selectedRateProfileId,
       items: [
-        { betType: '2tod', number: '21', amount: 5 }
+        { betType: '2bottom', number: '21', amount: 5 }
       ],
       memo: 'locked round test'
     });
@@ -590,13 +590,13 @@ const main = async () => {
       items: [
         { betType: '2top', number: '12', amount: 5 },
         { betType: '2bottom', number: '12', amount: 5 },
-        { betType: '2tod', number: '21', amount: 5 },
+        { betType: '2bottom', number: '21', amount: 5 },
         { betType: '3top', number: '654', amount: 5 }
       ],
       memo: 'agent grid preview test'
     });
     expectStatus(agentGridPreviewResponse, 200, 'Agent grid preview');
-    assert(agentGridPreviewResponse.data.items?.some((item) => item.betType === '2tod' && item.payRate === 91), 'Grid preview did not resolve the 2tod custom rate');
+    assert(agentGridPreviewResponse.data.items?.some((item) => item.betType === '2bottom' && item.payRate === 92), 'Grid preview did not resolve the 2bottom custom rate');
     assert(agentGridPreviewResponse.data.summary?.itemCount === 4, 'Grid preview item count is incorrect');
     summary.checks.push('agent-grid-preview');
 
@@ -624,7 +624,7 @@ const main = async () => {
       rateProfileId: selectedRateProfileId,
         items: [
           { betType: '2top', number: '45', amount: 10 },
-          { betType: '2tod', number: '54', amount: 10 },
+          { betType: '2bottom', number: '54', amount: 10 },
           { betType: '3tod', number: '789', amount: 5 }
         ],
       memo: 'agent grid draft slip',
@@ -632,7 +632,7 @@ const main = async () => {
     });
     expectStatus(agentGridDraftResponse, 201, 'Agent create grid draft');
     created.slipIds.push(agentGridDraftResponse.data.id);
-    assert(agentGridDraftResponse.data.items?.some((item) => item.betType === '2tod'), 'Created grid draft did not include 2tod item');
+    assert(agentGridDraftResponse.data.items?.some((item) => item.betType === '2bottom'), 'Created grid draft did not include 2bottom item');
     summary.checks.push('agent-grid-draft-slip');
 
     const agentManualAction = selectedRound.status === 'open' ? 'submit' : 'draft';
@@ -774,13 +774,9 @@ const main = async () => {
       summary.checks.push('agent-reports-pending');
 
       const cancelSlipResponse = await agentClient.post(`/agent/betting/slips/${slipId}/cancel`);
-      expectStatus(cancelSlipResponse, 403, 'Agent cancel slip blocked');
-      summary.checks.push('agent-cancel-member-slip-blocked');
-
-      const adminCancelSlipResponse = await adminClient.post(`/admin/betting/slips/${slipId}/cancel`);
-      expectStatus(adminCancelSlipResponse, 200, 'Admin cancel slip');
-      assert(adminCancelSlipResponse.data.status === 'cancelled', 'Slip status did not change to cancelled');
-      summary.checks.push('admin-cancel-member-slip');
+      expectStatus(cancelSlipResponse, 200, 'Agent cancel slip');
+      assert(cancelSlipResponse.data.status === 'cancelled', 'Slip status did not change to cancelled');
+      summary.checks.push('agent-cancel-member-slip');
 
       const reportAfterCancel = await agentClient.get('/agent/reports', {
         params: {

@@ -76,7 +76,6 @@ const fallbackFastRates = {
   '3tod': 150,
   '2top': 100,
   '2bottom': 100,
-  '2tod': 100,
   'run_top': 3.5,
   'run_bottom': 4.5,
   [LAO_SET_BET_TYPE]: 1
@@ -99,8 +98,7 @@ const buildEmptyGridAmounts = () => ({
 
 const TWO_DIGIT_COLUMN_DEFS = [
   { key: 'top', betType: '2top' },
-  { key: 'bottom', betType: '2bottom' },
-  { key: 'tod', betType: '2tod' }
+  { key: 'bottom', betType: '2bottom' }
 ];
 
 const THREE_DIGIT_COLUMN_DEFS = [
@@ -715,8 +713,8 @@ const buildReusableRecentSlipDraft = (items) => {
     };
   }
 
-    const isTwoDigitGrid = items.every((item) => ['2top', '2bottom', '2tod'].includes(item.betType));
-    const isThreeDigitGrid = items.every((item) => ['3top', '3front', '3bottom', '3tod'].includes(item.betType));
+  const isTwoDigitGrid = items.every((item) => ['2top', '2bottom'].includes(item.betType));
+  const isThreeDigitGrid = items.every((item) => ['3top', '3front', '3bottom', '3tod'].includes(item.betType));
 
   if (!isTwoDigitGrid && !isThreeDigitGrid) {
     return null;
@@ -725,17 +723,17 @@ const buildReusableRecentSlipDraft = (items) => {
   const digitMode = isThreeDigitGrid ? '3' : '2';
   const map = new Map();
 
-    items.forEach((item) => {
-      const current = map.get(item.number) || {
-        number: item.number,
-        amounts: { top: '', front: '', bottom: '', tod: '' }
-      };
+  items.forEach((item) => {
+    const current = map.get(item.number) || {
+      number: item.number,
+      amounts: { top: '', front: '', bottom: '', tod: '' }
+    };
 
-      if (item.betType.endsWith('top')) current.amounts.top = String(item.amount || '');
-      if (item.betType === '3front') current.amounts.front = String(item.amount || '');
-      if (item.betType.endsWith('bottom')) current.amounts.bottom = String(item.amount || '');
-      if (item.betType.endsWith('tod')) current.amounts.tod = String(item.amount || '');
-      map.set(item.number, current);
+    if (item.betType.endsWith('top')) current.amounts.top = String(item.amount || '');
+    if (item.betType === '3front') current.amounts.front = String(item.amount || '');
+    if (item.betType.endsWith('bottom')) current.amounts.bottom = String(item.amount || '');
+    if (item.betType.endsWith('tod')) current.amounts.tod = String(item.amount || '');
+    map.set(item.number, current);
   });
 
   return {
@@ -875,7 +873,7 @@ const getFastCandidateCount = (candidateCounts, number) => {
 const expandFastDraftNumbers = (number, betType, reverse) => {
   if (!reverse) return [number];
 
-  if (betType === '2top' || betType === '2bottom' || betType === '2tod') {
+  if (betType === '2top' || betType === '2bottom') {
     const reversed = number.split('').reverse().join('');
     return reversed === number ? [number] : [number, reversed];
   }
