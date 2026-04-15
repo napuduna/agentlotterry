@@ -307,6 +307,86 @@ const LOTTERY_TYPES = [
     resultSource: 'api'
   }),
   createLottery({
+    code: 'lao_star',
+    leagueCode: 'daily',
+    name: '\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c',
+    shortName: '\u0e2a\u0e15\u0e32\u0e23\u0e4c',
+    description: 'Lao Stars uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.',
+    provider: 'Lao Stars Official',
+    schedule: createDailySchedule({
+      closeHour: 15,
+      closeMinute: 35,
+      drawHour: 15,
+      drawMinute: 45
+    }),
+    supportedBetTypes: STANDARD_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'lao_star_vip',
+    leagueCode: 'daily',
+    name: '\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c VIP',
+    shortName: 'STAR VIP',
+    description: 'Lao Stars VIP uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.',
+    provider: 'Lao Stars VIP Official',
+    schedule: createDailySchedule({
+      closeHour: 21,
+      closeMinute: 50,
+      drawHour: 22,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STANDARD_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'lao_union',
+    leagueCode: 'daily',
+    name: '\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35',
+    shortName: '\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35',
+    description: 'Lao Union uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.',
+    provider: 'Lao Union Official',
+    schedule: createDailySchedule({
+      closeHour: 20,
+      closeMinute: 25,
+      drawHour: 20,
+      drawMinute: 30
+    }),
+    supportedBetTypes: STANDARD_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'lao_union_vip',
+    leagueCode: 'daily',
+    name: '\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 VIP',
+    shortName: '\u0e2a\u0e32\u0e21\u0e31\u0e04 VIP',
+    description: 'Lao Union VIP uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.',
+    provider: 'Lao Union VIP Official',
+    schedule: createDailySchedule({
+      closeHour: 21,
+      closeMinute: 25,
+      drawHour: 21,
+      drawMinute: 30
+    }),
+    supportedBetTypes: STANDARD_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'lao_asean',
+    leagueCode: 'daily',
+    name: '\u0e25\u0e32\u0e27\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19',
+    shortName: '\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19',
+    description: 'Lao ASEAN uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.',
+    provider: 'Lao ASEAN Official',
+    schedule: createDailySchedule({
+      closeHour: 20,
+      closeMinute: 50,
+      drawHour: 21,
+      drawMinute: 0
+    }),
+    supportedBetTypes: STANDARD_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
     code: 'ynhn',
     leagueCode: 'daily',
     name: 'ฮานอยธรรมดา',

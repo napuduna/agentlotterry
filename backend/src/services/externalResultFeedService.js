@@ -10,6 +10,11 @@ const { fetchLaosPathanaSnapshots } = require('./laosPathanaResultService');
 const { fetchLaosTvSnapshots } = require('./laosTvResultService');
 const { fetchLaosHdSnapshots } = require('./laosHdResultService');
 const { fetchLaosExtraSnapshots } = require('./laosExtraResultService');
+const { fetchLaosStarsSnapshots } = require('./laosStarsResultService');
+const { fetchLaosStarsVipSnapshots } = require('./laosStarsVipResultService');
+const { fetchLaosUnionSnapshots } = require('./laosUnionResultService');
+const { fetchLaosUnionVipSnapshots } = require('./laosUnionVipResultService');
+const { fetchLaosAseanSnapshots } = require('./laosAseanResultService');
 
 const legacyBaseUrl = (process.env.MANYCAI_BASE_URL || 'http://vip.manycai.com').replace(/\/$/, '');
 const legacyApiKey = String(process.env.MANYCAI_API_KEY || '').trim();
@@ -25,6 +30,11 @@ const LAOS_PATHANA_SYNC_LIMIT = Number(process.env.LAOS_PATHANA_SYNC_LIMIT || 10
 const LAOS_TV_SYNC_LIMIT = Number(process.env.LAOS_TV_SYNC_LIMIT || 10);
 const LAOS_HD_SYNC_LIMIT = Number(process.env.LAOS_HD_SYNC_LIMIT || 10);
 const LAOS_EXTRA_SYNC_LIMIT = Number(process.env.LAOS_EXTRA_SYNC_LIMIT || 10);
+const LAOS_STAR_SYNC_LIMIT = Number(process.env.LAOS_STAR_SYNC_LIMIT || 10);
+const LAOS_STAR_VIP_SYNC_LIMIT = Number(process.env.LAOS_STAR_VIP_SYNC_LIMIT || 10);
+const LAOS_UNION_SYNC_LIMIT = Number(process.env.LAOS_UNION_SYNC_LIMIT || 10);
+const LAOS_UNION_VIP_SYNC_LIMIT = Number(process.env.LAOS_UNION_VIP_SYNC_LIMIT || 10);
+const LAOS_ASEAN_SYNC_LIMIT = Number(process.env.LAOS_ASEAN_SYNC_LIMIT || 10);
 
 const defaultMappedDigits = (value) => String(value || '').replace(/\D/g, '');
 const defaultMappedList = (value) => {
@@ -198,6 +208,51 @@ EXTRA_SYNC_CONFIGS.push({
   provider: 'laoextra'
 });
 
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'lao_star',
+  lotteryCode: 'lao_star',
+  marketName: '\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c',
+  parser: 'laostars',
+  syncToResults: true,
+  provider: 'laostars'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'lao_star_vip',
+  lotteryCode: 'lao_star_vip',
+  marketName: '\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c VIP',
+  parser: 'laostarsvip',
+  syncToResults: true,
+  provider: 'laostarsvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'lao_union',
+  lotteryCode: 'lao_union',
+  marketName: '\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35',
+  parser: 'laosunion',
+  syncToResults: true,
+  provider: 'laosunion'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'lao_union_vip',
+  lotteryCode: 'lao_union_vip',
+  marketName: '\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 VIP',
+  parser: 'laosunionvip',
+  syncToResults: true,
+  provider: 'laosunionvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'lao_asean',
+  lotteryCode: 'lao_asean',
+  marketName: '\u0e25\u0e32\u0e27\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19',
+  parser: 'laosasean',
+  syncToResults: true,
+  provider: 'laosasean'
+});
+
 const SYNC_CONFIGS = [...FEED_CONFIGS, ...EXTRA_SYNC_CONFIGS];
 const isConfigMappingCovered = (config) => Boolean(
   config?.provider === 'gsb'
@@ -206,6 +261,11 @@ const isConfigMappingCovered = (config) => Boolean(
   || config?.provider === 'laostv'
   || config?.provider === 'laoshd'
   || config?.provider === 'laoextra'
+  || config?.provider === 'laostars'
+  || config?.provider === 'laostarsvip'
+  || config?.provider === 'laosunion'
+  || config?.provider === 'laosunionvip'
+  || config?.provider === 'laosasean'
   || EXPLICIT_FEED_MAPPINGS[config?.feedCode]
 );
 
@@ -214,7 +274,7 @@ const getFeedMappingMode = (configOrFeedCode) => {
     ? SYNC_CONFIGS.find((item) => item.feedCode === configOrFeedCode) || { feedCode: configOrFeedCode }
     : configOrFeedCode || {};
 
-  if (config.provider === 'gsb' || config.provider === 'laosredcross' || config.provider === 'laospathana' || config.provider === 'laostv' || config.provider === 'laoshd' || config.provider === 'laoextra') {
+  if (config.provider === 'gsb' || config.provider === 'laosredcross' || config.provider === 'laospathana' || config.provider === 'laostv' || config.provider === 'laoshd' || config.provider === 'laoextra' || config.provider === 'laostars' || config.provider === 'laostarsvip' || config.provider === 'laosunion' || config.provider === 'laosunionvip' || config.provider === 'laosasean') {
     return 'official-page';
   }
 
@@ -553,11 +613,36 @@ const fetchSyncRows = async (config) => {
     return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
   }
 
+  if (config.provider === 'laostars') {
+    const snapshots = await fetchLaosStarsSnapshots({ limit: LAOS_STAR_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'laostarsvip') {
+    const snapshots = await fetchLaosStarsVipSnapshots({ limit: LAOS_STAR_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'laosunion') {
+    const snapshots = await fetchLaosUnionSnapshots({ limit: LAOS_UNION_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'laosunionvip') {
+    const snapshots = await fetchLaosUnionVipSnapshots({ limit: LAOS_UNION_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'laosasean') {
+    const snapshots = await fetchLaosAseanSnapshots({ limit: LAOS_ASEAN_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
   return fetchFeedRows(config.feedCode);
 };
 
 const buildSnapshot = (config, row, { strict = STRICT_FEED_MAPPING } = {}) => {
-  if (config.provider === 'gsb' || config.provider === 'laosredcross' || config.provider === 'laospathana' || config.provider === 'laostv' || config.provider === 'laoshd' || config.provider === 'laoextra') {
+  if (config.provider === 'gsb' || config.provider === 'laosredcross' || config.provider === 'laospathana' || config.provider === 'laostv' || config.provider === 'laoshd' || config.provider === 'laoextra' || config.provider === 'laostars' || config.provider === 'laostarsvip' || config.provider === 'laosunion' || config.provider === 'laosunionvip' || config.provider === 'laosasean') {
     return row?.__snapshot || null;
   }
 

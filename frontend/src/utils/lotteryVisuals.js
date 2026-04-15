@@ -104,6 +104,66 @@ const LOTTERY_VISUALS = {
     accent: '#0ea5e9',
     background: 'radial-gradient(circle at 30% 30%, #7dd3fc, #0369a1 72%)'
   },
+  lao_star: {
+    shortLabel: 'ST',
+    accent: '#f59e0b',
+    background: 'radial-gradient(circle at 30% 30%, #fde68a, #d97706 72%)'
+  },
+  'lao-star': {
+    shortLabel: 'ST',
+    accent: '#f59e0b',
+    background: 'radial-gradient(circle at 30% 30%, #fde68a, #d97706 72%)'
+  },
+  'lao-stars': {
+    shortLabel: 'ST',
+    accent: '#f59e0b',
+    background: 'radial-gradient(circle at 30% 30%, #fde68a, #d97706 72%)'
+  },
+  lao_star_vip: {
+    shortLabel: 'SV',
+    accent: '#f97316',
+    background: 'radial-gradient(circle at 30% 30%, #fdba74, #c2410c 72%)'
+  },
+  'lao-star-vip': {
+    shortLabel: 'SV',
+    accent: '#f97316',
+    background: 'radial-gradient(circle at 30% 30%, #fdba74, #c2410c 72%)'
+  },
+  'lao-stars-vip': {
+    shortLabel: 'SV',
+    accent: '#f97316',
+    background: 'radial-gradient(circle at 30% 30%, #fdba74, #c2410c 72%)'
+  },
+  lao_union: {
+    shortLabel: 'UN',
+    accent: '#16a34a',
+    background: 'radial-gradient(circle at 30% 30%, #86efac, #15803d 72%)'
+  },
+  lao_union_vip: {
+    shortLabel: 'UV',
+    accent: '#0f766e',
+    background: 'radial-gradient(circle at 30% 30%, #99f6e4, #0f766e 72%)'
+  },
+  'lao-union': {
+    shortLabel: 'UN',
+    accent: '#16a34a',
+    background: 'radial-gradient(circle at 30% 30%, #86efac, #15803d 72%)'
+  },
+  'lao-union-vip': {
+    shortLabel: 'UV',
+    accent: '#0f766e',
+    background: 'radial-gradient(circle at 30% 30%, #99f6e4, #0f766e 72%)'
+  },
+  lao_asean: {
+    shortLabel: 'AS',
+    accent: '#2563eb',
+    background: 'radial-gradient(circle at 30% 30%, #93c5fd, #1d4ed8 72%)'
+  },
+  'lao-asean': {
+    shortLabel: 'AS',
+    accent: '#2563eb',
+    background: 'radial-gradient(circle at 30% 30%, #93c5fd, #1d4ed8 72%)'
+  },
   'hanoi-normal': {
     shortLabel: 'YN',
     accent: '#e11d48',

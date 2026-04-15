@@ -295,6 +295,196 @@ const laosExtraFixture = {
   }
 };
 
+const laosStarFixture = {
+  __snapshot: {
+    lotteryCode: 'lao_star',
+    feedCode: 'lao_star',
+    marketName: 'ลาวสตาร์',
+    roundCode: '2026-04-14',
+    headline: '262',
+    firstPrize: '50262',
+    threeTop: '262',
+    threeFront: '',
+    twoTop: '62',
+    twoBottom: '50',
+    threeBottom: '',
+    threeTopHits: ['262'],
+    twoTopHits: ['62'],
+    twoBottomHits: ['50'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['2', '6'],
+    runBottom: ['5', '0'],
+    resultPublishedAt: new Date('2026-04-14T08:45:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://laostars.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        lotto_date: '2026-04-14',
+        results: {
+          digit5: '50262',
+          digit3: '262',
+          digit2_top: '62',
+          digit2_bottom: '50'
+        }
+      }
+    }
+  }
+};
+
+const laosStarVipFixture = {
+  __snapshot: {
+    lotteryCode: 'lao_star_vip',
+    feedCode: 'lao_star_vip',
+    marketName: 'ลาวสตาร์ VIP',
+    roundCode: '2026-04-14',
+    headline: '402',
+    firstPrize: '37402',
+    threeTop: '402',
+    threeFront: '',
+    twoTop: '02',
+    twoBottom: '37',
+    threeBottom: '',
+    threeTopHits: ['402'],
+    twoTopHits: ['02'],
+    twoBottomHits: ['37'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['4', '0', '2'],
+    runBottom: ['3', '7'],
+    resultPublishedAt: new Date('2026-04-14T15:00:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://laostars-vip.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        lotto_date: '2026-04-14',
+        results: {
+          digit5: '37402',
+          digit3: '402',
+          digit2_top: '02',
+          digit2_bottom: '37'
+        }
+      }
+    }
+  }
+};
+
+const laosUnionFixture = {
+  __snapshot: {
+    lotteryCode: 'lao_union',
+    feedCode: 'lao_union',
+    marketName: 'ลาวสามัคคี',
+    roundCode: '2026-04-14',
+    headline: '581',
+    firstPrize: '96581',
+    threeTop: '581',
+    threeFront: '',
+    twoTop: '81',
+    twoBottom: '96',
+    threeBottom: '',
+    threeTopHits: ['581'],
+    twoTopHits: ['81'],
+    twoBottomHits: ['96'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['5', '8', '1'],
+    runBottom: ['9', '6'],
+    resultPublishedAt: new Date('2026-04-14T13:30:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://laounion.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        lotto_date: '2026-04-14',
+        results: {
+          digit5: '96581',
+          digit3: '581',
+          digit2_top: '81',
+          digit2_bottom: '96'
+        }
+      }
+    }
+  }
+};
+
+const laosUnionVipFixture = {
+  __snapshot: {
+    lotteryCode: 'lao_union_vip',
+    feedCode: 'lao_union_vip',
+    marketName: 'ลาวสามัคคี VIP',
+    roundCode: '2026-04-14',
+    headline: '011',
+    firstPrize: '07011',
+    threeTop: '011',
+    threeFront: '',
+    twoTop: '11',
+    twoBottom: '07',
+    threeBottom: '',
+    threeTopHits: ['011'],
+    twoTopHits: ['11'],
+    twoBottomHits: ['07'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['0', '1'],
+    runBottom: ['0', '7'],
+    resultPublishedAt: new Date('2026-04-14T14:30:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://laounionvip.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        lotto_date: '2026-04-14',
+        results: {
+          digit5: '07011',
+          digit3: '011',
+          digit2_top: '11',
+          digit2_bottom: '07'
+        }
+      }
+    }
+  }
+};
+
+const laosAseanFixture = {
+  __snapshot: {
+    lotteryCode: 'lao_asean',
+    feedCode: 'lao_asean',
+    marketName: 'ลาวอาเซียน',
+    roundCode: '2026-04-14',
+    headline: '063',
+    firstPrize: '58063',
+    threeTop: '063',
+    threeFront: '',
+    twoTop: '63',
+    twoBottom: '58',
+    threeBottom: '',
+    threeTopHits: ['063'],
+    twoTopHits: ['63'],
+    twoBottomHits: ['58'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['0', '6', '3'],
+    runBottom: ['5', '8'],
+    resultPublishedAt: new Date('2026-04-14T14:00:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://lotterylaosasean.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        lotto_date: '2026-04-14',
+        results: {
+          digit5: '58063',
+          digit3: '063',
+          digit2_top: '63',
+          digit2_bottom: '58'
+        }
+      }
+    }
+  }
+};
+
 const scenarios = [
   {
     name: 'government feed mapping',
@@ -478,13 +668,88 @@ const scenarios = [
       assert.deepStrictEqual(snapshot.runBottom, ['1', '7']);
       assert.strictEqual(snapshot.sourceUrl, 'https://laoextra.com/');
     }
+  },
+  {
+    name: 'laos stars mapping',
+    feedCodes: ['lao_star'],
+    row: laosStarFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-14');
+      assert.strictEqual(snapshot.firstPrize, '50262');
+      assert.strictEqual(snapshot.threeTop, '262');
+      assert.strictEqual(snapshot.twoTop, '62');
+      assert.strictEqual(snapshot.twoBottom, '50');
+      assert.deepStrictEqual(snapshot.runTop, ['2', '6']);
+      assert.deepStrictEqual(snapshot.runBottom, ['5', '0']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://laostars.com/');
+    }
+  },
+  {
+    name: 'laos stars vip mapping',
+    feedCodes: ['lao_star_vip'],
+    row: laosStarVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-14');
+      assert.strictEqual(snapshot.firstPrize, '37402');
+      assert.strictEqual(snapshot.threeTop, '402');
+      assert.strictEqual(snapshot.twoTop, '02');
+      assert.strictEqual(snapshot.twoBottom, '37');
+      assert.deepStrictEqual(snapshot.runTop, ['4', '0', '2']);
+      assert.deepStrictEqual(snapshot.runBottom, ['3', '7']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://laostars-vip.com/');
+    }
+  },
+  {
+    name: 'laos union mapping',
+    feedCodes: ['lao_union'],
+    row: laosUnionFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-14');
+      assert.strictEqual(snapshot.firstPrize, '96581');
+      assert.strictEqual(snapshot.threeTop, '581');
+      assert.strictEqual(snapshot.twoTop, '81');
+      assert.strictEqual(snapshot.twoBottom, '96');
+      assert.deepStrictEqual(snapshot.runTop, ['5', '8', '1']);
+      assert.deepStrictEqual(snapshot.runBottom, ['9', '6']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://laounion.com/');
+    }
+  },
+  {
+    name: 'laos union vip mapping',
+    feedCodes: ['lao_union_vip'],
+    row: laosUnionVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-14');
+      assert.strictEqual(snapshot.firstPrize, '07011');
+      assert.strictEqual(snapshot.threeTop, '011');
+      assert.strictEqual(snapshot.twoTop, '11');
+      assert.strictEqual(snapshot.twoBottom, '07');
+      assert.deepStrictEqual(snapshot.runTop, ['0', '1']);
+      assert.deepStrictEqual(snapshot.runBottom, ['0', '7']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://laounionvip.com/');
+    }
+  },
+  {
+    name: 'laos asean mapping',
+    feedCodes: ['lao_asean'],
+    row: laosAseanFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-14');
+      assert.strictEqual(snapshot.firstPrize, '58063');
+      assert.strictEqual(snapshot.threeTop, '063');
+      assert.strictEqual(snapshot.twoTop, '63');
+      assert.strictEqual(snapshot.twoBottom, '58');
+      assert.deepStrictEqual(snapshot.runTop, ['0', '6', '3']);
+      assert.deepStrictEqual(snapshot.runBottom, ['5', '8']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://lotterylaosasean.com/');
+    }
   }
 ];
 
 const coveredFeedCodes = new Set(scenarios.flatMap((scenario) => scenario.feedCodes));
 const configuredFeedCodes = SYNC_CONFIGS.map((item) => item.feedCode);
 const mappedFeedCodes = SYNC_CONFIGS
-  .filter((item) => item.provider === 'gsb' || item.provider === 'laosredcross' || item.provider === 'laospathana' || item.provider === 'laostv' || item.provider === 'laoshd' || item.provider === 'laoextra' || EXPLICIT_FEED_MAPPINGS[item.feedCode])
+  .filter((item) => item.provider === 'gsb' || item.provider === 'laosredcross' || item.provider === 'laospathana' || item.provider === 'laostv' || item.provider === 'laoshd' || item.provider === 'laoextra' || item.provider === 'laostars' || item.provider === 'laostarsvip' || item.provider === 'laosunion' || item.provider === 'laosunionvip' || item.provider === 'laosasean' || EXPLICIT_FEED_MAPPINGS[item.feedCode])
   .map((item) => item.feedCode);
 assert.deepStrictEqual(
   [...coveredFeedCodes].sort(),

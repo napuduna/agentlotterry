@@ -37,6 +37,36 @@ const {
   LAOS_EXTRA_PROVIDER_NAME,
   fetchLatestLaosExtraSnapshot
 } = require('./laosExtraResultService');
+const {
+  LAOS_STAR_MARKET_ID,
+  LAOS_STAR_MARKET_NAME,
+  LAOS_STAR_PROVIDER_NAME,
+  fetchLatestLaosStarsSnapshot
+} = require('./laosStarsResultService');
+const {
+  LAOS_STAR_VIP_MARKET_ID,
+  LAOS_STAR_VIP_MARKET_NAME,
+  LAOS_STAR_VIP_PROVIDER_NAME,
+  fetchLatestLaosStarsVipSnapshot
+} = require('./laosStarsVipResultService');
+const {
+  LAOS_UNION_MARKET_ID,
+  LAOS_UNION_MARKET_NAME,
+  LAOS_UNION_PROVIDER_NAME,
+  fetchLatestLaosUnionSnapshot
+} = require('./laosUnionResultService');
+const {
+  LAOS_UNION_VIP_MARKET_ID,
+  LAOS_UNION_VIP_MARKET_NAME,
+  LAOS_UNION_VIP_PROVIDER_NAME,
+  fetchLatestLaosUnionVipSnapshot
+} = require('./laosUnionVipResultService');
+const {
+  LAOS_ASEAN_MARKET_ID,
+  LAOS_ASEAN_MARKET_NAME,
+  LAOS_ASEAN_PROVIDER_NAME,
+  fetchLatestLaosAseanSnapshot
+} = require('./laosAseanResultService');
 
 const PROVIDER_NAME = 'manycai';
 const RAW_PROVIDER_KEY = String(process.env.MANYCAI_API_KEY || '').trim();
@@ -73,6 +103,36 @@ const LAOS_HD_NUMBER_LABELS = {
 };
 const LAOS_EXTRA_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Lao Extra \u0e15\u0e23\u0e07 \u0e41\u0e25\u0e30\u0e43\u0e0a\u0e49\u0e1c\u0e25 \u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e01\u0e31\u0e1a \u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e1f\u0e34\u0e25\u0e14\u0e4c\u0e17\u0e32\u0e07\u0e01\u0e32\u0e23';
 const LAOS_EXTRA_NUMBER_LABELS = {
+  threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
+};
+const LAOS_STAR_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Lao Stars \u0e15\u0e23\u0e07 \u0e41\u0e25\u0e30\u0e43\u0e0a\u0e49\u0e1c\u0e25 \u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e01\u0e31\u0e1a \u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e1f\u0e34\u0e25\u0e14\u0e4c\u0e17\u0e32\u0e07\u0e01\u0e32\u0e23';
+const LAOS_STAR_NUMBER_LABELS = {
+  threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
+};
+const LAOS_STAR_VIP_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Lao Stars VIP \u0e15\u0e23\u0e07 \u0e41\u0e25\u0e30\u0e43\u0e0a\u0e49\u0e1c\u0e25 \u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e01\u0e31\u0e1a \u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e1f\u0e34\u0e25\u0e14\u0e4c\u0e17\u0e32\u0e07\u0e01\u0e32\u0e23';
+const LAOS_STAR_VIP_NUMBER_LABELS = {
+  threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
+};
+const LAOS_UNION_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Lao Union \u0e15\u0e23\u0e07 \u0e41\u0e25\u0e30\u0e43\u0e0a\u0e49\u0e1c\u0e25 \u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e01\u0e31\u0e1a \u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e1f\u0e34\u0e25\u0e14\u0e4c\u0e17\u0e32\u0e07\u0e01\u0e32\u0e23';
+const LAOS_UNION_NUMBER_LABELS = {
+  threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
+};
+const LAOS_UNION_VIP_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Lao Union VIP \u0e15\u0e23\u0e07 \u0e41\u0e25\u0e30\u0e43\u0e0a\u0e49\u0e1c\u0e25 \u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e01\u0e31\u0e1a \u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e1f\u0e34\u0e25\u0e14\u0e4c\u0e17\u0e32\u0e07\u0e01\u0e32\u0e23';
+const LAOS_UNION_VIP_NUMBER_LABELS = {
+  threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
+  twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
+};
+const LAOS_ASEAN_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Lao ASEAN \u0e15\u0e23\u0e07 \u0e41\u0e25\u0e30\u0e43\u0e0a\u0e49\u0e1c\u0e25 \u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e01\u0e31\u0e1a \u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e1f\u0e34\u0e25\u0e14\u0e4c\u0e17\u0e32\u0e07\u0e01\u0e32\u0e23';
+const LAOS_ASEAN_NUMBER_LABELS = {
   threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
@@ -231,6 +291,81 @@ baseSections.find((section) => section.id === 'international')?.markets.splice(5
     headline: '',
     numbers: [],
     note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Lao Extra'
+  });
+}
+
+{
+  const internationalSection = baseSections.find((section) => section.id === 'international');
+  const insertAt = Math.max(0, (internationalSection?.markets || []).findIndex((market) => market.id === 'lao-extra') + 1);
+  internationalSection?.markets.splice(insertAt, 0, {
+    id: 'lao-star',
+    name: LAOS_STAR_MARKET_NAME,
+    provider: LAOS_STAR_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Lao Stars'
+  });
+}
+
+{
+  const internationalSection = baseSections.find((section) => section.id === 'international');
+  const insertAt = Math.max(0, (internationalSection?.markets || []).findIndex((market) => market.id === 'lao-star') + 1);
+  internationalSection?.markets.splice(insertAt, 0, {
+    id: 'lao-star-vip',
+    name: LAOS_STAR_VIP_MARKET_NAME,
+    provider: LAOS_STAR_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Lao Stars VIP'
+  });
+}
+
+{
+  const internationalSection = baseSections.find((section) => section.id === 'international');
+  const insertAt = Math.max(0, (internationalSection?.markets || []).findIndex((market) => market.id === 'lao-star-vip') + 1);
+  internationalSection?.markets.splice(insertAt, 0, {
+    id: 'lao-union',
+    name: LAOS_UNION_MARKET_NAME,
+    provider: LAOS_UNION_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Lao Union'
+  });
+}
+
+{
+  const internationalSection = baseSections.find((section) => section.id === 'international');
+  const insertAt = Math.max(0, (internationalSection?.markets || []).findIndex((market) => market.id === 'lao-union') + 1);
+  internationalSection?.markets.splice(insertAt, 0, {
+    id: 'lao-union-vip',
+    name: LAOS_UNION_VIP_MARKET_NAME,
+    provider: LAOS_UNION_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Lao Union VIP'
+  });
+}
+
+{
+  const internationalSection = baseSections.find((section) => section.id === 'international');
+  const insertAt = Math.max(0, (internationalSection?.markets || []).findIndex((market) => market.id === 'lao-union-vip') + 1);
+  internationalSection?.markets.splice(insertAt, 0, {
+    id: 'lao-asean',
+    name: LAOS_ASEAN_MARKET_NAME,
+    provider: LAOS_ASEAN_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Lao ASEAN'
   });
 }
 
@@ -465,6 +600,116 @@ const fetchLatestLaosExtraMarket = async () => {
   });
 };
 
+const fetchLatestLaosStarsMarket = async () => {
+  const snapshot = await fetchLatestLaosStarsSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'lao-star',
+    name: LAOS_STAR_MARKET_NAME,
+    provider: LAOS_STAR_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: LAOS_STAR_NUMBER_LABELS.threeTop, value: snapshot.threeTop },
+      { label: LAOS_STAR_NUMBER_LABELS.twoTop, value: snapshot.twoTop },
+      { label: LAOS_STAR_NUMBER_LABELS.twoBottom, value: snapshot.twoBottom }
+    ],
+    note: LAOS_STAR_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestLaosStarsVipMarket = async () => {
+  const snapshot = await fetchLatestLaosStarsVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'lao-star-vip',
+    name: LAOS_STAR_VIP_MARKET_NAME,
+    provider: LAOS_STAR_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: LAOS_STAR_VIP_NUMBER_LABELS.threeTop, value: snapshot.threeTop },
+      { label: LAOS_STAR_VIP_NUMBER_LABELS.twoTop, value: snapshot.twoTop },
+      { label: LAOS_STAR_VIP_NUMBER_LABELS.twoBottom, value: snapshot.twoBottom }
+    ],
+    note: LAOS_STAR_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestLaosUnionMarket = async () => {
+  const snapshot = await fetchLatestLaosUnionSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'lao-union',
+    name: LAOS_UNION_MARKET_NAME,
+    provider: LAOS_UNION_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: LAOS_UNION_NUMBER_LABELS.threeTop, value: snapshot.threeTop },
+      { label: LAOS_UNION_NUMBER_LABELS.twoTop, value: snapshot.twoTop },
+      { label: LAOS_UNION_NUMBER_LABELS.twoBottom, value: snapshot.twoBottom }
+    ],
+    note: LAOS_UNION_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestLaosUnionVipMarket = async () => {
+  const snapshot = await fetchLatestLaosUnionVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'lao-union-vip',
+    name: LAOS_UNION_VIP_MARKET_NAME,
+    provider: LAOS_UNION_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: LAOS_UNION_VIP_NUMBER_LABELS.threeTop, value: snapshot.threeTop },
+      { label: LAOS_UNION_VIP_NUMBER_LABELS.twoTop, value: snapshot.twoTop },
+      { label: LAOS_UNION_VIP_NUMBER_LABELS.twoBottom, value: snapshot.twoBottom }
+    ],
+    note: LAOS_UNION_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestLaosAseanMarket = async () => {
+  const snapshot = await fetchLatestLaosAseanSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'lao-asean',
+    name: LAOS_ASEAN_MARKET_NAME,
+    provider: LAOS_ASEAN_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: LAOS_ASEAN_NUMBER_LABELS.threeTop, value: snapshot.threeTop },
+      { label: LAOS_ASEAN_NUMBER_LABELS.twoTop, value: snapshot.twoTop },
+      { label: LAOS_ASEAN_NUMBER_LABELS.twoBottom, value: snapshot.twoBottom }
+    ],
+    note: LAOS_ASEAN_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
 const extractManyCaiRows = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
@@ -680,6 +925,56 @@ const applyLaosExtraMarket = async (sections) => {
   return true;
 };
 
+const applyLaosStarsMarket = async (sections) => {
+  const market = await fetchLatestLaosStarsMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'international', market);
+  return true;
+};
+
+const applyLaosStarsVipMarket = async (sections) => {
+  const market = await fetchLatestLaosStarsVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'international', market);
+  return true;
+};
+
+const applyLaosUnionMarket = async (sections) => {
+  const market = await fetchLatestLaosUnionMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'international', market);
+  return true;
+};
+
+const applyLaosUnionVipMarket = async (sections) => {
+  const market = await fetchLatestLaosUnionVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'international', market);
+  return true;
+};
+
+const applyLaosAseanMarket = async (sections) => {
+  const market = await fetchLatestLaosAseanMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'international', market);
+  return true;
+};
+
 const buildSummary = (sections) => {
   const markets = sections.flatMap((section) => section.markets);
   const liveCount = markets.filter((market) => market.status === 'live').length;
@@ -759,6 +1054,51 @@ const getMarketOverview = async () => {
     }
   } catch (error) {
     warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 Extra \u0e08\u0e32\u0e01 API Lao Extra \u0e44\u0e14\u0e49');
+  }
+
+  try {
+    const hasLaosStarsData = await applyLaosStarsMarket(sections);
+    if (!hasLaosStarsData) {
+      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 API Lao Stars \u0e44\u0e14\u0e49');
+    }
+  } catch (error) {
+    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 API Lao Stars \u0e44\u0e14\u0e49');
+  }
+
+  try {
+    const hasLaosStarsVipData = await applyLaosStarsVipMarket(sections);
+    if (!hasLaosStarsVipData) {
+      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c VIP \u0e08\u0e32\u0e01 API Lao Stars VIP \u0e44\u0e14\u0e49');
+    }
+  } catch (error) {
+    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c VIP \u0e08\u0e32\u0e01 API Lao Stars VIP \u0e44\u0e14\u0e49');
+  }
+
+  try {
+    const hasLaosUnionData = await applyLaosUnionMarket(sections);
+    if (!hasLaosUnionData) {
+      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 \u0e08\u0e32\u0e01 API Lao Union \u0e44\u0e14\u0e49');
+    }
+  } catch (error) {
+    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 \u0e08\u0e32\u0e01 API Lao Union \u0e44\u0e14\u0e49');
+  }
+
+  try {
+    const hasLaosUnionVipData = await applyLaosUnionVipMarket(sections);
+    if (!hasLaosUnionVipData) {
+      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 VIP \u0e08\u0e32\u0e01 API Lao Union VIP \u0e44\u0e14\u0e49');
+    }
+  } catch (error) {
+    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 VIP \u0e08\u0e32\u0e01 API Lao Union VIP \u0e44\u0e14\u0e49');
+  }
+
+  try {
+    const hasLaosAseanData = await applyLaosAseanMarket(sections);
+    if (!hasLaosAseanData) {
+      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Lao ASEAN \u0e44\u0e14\u0e49');
+    }
+  } catch (error) {
+    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Lao ASEAN \u0e44\u0e14\u0e49');
   }
 
   if (!PROVIDER_KEY) {
