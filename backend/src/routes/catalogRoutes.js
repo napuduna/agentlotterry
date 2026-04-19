@@ -12,12 +12,18 @@ const getErrorStatus = (error, fallback = 500) => {
   const statusCode = Number(error?.status || error?.statusCode);
   return Number.isInteger(statusCode) && statusCode >= 400 ? statusCode : fallback;
 };
+const applyNoStore = (res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+};
 
 router.use(auth);
 
 router.get('/overview', async (req, res) => {
   try {
     const overview = await getCatalogOverview(req.user);
+    applyNoStore(res);
     res.json(overview);
   } catch (error) {
     console.error('Catalog overview error:', error);

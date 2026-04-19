@@ -1,13 +1,14 @@
 const axios = require('axios');
-const { createBangkokDate, formatBangkokDate } = require('../utils/bangkokTime');
+const { createBangkokDate } = require('../utils/bangkokTime');
 
-const HANOI_STAR_PROVIDER_NAME = 'Minh Ngoc Star Official';
+const HANOI_STAR_PROVIDER_NAME = 'Exphuay Minh Ngoc Star';
 const HANOI_STAR_MARKET_ID = 'hanoi_star';
 const HANOI_STAR_MARKET_NAME = 'ฮานอยสตาร์';
-const HANOI_STAR_SITE_URL = 'https://minhngocstar.com/';
-const HANOI_STAR_RESULT_URL = 'https://api.minhngocstar.com/result';
+const HANOI_STAR_SITE_URL = 'https://exphuay.com/result/minhngocstar';
+const HANOI_STAR_HISTORY_URL = 'https://exphuay.com/backward/minhngocstar';
 const HANOI_STAR_TIMEOUT_MS = Number(process.env.HANOI_STAR_TIMEOUT_MS || 15000);
-const HANOI_STAR_HISTORY_WINDOW_DAYS = Number(process.env.HANOI_STAR_HISTORY_WINDOW_DAYS || 45);
+
+const RESULT_ENTRY_PATTERN = /lottosName:"minhngocstar"[\s\S]{0,500}?lottosDate:"([^"]+)"[\s\S]{0,300}?lottosTime:"([^"]+)"[\s\S]{0,300}?lottosNumber:"([^"]+)"[\s\S]{0,200}?lottosUnder:"([^"]+)"/g;
 
 const http = axios.create({
   timeout: HANOI_STAR_TIMEOUT_MS,
@@ -32,33 +33,38 @@ const tailDigits = (value, length) => {
   return digits.slice(-length);
 };
 
-const parseBangkokDateTime = (value) => {
+const parseRoundCode = (value) => {
   const normalized = stringValue(value);
-  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return '';
+  return `${match[1]}-${match[2]}-${match[3]}`;
+};
 
-  if (!match) {
-    const parsed = new Date(normalized);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+const parsePublishedAt = (roundCode, drawTime) => {
+  const dateMatch = stringValue(roundCode).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = stringValue(drawTime).match(/^(\d{2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) {
+    return null;
   }
 
   return createBangkokDate(
-    Number(match[1]),
-    Number(match[2]),
-    Number(match[3]),
-    Number(match[4]),
-    Number(match[5]),
-    Number(match[6] || 0)
+    Number(dateMatch[1]),
+    Number(dateMatch[2]),
+    Number(dateMatch[3]),
+    Number(timeMatch[1]),
+    Number(timeMatch[2]),
+    0
   );
 };
 
-const buildSnapshot = ({ roundCode, results, publishedAt, rawPayload }) => {
-  const firstPrize = compactDigits(results?.prize_1st);
-  const secondPrize = compactDigits(results?.prize_2nd);
-  const threeTop = tailDigits(firstPrize, 3);
-  const twoTop = tailDigits(firstPrize, 2);
-  const twoBottom = tailDigits(secondPrize, 2);
+const buildSnapshot = ({ roundCode, drawTime, firstPrize, twoBottom, sourceUrl }) => {
+  const normalizedRoundCode = parseRoundCode(roundCode);
+  const firstPrizeDigits = compactDigits(firstPrize);
+  const twoBottomDigits = compactDigits(twoBottom);
+  const threeTop = tailDigits(firstPrizeDigits, 3);
+  const twoTop = tailDigits(firstPrizeDigits, 2);
 
-  if (!roundCode || !firstPrize || !secondPrize || !threeTop || !twoTop || !twoBottom) {
+  if (!normalizedRoundCode || !firstPrizeDigits || !threeTop || !twoTop || !twoBottomDigits) {
     return null;
   }
 
@@ -66,71 +72,50 @@ const buildSnapshot = ({ roundCode, results, publishedAt, rawPayload }) => {
     lotteryCode: HANOI_STAR_MARKET_ID,
     feedCode: HANOI_STAR_MARKET_ID,
     marketName: HANOI_STAR_MARKET_NAME,
-    roundCode,
+    roundCode: normalizedRoundCode,
     headline: threeTop,
-    firstPrize,
+    firstPrize: firstPrizeDigits,
     threeTop,
     threeFront: '',
     twoTop,
-    twoBottom,
+    twoBottom: twoBottomDigits,
     threeBottom: '',
     threeTopHits: [threeTop],
     twoTopHits: [twoTop],
-    twoBottomHits: [twoBottom],
+    twoBottomHits: [twoBottomDigits],
     threeFrontHits: [],
     threeBottomHits: [],
     runTop: uniqueDigits(threeTop),
-    runBottom: uniqueDigits(twoBottom),
-    resultPublishedAt: publishedAt || null,
+    runBottom: uniqueDigits(twoBottomDigits),
+    resultPublishedAt: parsePublishedAt(normalizedRoundCode, drawTime),
     isSettlementSafe: true,
-    sourceUrl: HANOI_STAR_SITE_URL,
-    rawPayload
+    sourceUrl,
+    rawPayload: {
+      lottosDate: roundCode,
+      lottosTime: drawTime,
+      lottosNumber: firstPrizeDigits,
+      lottosUnder: twoBottomDigits
+    }
   };
 };
 
-const fetchSnapshotByPath = async (pathSuffix = '') => {
-  const response = await http.get(`${HANOI_STAR_RESULT_URL}${pathSuffix}`);
-  const payload = response.data?.data;
-
-  if (!payload) {
-    return null;
-  }
-
-  return buildSnapshot({
-    roundCode: stringValue(payload?.lotto_date),
-    results: payload?.results,
-    publishedAt: parseBangkokDateTime(payload?.show_1st) || parseBangkokDateTime(response.data?.update),
-    rawPayload: response.data
-  });
-};
-
-const fetchCurrentSnapshot = async () => fetchSnapshotByPath('');
-
-const fetchSnapshotByRoundCode = async (roundCode) => {
-  const snapshot = await fetchSnapshotByPath(`/${roundCode}`);
-  if (!snapshot || snapshot.roundCode !== roundCode) {
-    return null;
-  }
-  return snapshot;
-};
-
-const parseRoundCodeToDate = (roundCode) => {
-  const match = stringValue(roundCode).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-
-  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-};
-
-const fetchHistorySnapshots = async ({ limit = 10, latestRoundCode = '' } = {}) => {
-  const latestDate = parseRoundCodeToDate(latestRoundCode) || new Date();
+const extractSnapshotsFromHtml = (html, sourceUrl, limit = 10) => {
   const snapshots = [];
+  const byRoundCode = new Map();
+  let match;
+  RESULT_ENTRY_PATTERN.lastIndex = 0;
 
-  for (let offset = 1; offset <= HANOI_STAR_HISTORY_WINDOW_DAYS && snapshots.length < limit; offset += 1) {
-    const targetDate = new Date(latestDate.getTime() - offset * 24 * 60 * 60 * 1000);
-    const roundCode = formatBangkokDate(targetDate);
-    const snapshot = await fetchSnapshotByRoundCode(roundCode);
+  while ((match = RESULT_ENTRY_PATTERN.exec(html)) && snapshots.length < limit) {
+    const snapshot = buildSnapshot({
+      roundCode: match[1],
+      drawTime: match[2],
+      firstPrize: match[3],
+      twoBottom: match[4],
+      sourceUrl
+    });
 
-    if (snapshot) {
+    if (snapshot && !byRoundCode.has(snapshot.roundCode)) {
+      byRoundCode.set(snapshot.roundCode, snapshot);
       snapshots.push(snapshot);
     }
   }
@@ -138,23 +123,33 @@ const fetchHistorySnapshots = async ({ limit = 10, latestRoundCode = '' } = {}) 
   return snapshots;
 };
 
+const fetchSnapshotsFromUrl = async (url, limit) => {
+  const response = await http.get(url);
+  return extractSnapshotsFromHtml(stringValue(response.data), url, limit);
+};
+
 const fetchHanoiStarSnapshots = async ({ limit = 10 } = {}) => {
-  const currentSnapshot = await fetchCurrentSnapshot();
-  const historySnapshots = await fetchHistorySnapshots({
-    limit: Math.max(0, (Number(limit) || 1) - (currentSnapshot ? 1 : 0)),
-    latestRoundCode: currentSnapshot?.roundCode
-  });
+  const normalizedLimit = Math.max(1, Number(limit) || 1);
+  const primarySnapshots = await fetchSnapshotsFromUrl(HANOI_STAR_SITE_URL, normalizedLimit);
+
+  if (primarySnapshots.length >= normalizedLimit) {
+    return primarySnapshots
+      .sort((left, right) => right.roundCode.localeCompare(left.roundCode))
+      .slice(0, normalizedLimit);
+  }
+
+  const fallbackSnapshots = await fetchSnapshotsFromUrl(HANOI_STAR_HISTORY_URL, normalizedLimit);
   const byRoundCode = new Map();
 
-  [currentSnapshot, ...historySnapshots].filter(Boolean).forEach((snapshot) => {
-    if (!byRoundCode.has(snapshot.roundCode)) {
+  [...primarySnapshots, ...fallbackSnapshots].forEach((snapshot) => {
+    if (snapshot && !byRoundCode.has(snapshot.roundCode)) {
       byRoundCode.set(snapshot.roundCode, snapshot);
     }
   });
 
   return [...byRoundCode.values()]
     .sort((left, right) => right.roundCode.localeCompare(left.roundCode))
-    .slice(0, Math.max(1, Number(limit) || 1));
+    .slice(0, normalizedLimit);
 };
 
 const fetchLatestHanoiStarSnapshot = async () => {

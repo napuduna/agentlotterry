@@ -1,5 +1,8 @@
 const axios = require('axios');
 const LotteryResult = require('../models/LotteryResult');
+const LotteryType = require('../models/LotteryType');
+const ResultRecord = require('../models/ResultRecord');
+const { createBangkokDate } = require('../utils/bangkokTime');
 const { MANYCAI_FEED_BASE_URL } = require('./externalResultFeedService');
 const {
   GSB_MARKET_ID,
@@ -137,6 +140,69 @@ const {
   HANOI_ASEAN_PROVIDER_NAME,
   fetchLatestHanoiAseanSnapshot
 } = require('./hanoiAseanResultService');
+const {
+  CHINA_MORNING_VIP_MARKET_ID,
+  CHINA_MORNING_VIP_MARKET_NAME,
+  CHINA_AFTERNOON_VIP_MARKET_ID,
+  CHINA_AFTERNOON_VIP_MARKET_NAME,
+  SHENZHEN_INDEX_PROVIDER_NAME,
+  fetchLatestShenzhenMorningVipSnapshot,
+  fetchLatestShenzhenAfternoonVipSnapshot
+} = require('./shenzhenIndexVipResultService');
+const {
+  NIKKEI_MORNING_VIP_MARKET_ID,
+  NIKKEI_MORNING_VIP_MARKET_NAME,
+  NIKKEI_AFTERNOON_VIP_MARKET_ID,
+  NIKKEI_AFTERNOON_VIP_MARKET_NAME,
+  NIKKEI_VIP_PROVIDER_NAME,
+  fetchLatestNikkeiMorningVipSnapshot,
+  fetchLatestNikkeiAfternoonVipSnapshot
+} = require('./nikkeiVipResultService');
+const {
+  HSI_MORNING_VIP_MARKET_ID,
+  HSI_MORNING_VIP_MARKET_NAME,
+  HSI_AFTERNOON_VIP_MARKET_ID,
+  HSI_AFTERNOON_VIP_MARKET_NAME,
+  HSI_VIP_PROVIDER_NAME,
+  fetchLatestHsiMorningVipSnapshot,
+  fetchLatestHsiAfternoonVipSnapshot
+} = require('./hsiVipResultService');
+const {
+  ENGLAND_VIP_MARKET_ID,
+  ENGLAND_VIP_MARKET_NAME,
+  GERMANY_VIP_MARKET_ID,
+  GERMANY_VIP_MARKET_NAME,
+  RUSSIA_VIP_MARKET_ID,
+  RUSSIA_VIP_MARKET_NAME,
+  LOTTO_SUPER_RICH_PROVIDER_NAME,
+  fetchLatestEnglandVipSnapshot,
+  fetchLatestGermanyVipSnapshot,
+  fetchLatestRussiaVipSnapshot
+} = require('./lottoSuperRichVipResultService');
+const {
+  KOREA_VIP_MARKET_ID,
+  KOREA_VIP_MARKET_NAME,
+  KOREA_VIP_PROVIDER_NAME,
+  fetchLatestKoreaVipSnapshot
+} = require('./koreaVipResultService');
+const {
+  TAIWAN_VIP_MARKET_ID,
+  TAIWAN_VIP_MARKET_NAME,
+  TAIWAN_VIP_PROVIDER_NAME,
+  fetchLatestTaiwanVipSnapshot
+} = require('./taiwanVipResultService');
+const {
+  SINGAPORE_VIP_MARKET_ID,
+  SINGAPORE_VIP_MARKET_NAME,
+  SINGAPORE_VIP_PROVIDER_NAME,
+  fetchLatestSingaporeVipSnapshot
+} = require('./singaporeVipResultService');
+const {
+  DOWJONES_VIP_MARKET_ID,
+  DOWJONES_VIP_MARKET_NAME,
+  DOWJONES_VIP_PROVIDER_NAME,
+  fetchLatestDowjonesVipSnapshot
+} = require('./dowjonesVipResultService');
 
 const PROVIDER_NAME = 'manycai';
 const RAW_PROVIDER_KEY = String(process.env.MANYCAI_API_KEY || '').trim();
@@ -214,13 +280,14 @@ const LAOS_ASEAN_NUMBER_LABELS = {
   twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
 };
+const HSI_VIP_NOTE = 'Official HSI VIP results';
 const HANOI_EXTRA_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Xoso Extra \u0e42\u0e14\u0e22\u0e43\u0e0a\u0e49\u0e23\u0e32\u0e07\u0e27\u0e31\u0e25\u0e1e\u0e34\u0e40\u0e28\u0e29 5 \u0e15\u0e31\u0e27\u0e40\u0e1b\u0e47\u0e19\u0e10\u0e32\u0e19\u0e43\u0e19\u0e01\u0e32\u0e23\u0e41\u0e1b\u0e25\u0e07 3 \u0e15\u0e31\u0e27\u0e1a\u0e19 2 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e41\u0e25\u0e30 2 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07';
 const HANOI_EXTRA_NUMBER_LABELS = {
   threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
 };
-const HANOI_STAR_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01 API Minh Ngoc Star \u0e42\u0e14\u0e22\u0e43\u0e0a\u0e49\u0e1c\u0e25 5 \u0e15\u0e31\u0e27\u0e08\u0e32\u0e01 prize 1 \u0e41\u0e25\u0e30 prize 2 \u0e21\u0e32\u0e41\u0e1b\u0e25\u0e07\u0e40\u0e1b\u0e47\u0e19 3 \u0e15\u0e31\u0e27\u0e1a\u0e19 2 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e41\u0e25\u0e30 2 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e01\u0e15\u0e34\u0e01\u0e32 Hanoi \u0e02\u0e2d\u0e07\u0e23\u0e30\u0e1a\u0e1a';
+const HANOI_STAR_NOTE = '\u0e15\u0e23\u0e27\u0e08\u0e08\u0e31\u0e1a\u0e08\u0e32\u0e01\u0e2b\u0e19\u0e49\u0e32\u0e1c\u0e25 Minh Ngoc Star \u0e1c\u0e48\u0e32\u0e19 Exphuay \u0e42\u0e14\u0e22\u0e43\u0e0a\u0e49\u0e1c\u0e25 5 \u0e15\u0e31\u0e27\u0e08\u0e32\u0e01 prize 1 \u0e41\u0e25\u0e30 2 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e21\u0e32\u0e41\u0e1b\u0e25\u0e07\u0e40\u0e1b\u0e47\u0e19 3 \u0e15\u0e31\u0e27\u0e1a\u0e19 2 \u0e15\u0e31\u0e27\u0e1a\u0e19 \u0e41\u0e25\u0e30 2 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07 \u0e15\u0e32\u0e21\u0e01\u0e15\u0e34\u0e01\u0e32 Hanoi \u0e02\u0e2d\u0e07\u0e23\u0e30\u0e1a\u0e1a';
 const HANOI_STAR_NUMBER_LABELS = {
   threeTop: '\u0033 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
@@ -262,6 +329,13 @@ const HANOI_ASEAN_NUMBER_LABELS = {
   twoTop: '\u0032 \u0e15\u0e31\u0e27\u0e1a\u0e19',
   twoBottom: '\u0032 \u0e15\u0e31\u0e27\u0e25\u0e48\u0e32\u0e07'
 };
+const SHENZHEN_INDEX_VIP_NOTE = 'Official Shenzhen Index VIP results';
+const NIKKEI_VIP_NOTE = 'Official Nikkei VIP Stock results';
+const LOTTO_SUPER_RICH_VIP_NOTE = 'Official Lotto Super Rich VIP results';
+const KOREA_VIP_NOTE = 'Official KTop VIP Index results';
+const TAIWAN_VIP_NOTE = 'Official TSEC VIP Index results';
+const SINGAPORE_VIP_NOTE = 'Official Stocks VIP results';
+const DOWJONES_VIP_NOTE = 'Official Dow Jones Powerball results';
 
 const cache = {
   data: null,
@@ -296,8 +370,49 @@ const MANYCAI_MARKETS = [
 ];
 
 const ACTIVE_MANYCAI_MARKETS = MANYCAI_MARKETS.filter(
-  (market) => !['tlzc', 'zcvip'].includes(market.code)
+  (market) => !['tlzc', 'zcvip', 'gsus'].includes(market.code)
 );
+
+const ROUND_CODE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const MARKET_ID_TO_LOTTERY_CODE = {
+  ...Object.fromEntries(MANYCAI_MARKETS.map((market) => [market.marketId, market.code])),
+  [THAI_GOV_MARKET_ID]: 'thai_government',
+  [BAAC_MARKET_ID]: 'baac',
+  [GSB_MARKET_ID]: 'gsb',
+  lao: 'tlzc',
+  'lao-vip': 'lao_vip',
+  [LAOS_PATHANA_MARKET_ID]: 'lao_pathana',
+  [LAOS_REDCROSS_MARKET_ID]: 'lao_redcross',
+  [LAOS_TV_MARKET_ID]: 'lao_tv',
+  [LAOS_HD_MARKET_ID]: 'lao_hd',
+  [LAOS_EXTRA_MARKET_ID]: 'lao_extra',
+  [LAOS_STAR_MARKET_ID]: 'lao_star',
+  [LAOS_STAR_VIP_MARKET_ID]: 'lao_star_vip',
+  [LAOS_UNION_MARKET_ID]: 'lao_union',
+  [LAOS_UNION_VIP_MARKET_ID]: 'lao_union_vip',
+  [LAOS_ASEAN_MARKET_ID]: 'lao_asean',
+  [HANOI_EXTRA_MARKET_ID]: 'hanoi_extra',
+  [HANOI_STAR_MARKET_ID]: 'hanoi_star',
+  [HANOI_DEVELOP_MARKET_ID]: 'hanoi_develop',
+  [HANOI_HD_MARKET_ID]: 'hanoi_hd',
+  [HANOI_TV_MARKET_ID]: 'hanoi_tv',
+  [HANOI_REDCROSS_MARKET_ID]: 'hanoi_redcross',
+  [HANOI_UNION_MARKET_ID]: 'hanoi_union',
+  [HANOI_ASEAN_MARKET_ID]: 'hanoi_asean',
+  [CHINA_MORNING_VIP_MARKET_ID]: 'china_morning_vip',
+  [CHINA_AFTERNOON_VIP_MARKET_ID]: 'china_afternoon_vip',
+  [HSI_MORNING_VIP_MARKET_ID]: 'hsi_morning_vip',
+  [HSI_AFTERNOON_VIP_MARKET_ID]: 'hsi_afternoon_vip',
+  [NIKKEI_MORNING_VIP_MARKET_ID]: 'nikkei_morning_vip',
+  [NIKKEI_AFTERNOON_VIP_MARKET_ID]: 'nikkei_afternoon_vip',
+  [ENGLAND_VIP_MARKET_ID]: 'england_vip',
+  [GERMANY_VIP_MARKET_ID]: 'germany_vip',
+  [RUSSIA_VIP_MARKET_ID]: 'russia_vip',
+  [KOREA_VIP_MARKET_ID]: 'korea_vip',
+  [TAIWAN_VIP_MARKET_ID]: 'taiwan_vip',
+  [SINGAPORE_VIP_MARKET_ID]: 'singapore_vip',
+  [DOWJONES_VIP_MARKET_ID]: 'dowjones_vip'
+};
 
 const baseSections = [
   {
@@ -369,7 +484,7 @@ baseSections.find((section) => section.id === 'international')?.markets.splice(6
   resultDate: '',
   headline: '',
   numbers: [],
-  note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 API Minh Ngoc Star'
+    note: '\u0e23\u0e2d\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e08\u0e32\u0e01 Exphuay Minh Ngoc Star'
 });
 
 baseSections.find((section) => section.id === 'international')?.markets.splice(7, 0, {
@@ -597,6 +712,186 @@ baseSections.find((section) => section.id === 'international')?.markets.splice(6
     laoVipMarket.provider = LAOS_VIP_PROVIDER_NAME;
     laoVipMarket.note = 'รอข้อมูลจาก Lao VIP Official';
   }
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-hangseng-morning') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-hangseng-morning-vip',
+    name: HSI_MORNING_VIP_MARKET_NAME,
+    provider: HSI_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: HSI_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-nikkei-morning') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-nikkei-morning-vip',
+    name: NIKKEI_MORNING_VIP_MARKET_NAME,
+    provider: NIKKEI_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: 'รอข้อมูลจาก API Nikkei VIP Stock Official'
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-china-morning') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-china-morning-vip',
+    name: CHINA_MORNING_VIP_MARKET_NAME,
+    provider: SHENZHEN_INDEX_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: 'รอข้อมูลจาก API Shenzhen Index Official'
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-hangseng-afternoon') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-hangseng-afternoon-vip',
+    name: HSI_AFTERNOON_VIP_MARKET_NAME,
+    provider: HSI_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: HSI_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-nikkei-afternoon') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-nikkei-afternoon-vip',
+    name: NIKKEI_AFTERNOON_VIP_MARKET_NAME,
+    provider: NIKKEI_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: 'รอข้อมูลจาก API Nikkei VIP Stock Official'
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-china-afternoon') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-china-afternoon-vip',
+    name: CHINA_AFTERNOON_VIP_MARKET_NAME,
+    provider: SHENZHEN_INDEX_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: 'รอข้อมูลจาก API Shenzhen Index Official'
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-taiwan') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-taiwan-vip',
+    name: TAIWAN_VIP_MARKET_NAME,
+    provider: TAIWAN_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: TAIWAN_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-korea') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-korea-vip',
+    name: KOREA_VIP_MARKET_NAME,
+    provider: KOREA_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: KOREA_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-singapore') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-singapore-vip',
+    name: SINGAPORE_VIP_MARKET_NAME,
+    provider: SINGAPORE_VIP_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: SINGAPORE_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-england') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-england-vip',
+    name: ENGLAND_VIP_MARKET_NAME,
+    provider: LOTTO_SUPER_RICH_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: LOTTO_SUPER_RICH_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-germany') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-germany-vip',
+    name: GERMANY_VIP_MARKET_NAME,
+    provider: LOTTO_SUPER_RICH_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: LOTTO_SUPER_RICH_VIP_NOTE
+  });
+}
+
+{
+  const stocksSection = baseSections.find((section) => section.id === 'stocks');
+  const insertAt = Math.max(0, (stocksSection?.markets || []).findIndex((market) => market.id === 'stock-russia') + 1);
+  stocksSection?.markets.splice(insertAt, 0, {
+    id: 'stock-russia-vip',
+    name: RUSSIA_VIP_MARKET_NAME,
+    provider: LOTTO_SUPER_RICH_PROVIDER_NAME,
+    status: 'waiting',
+    resultDate: '',
+    headline: '',
+    numbers: [],
+    note: LOTTO_SUPER_RICH_VIP_NOTE
+  });
 }
 
 const cloneSections = () => baseSections.map((section) => ({
@@ -1206,6 +1501,292 @@ const fetchLatestHanoiAseanMarket = async () => {
   });
 };
 
+const fetchLatestChinaMorningVipMarket = async () => {
+  const snapshot = await fetchLatestShenzhenMorningVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-china-morning-vip',
+    name: CHINA_MORNING_VIP_MARKET_NAME,
+    provider: SHENZHEN_INDEX_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: SHENZHEN_INDEX_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestChinaAfternoonVipMarket = async () => {
+  const snapshot = await fetchLatestShenzhenAfternoonVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-china-afternoon-vip',
+    name: CHINA_AFTERNOON_VIP_MARKET_NAME,
+    provider: SHENZHEN_INDEX_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: SHENZHEN_INDEX_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestHsiMorningVipMarket = async () => {
+  const snapshot = await fetchLatestHsiMorningVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-hangseng-morning-vip',
+    name: HSI_MORNING_VIP_MARKET_NAME,
+    provider: HSI_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 à¸•à¸±à¸§à¸šà¸™', value: snapshot.threeTop },
+      { label: '2 à¸•à¸±à¸§à¸šà¸™', value: snapshot.twoTop },
+      { label: '2 à¸•à¸±à¸§à¸¥à¹ˆà¸²à¸‡', value: snapshot.twoBottom }
+    ],
+    note: HSI_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestHsiAfternoonVipMarket = async () => {
+  const snapshot = await fetchLatestHsiAfternoonVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-hangseng-afternoon-vip',
+    name: HSI_AFTERNOON_VIP_MARKET_NAME,
+    provider: HSI_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 à¸•à¸±à¸§à¸šà¸™', value: snapshot.threeTop },
+      { label: '2 à¸•à¸±à¸§à¸šà¸™', value: snapshot.twoTop },
+      { label: '2 à¸•à¸±à¸§à¸¥à¹ˆà¸²à¸‡', value: snapshot.twoBottom }
+    ],
+    note: HSI_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestNikkeiMorningVipMarket = async () => {
+  const snapshot = await fetchLatestNikkeiMorningVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-nikkei-morning-vip',
+    name: NIKKEI_MORNING_VIP_MARKET_NAME,
+    provider: NIKKEI_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: NIKKEI_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestNikkeiAfternoonVipMarket = async () => {
+  const snapshot = await fetchLatestNikkeiAfternoonVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-nikkei-afternoon-vip',
+    name: NIKKEI_AFTERNOON_VIP_MARKET_NAME,
+    provider: NIKKEI_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: NIKKEI_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestEnglandVipMarket = async () => {
+  const snapshot = await fetchLatestEnglandVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-england-vip',
+    name: ENGLAND_VIP_MARKET_NAME,
+    provider: LOTTO_SUPER_RICH_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 à¸•à¸±à¸§à¸šà¸™', value: snapshot.threeTop },
+      { label: '2 à¸•à¸±à¸§à¸šà¸™', value: snapshot.twoTop },
+      { label: '2 à¸•à¸±à¸§à¸¥à¹ˆà¸²à¸‡', value: snapshot.twoBottom }
+    ],
+    note: LOTTO_SUPER_RICH_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestGermanyVipMarket = async () => {
+  const snapshot = await fetchLatestGermanyVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-germany-vip',
+    name: GERMANY_VIP_MARKET_NAME,
+    provider: LOTTO_SUPER_RICH_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 à¸•à¸±à¸§à¸šà¸™', value: snapshot.threeTop },
+      { label: '2 à¸•à¸±à¸§à¸šà¸™', value: snapshot.twoTop },
+      { label: '2 à¸•à¸±à¸§à¸¥à¹ˆà¸²à¸‡', value: snapshot.twoBottom }
+    ],
+    note: LOTTO_SUPER_RICH_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestRussiaVipMarket = async () => {
+  const snapshot = await fetchLatestRussiaVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-russia-vip',
+    name: RUSSIA_VIP_MARKET_NAME,
+    provider: LOTTO_SUPER_RICH_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 à¸•à¸±à¸§à¸šà¸™', value: snapshot.threeTop },
+      { label: '2 à¸•à¸±à¸§à¸šà¸™', value: snapshot.twoTop },
+      { label: '2 à¸•à¸±à¸§à¸¥à¹ˆà¸²à¸‡', value: snapshot.twoBottom }
+    ],
+    note: LOTTO_SUPER_RICH_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestSingaporeVipMarket = async () => {
+  const snapshot = await fetchLatestSingaporeVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-singapore-vip',
+    name: SINGAPORE_VIP_MARKET_NAME,
+    provider: SINGAPORE_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: SINGAPORE_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestTaiwanVipMarket = async () => {
+  const snapshot = await fetchLatestTaiwanVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-taiwan-vip',
+    name: TAIWAN_VIP_MARKET_NAME,
+    provider: TAIWAN_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: TAIWAN_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestKoreaVipMarket = async () => {
+  const snapshot = await fetchLatestKoreaVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-korea-vip',
+    name: KOREA_VIP_MARKET_NAME,
+    provider: KOREA_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 à¸•à¸±à¸§à¸šà¸™', value: snapshot.threeTop },
+      { label: '2 à¸•à¸±à¸§à¸šà¸™', value: snapshot.twoTop },
+      { label: '2 à¸•à¸±à¸§à¸¥à¹ˆà¸²à¸‡', value: snapshot.twoBottom }
+    ],
+    note: KOREA_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
+const fetchLatestDowjonesVipMarket = async () => {
+  const snapshot = await fetchLatestDowjonesVipSnapshot();
+  if (!snapshot) {
+    return null;
+  }
+
+  return buildMarket({
+    id: 'stock-dowjones',
+    name: DOWJONES_VIP_MARKET_NAME,
+    provider: DOWJONES_VIP_PROVIDER_NAME,
+    resultDate: snapshot.roundCode,
+    headline: snapshot.threeTop,
+    numbers: [
+      { label: '3 ตัวบน', value: snapshot.threeTop },
+      { label: '2 ตัวบน', value: snapshot.twoTop },
+      { label: '2 ตัวล่าง', value: snapshot.twoBottom }
+    ],
+    note: DOWJONES_VIP_NOTE,
+    sourceUrl: snapshot.sourceUrl
+  });
+};
+
 const extractManyCaiRows = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
@@ -1236,6 +1817,152 @@ const buildMarket = ({ id, name, provider, resultDate, headline, numbers, note, 
   sourceUrl: stringValue(sourceUrl),
   status: marketStatus(headline, numbers)
 });
+
+const getScheduledDrawAt = (lotteryType, roundCode) => {
+  const match = String(roundCode || '').match(ROUND_CODE_PATTERN);
+  if (!match || !lotteryType?.schedule) {
+    return null;
+  }
+
+  return createBangkokDate(
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+    Number(lotteryType.schedule.drawHour || 0),
+    Number(lotteryType.schedule.drawMinute || 0),
+    0
+  );
+};
+
+const resolveStoredValueByLabel = (label, result) => {
+  const normalizedLabel = stringValue(label);
+
+  if (normalizedLabel.includes('3 ตัวหน้า')) {
+    return mergeUniqueValues(result.threeFrontHits || [], result.threeFront || '').join(' / ');
+  }
+
+  if (normalizedLabel.includes('3 ตัวล่าง')) {
+    return mergeUniqueValues(result.threeBottomHits || [], result.threeBottom || '').join(' / ');
+  }
+
+  if (normalizedLabel.includes('3 ตัวบน')) {
+    return result.threeTop || '';
+  }
+
+  if (normalizedLabel.includes('2 ตัวบน')) {
+    return result.twoTop || '';
+  }
+
+  if (normalizedLabel.includes('2 ตัวล่าง')) {
+    return result.twoBottom || '';
+  }
+
+  if (normalizedLabel.includes('รางวัลหลัก')) {
+    return result.firstPrize || '';
+  }
+
+  if (normalizedLabel.includes('เลขเด่น')) {
+    return result.headline || result.firstPrize || '';
+  }
+
+  return '';
+};
+
+const buildVisibleStoredResultsMap = async (lotteryCodes, now = new Date()) => {
+  if (!lotteryCodes.length) {
+    return { lotteryTypeByCode: new Map(), latestResultByCode: new Map() };
+  }
+
+  const lotteryTypes = await LotteryType.find({ code: { $in: lotteryCodes } }).lean();
+  const lotteryTypeByCode = new Map(lotteryTypes.map((item) => [item.code, item]));
+  const lotteryCodeById = new Map(lotteryTypes.map((item) => [String(item._id), item.code]));
+
+  const results = await ResultRecord.find({
+    lotteryTypeId: { $in: lotteryTypes.map((item) => item._id) },
+    isPublished: true
+  })
+    .sort({ updatedAt: -1 })
+    .limit(Math.max(lotteryCodes.length * 20, 100))
+    .populate('drawRoundId', 'code drawAt');
+
+  const latestResultByCode = new Map();
+
+  results.forEach((record) => {
+    const lotteryCode = lotteryCodeById.get(String(record.lotteryTypeId));
+    const lotteryType = lotteryTypeByCode.get(lotteryCode);
+    const roundCode = record.drawRoundId?.code || '';
+    const drawAt = record.drawRoundId?.drawAt || getScheduledDrawAt(lotteryType, roundCode);
+    if (!lotteryCode || !drawAt || new Date(drawAt).getTime() > now.getTime()) {
+      return;
+    }
+
+    const current = latestResultByCode.get(lotteryCode);
+    if (!current || new Date(drawAt).getTime() > new Date(current.drawAt).getTime()) {
+      latestResultByCode.set(lotteryCode, {
+        drawAt,
+        roundCode,
+        result: record
+      });
+    }
+  });
+
+  return { lotteryTypeByCode, latestResultByCode };
+};
+
+const applyDrawTimeVisibilityGuards = async (sections) => {
+  const now = new Date();
+  const lotteryCodes = [...new Set(
+    sections
+      .flatMap((section) => section.markets || [])
+      .map((market) => MARKET_ID_TO_LOTTERY_CODE[market.id])
+      .filter(Boolean)
+  )];
+
+  const { lotteryTypeByCode, latestResultByCode } = await buildVisibleStoredResultsMap(lotteryCodes, now);
+
+  sections.forEach((section) => {
+    section.markets = (section.markets || []).map((market) => {
+      const lotteryCode = MARKET_ID_TO_LOTTERY_CODE[market.id];
+      const lotteryType = lotteryTypeByCode.get(lotteryCode);
+      const drawAt = getScheduledDrawAt(lotteryType, market.resultDate);
+
+      if (!lotteryCode || !drawAt || drawAt.getTime() <= now.getTime()) {
+        return market;
+      }
+
+      const fallback = latestResultByCode.get(lotteryCode);
+      if (!fallback?.result) {
+        return {
+          ...market,
+          resultDate: '',
+          headline: '',
+          numbers: [],
+          sourceUrl: '',
+          status: 'waiting'
+        };
+      }
+
+      const fallbackResult = fallback.result;
+      const nextNumbers = (market.numbers || [])
+        .map((item) => ({
+          ...item,
+          value: resolveStoredValueByLabel(item.label, fallbackResult)
+        }))
+        .filter((item) => stringValue(item.value));
+
+      const nextHeadline = fallbackResult.headline || fallbackResult.firstPrize || fallbackResult.twoBottom || '';
+
+      return {
+        ...market,
+        resultDate: fallback.roundCode || market.resultDate,
+        headline: nextHeadline,
+        numbers: nextNumbers,
+        sourceUrl: fallbackResult.sourceUrl || market.sourceUrl,
+        status: marketStatus(nextHeadline, nextNumbers)
+      };
+    });
+  });
+};
 
 const applyGovernmentFromLocal = async (sections) => {
   const latest = await LotteryResult.findOne().sort({ roundDate: -1 });
@@ -1591,6 +2318,136 @@ const applyHanoiAseanMarket = async (sections) => {
   return true;
 };
 
+const applyChinaMorningVipMarket = async (sections) => {
+  const market = await fetchLatestChinaMorningVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyChinaAfternoonVipMarket = async (sections) => {
+  const market = await fetchLatestChinaAfternoonVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyNikkeiMorningVipMarket = async (sections) => {
+  const market = await fetchLatestNikkeiMorningVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyHsiMorningVipMarket = async (sections) => {
+  const market = await fetchLatestHsiMorningVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyHsiAfternoonVipMarket = async (sections) => {
+  const market = await fetchLatestHsiAfternoonVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyNikkeiAfternoonVipMarket = async (sections) => {
+  const market = await fetchLatestNikkeiAfternoonVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyEnglandVipMarket = async (sections) => {
+  const market = await fetchLatestEnglandVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyGermanyVipMarket = async (sections) => {
+  const market = await fetchLatestGermanyVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyRussiaVipMarket = async (sections) => {
+  const market = await fetchLatestRussiaVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applySingaporeVipMarket = async (sections) => {
+  const market = await fetchLatestSingaporeVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyTaiwanVipMarket = async (sections) => {
+  const market = await fetchLatestTaiwanVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyKoreaVipMarket = async (sections) => {
+  const market = await fetchLatestKoreaVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
+const applyDowjonesVipMarket = async (sections) => {
+  const market = await fetchLatestDowjonesVipMarket();
+  if (!market) {
+    return false;
+  }
+
+  setMarketData(sections, 'stocks', market);
+  return true;
+};
+
 const buildSummary = (sections) => {
   const markets = sections.flatMap((section) => section.markets);
   const liveCount = markets.filter((market) => market.status === 'live').length;
@@ -1767,10 +2624,10 @@ const getMarketOverview = async () => {
   try {
     const hasHanoiStarData = await applyHanoiStarMarket(sections);
     if (!hasHanoiStarData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 API Minh Ngoc Star \u0e44\u0e14\u0e49');
+        warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 Exphuay Minh Ngoc Star \u0e44\u0e14\u0e49');
     }
   } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 API Minh Ngoc Star \u0e44\u0e14\u0e49');
+    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 Exphuay Minh Ngoc Star \u0e44\u0e14\u0e49');
   }
 
   try {
@@ -1827,6 +2684,123 @@ const getMarketOverview = async () => {
       warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Hanoi ASEAN \u0e44\u0e14\u0e49');
     }
 
+    try {
+      const hasChinaMorningVipData = await applyChinaMorningVipMarket(sections);
+      if (!hasChinaMorningVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลจีนเช้า VIP จาก API Shenzhen Index Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลจีนเช้า VIP จาก API Shenzhen Index Official ได้');
+    }
+
+    try {
+      const hasChinaAfternoonVipData = await applyChinaAfternoonVipMarket(sections);
+      if (!hasChinaAfternoonVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลจีนบ่าย VIP จาก API Shenzhen Index Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลจีนบ่าย VIP จาก API Shenzhen Index Official ได้');
+    }
+
+    try {
+      const hasHsiMorningVipData = await applyHsiMorningVipMarket(sections);
+      if (!hasHsiMorningVipData) {
+        warnings.push('à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹à¸›à¸¥à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¹€à¸Šà¹‰à¸² VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
+      }
+    } catch (error) {
+      warnings.push('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸”à¸¶à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¹€à¸Šà¹‰à¸² VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
+    }
+
+    try {
+      const hasHsiAfternoonVipData = await applyHsiAfternoonVipMarket(sections);
+      if (!hasHsiAfternoonVipData) {
+        warnings.push('à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹à¸›à¸¥à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¸šà¹ˆà¸²à¸¢ VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
+      }
+    } catch (error) {
+      warnings.push('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸”à¸¶à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¸šà¹ˆà¸²à¸¢ VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
+    }
+
+    try {
+      const hasNikkeiMorningVipData = await applyNikkeiMorningVipMarket(sections);
+      if (!hasNikkeiMorningVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลนิเคอิเช้า VIP จาก API Nikkei VIP Stock Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลนิเคอิเช้า VIP จาก API Nikkei VIP Stock Official ได้');
+    }
+
+    try {
+      const hasNikkeiAfternoonVipData = await applyNikkeiAfternoonVipMarket(sections);
+      if (!hasNikkeiAfternoonVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลนิเคอิบ่าย VIP จาก API Nikkei VIP Stock Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลนิเคอิบ่าย VIP จาก API Nikkei VIP Stock Official ได้');
+    }
+
+    try {
+      const hasEnglandVipData = await applyEnglandVipMarket(sections);
+      if (!hasEnglandVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลอังกฤษ VIP จาก Lotto Super Rich Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลอังกฤษ VIP จาก Lotto Super Rich Official ได้');
+    }
+
+    try {
+      const hasGermanyVipData = await applyGermanyVipMarket(sections);
+      if (!hasGermanyVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลเยอรมัน VIP จาก Lotto Super Rich Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลเยอรมัน VIP จาก Lotto Super Rich Official ได้');
+    }
+
+    try {
+      const hasRussiaVipData = await applyRussiaVipMarket(sections);
+      if (!hasRussiaVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลรัสเชีย VIP จาก Lotto Super Rich Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลรัสเชีย VIP จาก Lotto Super Rich Official ได้');
+    }
+
+    try {
+      const hasKoreaVipData = await applyKoreaVipMarket(sections);
+      if (!hasKoreaVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลเกาหลี VIP จาก KTop VIP Index Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลเกาหลี VIP จาก KTop VIP Index Official ได้');
+    }
+
+    try {
+      const hasTaiwanVipData = await applyTaiwanVipMarket(sections);
+      if (!hasTaiwanVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลไต้หวัน VIP จาก TSEC VIP Index Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลไต้หวัน VIP จาก TSEC VIP Index Official ได้');
+    }
+
+    try {
+      const hasSingaporeVipData = await applySingaporeVipMarket(sections);
+      if (!hasSingaporeVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลสิงคโปร์ VIP จาก Stocks VIP Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลสิงคโปร์ VIP จาก Stocks VIP Official ได้');
+    }
+
+    try {
+      const hasDowjonesVipData = await applyDowjonesVipMarket(sections);
+      if (!hasDowjonesVipData) {
+        warnings.push('ยังไม่สามารถแปลงข้อมูลดาวโจนส์ VIP จาก Dow Jones Powerball Official ได้');
+      }
+    } catch (error) {
+      warnings.push('ไม่สามารถดึงข้อมูลดาวโจนส์ VIP จาก Dow Jones Powerball Official ได้');
+    }
+
   if (!PROVIDER_KEY) {
     warnings.push('ยังไม่ได้ตั้งค่า MANYCAI_API_KEY บน backend ตลาดที่ใช้ ManyCai จะแสดงเป็นรอเชื่อมต่อ');
 
@@ -1856,6 +2830,8 @@ const getMarketOverview = async () => {
       warnings.push(`ไม่สามารถแปลงข้อมูล ${market.name} จาก ManyCai ได้`);
     }
   });
+
+  await applyDrawTimeVisibilityGuards(sections);
 
   const overview = {
     provider: {

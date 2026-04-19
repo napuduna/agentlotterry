@@ -69,7 +69,15 @@ const extractAvailableRoundCodes = (html) => {
 };
 
 const extractFirstPrize = (html) => {
-  const matches = [...String(html || '').matchAll(/<tr[^>]*>\s*<th[^>]*>\s*<b>[\s\S]*?<\/b>\s*<\/th>\s*<\/tr>\s*<tr[^>]*>\s*<td[^>]*>\s*(\d{7})\s*<\/td>/gi)];
+  const content = String(html || '');
+  const mainPrizeMatch = content.match(
+    /<tr[^>]*>\s*<th[^>]*>\s*<b>\s*รางวัลที่ 1\s*<\/b>\s*<\/th>\s*<\/tr>\s*<tr[^>]*>\s*<td[^>]*>\s*(\d{7})\s*<\/td>/i
+  );
+  if (mainPrizeMatch?.[1]) {
+    return mainPrizeMatch[1];
+  }
+
+  const matches = [...content.matchAll(/<tr[^>]*>\s*<th[^>]*>\s*<b>[\s\S]*?<\/b>\s*<\/th>\s*<\/tr>\s*<tr[^>]*>\s*<td[^>]*>\s*(\d{7})\s*<\/td>/gi)];
   return matches.length ? matches[0][1] : '';
 };
 

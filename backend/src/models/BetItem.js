@@ -130,6 +130,7 @@ const betItemSchema = new mongoose.Schema({
 
 betItemSchema.index({ slipId: 1, status: 1, sequence: 1 });
 betItemSchema.index({ customerId: 1, drawRoundId: 1 });
+betItemSchema.index({ drawRoundId: 1, status: 1, isLocked: 1 });
 betItemSchema.index({ migrationSourceType: 1, migrationSourceId: 1 });
 
 module.exports = mongoose.model('BetItem', betItemSchema);

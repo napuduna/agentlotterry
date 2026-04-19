@@ -124,26 +124,26 @@ const baacOfficialFixture = {
     feedCode: 'baac',
     marketName: 'สลากออมทรัพย์ ธกส.',
     roundCode: '2026-04-08',
-    headline: '1234567',
-    firstPrize: '1234567',
-    threeTop: '567',
+    headline: '2785159',
+    firstPrize: '2785159',
+    threeTop: '159',
     threeFront: '',
-    twoTop: '67',
-    twoBottom: '45',
+    twoTop: '59',
+    twoBottom: '85',
     threeBottom: '',
-    threeTopHits: ['567'],
-    twoTopHits: ['67'],
-    twoBottomHits: ['45'],
+    threeTopHits: ['159'],
+    twoTopHits: ['59'],
+    twoBottomHits: ['85'],
     threeFrontHits: [],
     threeBottomHits: [],
-    runTop: ['5', '6', '7'],
-    runBottom: ['4', '5'],
+    runTop: ['1', '5', '9'],
+    runBottom: ['8', '5'],
     resultPublishedAt: new Date('2026-04-08T05:15:00.000Z'),
     isSettlementSafe: true,
     sourceUrl: 'https://www.baac.or.th/salak/content-lotto.php',
     rawPayload: {
       roundCode: '2026-04-08',
-      firstPrize: '1234567'
+      firstPrize: '2785159'
     }
   }
 };
@@ -179,22 +179,22 @@ const laosFixture = {
     lotteryCode: 'tlzc',
     feedCode: 'tlzc',
     marketName: 'หวยลาว',
-    roundCode: '2026-04-15',
-    headline: '782',
-    firstPrize: '6782',
-    threeTop: '782',
+    roundCode: '2026-04-17',
+    headline: '079',
+    firstPrize: '5079',
+    threeTop: '079',
     threeFront: '',
-    twoTop: '82',
-    twoBottom: '67',
+    twoTop: '79',
+    twoBottom: '50',
     threeBottom: '',
-    threeTopHits: ['782'],
-    twoTopHits: ['82'],
-    twoBottomHits: ['67'],
+    threeTopHits: ['079'],
+    twoTopHits: ['79'],
+    twoBottomHits: ['50'],
     threeFrontHits: [],
     threeBottomHits: [],
-    runTop: ['7', '8', '2'],
-    runBottom: ['6', '7'],
-    resultPublishedAt: new Date('2026-04-15T13:30:00.000Z'),
+    runTop: ['0', '7', '9'],
+    runBottom: ['5', '0'],
+    resultPublishedAt: new Date('2026-04-17T13:30:00.000Z'),
     isSettlementSafe: true,
     sourceUrl: 'https://huaylao.la/',
     rawPayload: {}
@@ -647,34 +647,29 @@ const hanoiStarFixture = {
     lotteryCode: 'hanoi_star',
     feedCode: 'hanoi_star',
     marketName: 'ฮานอยสตาร์',
-    roundCode: '2026-04-15',
-    headline: '064',
-    firstPrize: '19064',
-    threeTop: '064',
+    roundCode: '2026-04-18',
+    headline: '821',
+    firstPrize: '49821',
+    threeTop: '821',
     threeFront: '',
-    twoTop: '64',
-    twoBottom: '81',
+    twoTop: '21',
+    twoBottom: '05',
     threeBottom: '',
-    threeTopHits: ['064'],
-    twoTopHits: ['64'],
-    twoBottomHits: ['81'],
+    threeTopHits: ['821'],
+    twoTopHits: ['21'],
+    twoBottomHits: ['05'],
     threeFrontHits: [],
     threeBottomHits: [],
-    runTop: ['0', '6', '4'],
-    runBottom: ['8', '1'],
-    resultPublishedAt: new Date('2026-04-15T05:30:00.000Z'),
+    runTop: ['8', '2', '1'],
+    runBottom: ['0', '5'],
+    resultPublishedAt: new Date('2026-04-18T05:30:00.000Z'),
     isSettlementSafe: true,
-    sourceUrl: 'https://minhngocstar.com/',
+    sourceUrl: 'https://exphuay.com/result/minhngocstar',
     rawPayload: {
-      status: 'success',
-      data: {
-        lotto_date: '2026-04-15',
-        show_1st: '2026-04-15 12:30',
-        results: {
-          prize_1st: '19064',
-          prize_2nd: '41281'
-        }
-      }
+      lottosDate: '2026-04-18T17:00:00.000Z',
+      lottosTime: '12:30',
+      lottosNumber: '49821',
+      lottosUnder: '05'
     }
   }
 };
@@ -901,6 +896,434 @@ const hanoiAseanFixture = {
   }
 };
 
+const shenzhenMorningVipFixture = {
+  __snapshot: {
+    lotteryCode: 'china_morning_vip',
+    feedCode: 'china_morning_vip',
+    marketName: 'จีนเช้า VIP',
+    roundCode: '2026-04-16',
+    headline: '997',
+    firstPrize: '997',
+    threeTop: '997',
+    threeFront: '',
+    twoTop: '97',
+    twoBottom: '08',
+    threeBottom: '',
+    threeTopHits: ['997'],
+    twoTopHits: ['97'],
+    twoBottomHits: ['08'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['9', '7'],
+    runBottom: ['0', '8'],
+    resultPublishedAt: new Date('2026-04-16T04:05:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://shenzhenindex.com/',
+    rawPayload: {
+      date: '2026-04-16',
+      r1: { prize_1st: '997', prize_2nd: '08' }
+    }
+  }
+};
+
+const shenzhenAfternoonVipFixture = {
+  __snapshot: {
+    lotteryCode: 'china_afternoon_vip',
+    feedCode: 'china_afternoon_vip',
+    marketName: 'จีนบ่าย VIP',
+    roundCode: '2026-04-16',
+    headline: '354',
+    firstPrize: '354',
+    threeTop: '354',
+    threeFront: '',
+    twoTop: '54',
+    twoBottom: '56',
+    threeBottom: '',
+    threeTopHits: ['354'],
+    twoTopHits: ['54'],
+    twoBottomHits: ['56'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['3', '5', '4'],
+    runBottom: ['5', '6'],
+    resultPublishedAt: new Date('2026-04-16T08:25:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://shenzhenindex.com/',
+    rawPayload: {
+      date: '2026-04-16',
+      r2: { prize_1st: '354', prize_2nd: '56' }
+    }
+  }
+};
+
+const hsiMorningVipFixture = {
+  __snapshot: {
+    lotteryCode: 'hangseng_morning_vip',
+    feedCode: 'hangseng_morning_vip',
+    marketName: 'à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¹€à¸Šà¹‰à¸² VIP',
+    roundCode: '2026-04-17',
+    headline: '567',
+    firstPrize: '567',
+    threeTop: '567',
+    threeFront: '',
+    twoTop: '67',
+    twoBottom: '21',
+    threeBottom: '',
+    threeTopHits: ['567'],
+    twoTopHits: ['67'],
+    twoBottomHits: ['21'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['5', '6', '7'],
+    runBottom: ['2', '1'],
+    resultPublishedAt: new Date('2026-04-17T04:40:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://www.hsi-vip.com/',
+    rawPayload: {
+      date: '2026-04-17',
+      r1: { prize_1st: '567', prize_2nd: '21' }
+    }
+  }
+};
+
+const hsiAfternoonVipFixture = {
+  __snapshot: {
+    lotteryCode: 'hangseng_afternoon_vip',
+    feedCode: 'hangseng_afternoon_vip',
+    marketName: 'à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¸šà¹ˆà¸²à¸¢ VIP',
+    roundCode: '2026-04-17',
+    headline: '911',
+    firstPrize: '911',
+    threeTop: '911',
+    threeFront: '',
+    twoTop: '11',
+    twoBottom: '72',
+    threeBottom: '',
+    threeTopHits: ['911'],
+    twoTopHits: ['11'],
+    twoBottomHits: ['72'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['9', '1'],
+    runBottom: ['7', '2'],
+    resultPublishedAt: new Date('2026-04-17T08:40:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://www.hsi-vip.com/',
+    rawPayload: {
+      date: '2026-04-17',
+      r2: { prize_1st: '911', prize_2nd: '72' }
+    }
+  }
+};
+
+const nikkeiMorningVipFixture = {
+  __snapshot: {
+    lotteryCode: 'nikkei_morning_vip',
+    feedCode: 'nikkei_morning_vip',
+    marketName: 'นิเคอิเช้า VIP',
+    roundCode: '2026-04-16',
+    headline: '914',
+    firstPrize: '914',
+    threeTop: '914',
+    threeFront: '',
+    twoTop: '14',
+    twoBottom: '56',
+    threeBottom: '',
+    threeTopHits: ['914'],
+    twoTopHits: ['14'],
+    twoBottomHits: ['56'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['9', '1', '4'],
+    runBottom: ['5', '6'],
+    resultPublishedAt: new Date('2026-04-16T04:05:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://nikkeivipstock.com/',
+    rawPayload: {
+      date: '2026-04-16',
+      r1: { prize_1st: '914', prize_2nd: '56' }
+    }
+  }
+};
+
+const nikkeiAfternoonVipFixture = {
+  __snapshot: {
+    lotteryCode: 'nikkei_afternoon_vip',
+    feedCode: 'nikkei_afternoon_vip',
+    marketName: 'นิเคอิบ่าย VIP',
+    roundCode: '2026-04-16',
+    headline: '644',
+    firstPrize: '644',
+    threeTop: '644',
+    threeFront: '',
+    twoTop: '44',
+    twoBottom: '91',
+    threeBottom: '',
+    threeTopHits: ['644'],
+    twoTopHits: ['44'],
+    twoBottomHits: ['91'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['6', '4'],
+    runBottom: ['9', '1'],
+    resultPublishedAt: new Date('2026-04-16T08:25:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://nikkeivipstock.com/',
+    rawPayload: {
+      date: '2026-04-16',
+      r2: { prize_1st: '644', prize_2nd: '91' }
+    }
+  }
+};
+
+const englandVipFixture = {
+  __snapshot: {
+    lotteryCode: 'england_vip',
+    feedCode: 'england_vip',
+    marketName: 'อังกฤษ VIP',
+    roundCode: '2026-04-16',
+    headline: '247',
+    firstPrize: '64247',
+    threeTop: '247',
+    threeFront: '',
+    twoTop: '47',
+    twoBottom: '99',
+    threeBottom: '',
+    threeTopHits: ['247'],
+    twoTopHits: ['47'],
+    twoBottomHits: ['99'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['2', '4', '7'],
+    runBottom: ['9'],
+    resultPublishedAt: new Date('2026-04-16T14:50:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://lottosuperrich.com/',
+    rawPayload: {
+      lotto_type: 'gb',
+      lotto_date: '2026-04-16',
+      show_1st: '2026-04-16 21:50',
+      results: {
+        prize_1st: '64247',
+        prize_2nd: '76599'
+      }
+    }
+  }
+};
+
+const germanyVipFixture = {
+  __snapshot: {
+    lotteryCode: 'germany_vip',
+    feedCode: 'germany_vip',
+    marketName: 'เยอรมัน VIP',
+    roundCode: '2026-04-16',
+    headline: '475',
+    firstPrize: '64475',
+    threeTop: '475',
+    threeFront: '',
+    twoTop: '75',
+    twoBottom: '20',
+    threeBottom: '',
+    threeTopHits: ['475'],
+    twoTopHits: ['75'],
+    twoBottomHits: ['20'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['4', '7', '5'],
+    runBottom: ['2', '0'],
+    resultPublishedAt: new Date('2026-04-16T15:50:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://lottosuperrich.com/',
+    rawPayload: {
+      lotto_type: 'de',
+      lotto_date: '2026-04-16',
+      show_1st: '2026-04-16 22:50',
+      results: {
+        prize_1st: '64475',
+        prize_2nd: '75520'
+      }
+    }
+  }
+};
+
+const russiaVipFixture = {
+  __snapshot: {
+    lotteryCode: 'russia_vip',
+    feedCode: 'russia_vip',
+    marketName: 'รัสเชีย VIP',
+    roundCode: '2026-04-16',
+    headline: '461',
+    firstPrize: '53461',
+    threeTop: '461',
+    threeFront: '',
+    twoTop: '61',
+    twoBottom: '28',
+    threeBottom: '',
+    threeTopHits: ['461'],
+    twoTopHits: ['61'],
+    twoBottomHits: ['28'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['4', '6', '1'],
+    runBottom: ['2', '8'],
+    resultPublishedAt: new Date('2026-04-16T16:50:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://lottosuperrich.com/',
+    rawPayload: {
+      lotto_type: 'ru',
+      lotto_date: '2026-04-16',
+      show_1st: '2026-04-16 23:50',
+      results: {
+        prize_1st: '53461',
+        prize_2nd: '65428'
+      }
+    }
+  }
+};
+
+const singaporeVipFixture = {
+  __snapshot: {
+    lotteryCode: 'singapore_vip',
+    feedCode: 'singapore_vip',
+    marketName: 'สิงคโปร์ VIP',
+    roundCode: '2026-04-18',
+    headline: '628',
+    firstPrize: '628',
+    threeTop: '628',
+    threeFront: '',
+    twoTop: '28',
+    twoBottom: '20',
+    threeBottom: '',
+    threeTopHits: ['628'],
+    twoTopHits: ['28'],
+    twoBottomHits: ['20'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['6', '2', '8'],
+    runBottom: ['2', '0'],
+    resultPublishedAt: new Date('2026-04-18T11:05:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://stocks-vip.com/',
+    rawPayload: {
+      date: '2026-04-18',
+      r2: { prize_1st: '628', prize_2nd: '20' }
+    }
+  }
+};
+
+const koreaVipFixture = {
+  __snapshot: {
+    lotteryCode: 'korea_vip',
+    feedCode: 'korea_vip',
+    marketName: 'เกาหลี VIP',
+    roundCode: '2026-04-18',
+    headline: '717',
+    firstPrize: '717',
+    threeTop: '717',
+    threeFront: '',
+    twoTop: '17',
+    twoBottom: '72',
+    threeBottom: '',
+    threeTopHits: ['717'],
+    twoTopHits: ['17'],
+    twoBottomHits: ['72'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['7', '1'],
+    runBottom: ['7', '2'],
+    resultPublishedAt: new Date('2026-04-18T07:35:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://ktopvipindex.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        date: '2026-04-18',
+        r2: {
+          prize_1st: '717',
+          prize_2nd: '72'
+        }
+      }
+    }
+  }
+};
+
+const taiwanVipFixture = {
+  __snapshot: {
+    lotteryCode: 'taiwan_vip',
+    feedCode: 'taiwan_vip',
+    marketName: 'ไต้หวัน VIP',
+    roundCode: '2026-04-18',
+    headline: '928',
+    firstPrize: '928',
+    threeTop: '928',
+    threeFront: '',
+    twoTop: '28',
+    twoBottom: '20',
+    threeBottom: '',
+    threeTopHits: ['928'],
+    twoTopHits: ['28'],
+    twoBottomHits: ['20'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['9', '2', '8'],
+    runBottom: ['2', '0'],
+    resultPublishedAt: new Date('2026-04-18T05:35:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://tsecvipindex.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        date: '2026-04-18',
+        r2: {
+          prize_1st: '928',
+          prize_2nd: '20'
+        }
+      }
+    }
+  }
+};
+
+const dowjonesVipFixture = {
+  __snapshot: {
+    lotteryCode: 'dowjones_vip',
+    feedCode: 'gsus',
+    marketName: 'ดาวโจนส์ VIP',
+    roundCode: '2026-04-17',
+    headline: '274',
+    firstPrize: '40274',
+    threeTop: '274',
+    threeFront: '',
+    twoTop: '74',
+    twoBottom: '93',
+    threeBottom: '',
+    threeTopHits: ['274'],
+    twoTopHits: ['74'],
+    twoBottomHits: ['93'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['2', '7', '4'],
+    runBottom: ['9', '3'],
+    resultPublishedAt: new Date('2026-04-17T17:30:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://dowjonespowerball.com/',
+    rawPayload: {
+      status: 'success',
+      data: {
+        lotto_date: '2026-04-17',
+        show_1st: '2026-04-18 00:30',
+        show_2nd: '2026-04-18 00:15:00',
+        start_spin: '2026-04-18 00:05:00',
+        results: {
+          prize_1st: '40274',
+          prize_2nd: '58893'
+        },
+        prev: '2026-04-16',
+        next: null
+      }
+    }
+  }
+};
+
 const scenarios = [
   {
     name: 'government official mapping',
@@ -951,13 +1374,13 @@ const scenarios = [
     feedCodes: ['tlzc'],
     row: laosFixture,
     verify(snapshot) {
-      assert.strictEqual(snapshot.roundCode, '2026-04-15');
-      assert.strictEqual(snapshot.firstPrize, '6782');
-      assert.strictEqual(snapshot.threeTop, '782');
-      assert.strictEqual(snapshot.twoTop, '82');
-      assert.strictEqual(snapshot.twoBottom, '67');
-      assert.deepStrictEqual(snapshot.runTop, ['7', '8', '2']);
-      assert.deepStrictEqual(snapshot.runBottom, ['6', '7']);
+      assert.strictEqual(snapshot.roundCode, '2026-04-17');
+      assert.strictEqual(snapshot.firstPrize, '5079');
+      assert.strictEqual(snapshot.threeTop, '079');
+      assert.strictEqual(snapshot.twoTop, '79');
+      assert.strictEqual(snapshot.twoBottom, '50');
+      assert.deepStrictEqual(snapshot.runTop, ['0', '7', '9']);
+      assert.deepStrictEqual(snapshot.runBottom, ['5', '0']);
       assert.strictEqual(snapshot.sourceUrl, 'https://huaylao.la/');
     }
   },
@@ -991,7 +1414,7 @@ const scenarios = [
     name: 'stock family mapping',
     feedCodes: [
       'gshka', 'gshkp', 'gstw', 'gsjpa', 'gsjpp', 'gskr', 'gscna', 'gscnp',
-      'gssg', 'gsth', 'gsin', 'gseg', 'gsru', 'gsde', 'gsuk', 'gsus'
+      'gssg', 'gsth', 'gsin', 'gseg', 'gsru', 'gsde', 'gsuk'
     ],
     row: stockFixture,
     verify(snapshot) {
@@ -1010,10 +1433,10 @@ const scenarios = [
     row: baacOfficialFixture,
     verify(snapshot) {
       assert.strictEqual(snapshot.roundCode, '2026-04-08');
-      assert.strictEqual(snapshot.firstPrize, '1234567');
-      assert.strictEqual(snapshot.threeTop, '567');
-      assert.strictEqual(snapshot.twoTop, '67');
-      assert.strictEqual(snapshot.twoBottom, '45');
+      assert.strictEqual(snapshot.firstPrize, '2785159');
+      assert.strictEqual(snapshot.threeTop, '159');
+      assert.strictEqual(snapshot.twoTop, '59');
+      assert.strictEqual(snapshot.twoBottom, '85');
     }
   },
   {
@@ -1200,14 +1623,14 @@ const scenarios = [
     feedCodes: ['hanoi_star'],
     row: hanoiStarFixture,
     verify(snapshot) {
-      assert.strictEqual(snapshot.roundCode, '2026-04-15');
-      assert.strictEqual(snapshot.firstPrize, '19064');
-      assert.strictEqual(snapshot.threeTop, '064');
-      assert.strictEqual(snapshot.twoTop, '64');
-      assert.strictEqual(snapshot.twoBottom, '81');
-      assert.deepStrictEqual(snapshot.runTop, ['0', '6', '4']);
-      assert.deepStrictEqual(snapshot.runBottom, ['8', '1']);
-      assert.strictEqual(snapshot.sourceUrl, 'https://minhngocstar.com/');
+      assert.strictEqual(snapshot.roundCode, '2026-04-18');
+      assert.strictEqual(snapshot.firstPrize, '49821');
+      assert.strictEqual(snapshot.threeTop, '821');
+      assert.strictEqual(snapshot.twoTop, '21');
+      assert.strictEqual(snapshot.twoBottom, '05');
+      assert.deepStrictEqual(snapshot.runTop, ['8', '2', '1']);
+      assert.deepStrictEqual(snapshot.runBottom, ['0', '5']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://exphuay.com/result/minhngocstar');
     }
   },
   {
@@ -1299,13 +1722,208 @@ const scenarios = [
       assert.deepStrictEqual(snapshot.runBottom, ['7', '5']);
       assert.strictEqual(snapshot.sourceUrl, 'https://hanoiasean.com/');
     }
+  },
+  {
+    name: 'shenzhen china morning vip mapping',
+    feedCodes: ['china_morning_vip'],
+    row: shenzhenMorningVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '997');
+      assert.strictEqual(snapshot.threeTop, '997');
+      assert.strictEqual(snapshot.twoTop, '97');
+      assert.strictEqual(snapshot.twoBottom, '08');
+      assert.deepStrictEqual(snapshot.runTop, ['9', '7']);
+      assert.deepStrictEqual(snapshot.runBottom, ['0', '8']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://shenzhenindex.com/');
+    }
+  },
+  {
+    name: 'shenzhen china afternoon vip mapping',
+    feedCodes: ['china_afternoon_vip'],
+    row: shenzhenAfternoonVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '354');
+      assert.strictEqual(snapshot.threeTop, '354');
+      assert.strictEqual(snapshot.twoTop, '54');
+      assert.strictEqual(snapshot.twoBottom, '56');
+      assert.deepStrictEqual(snapshot.runTop, ['3', '5', '4']);
+      assert.deepStrictEqual(snapshot.runBottom, ['5', '6']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://shenzhenindex.com/');
+    }
+  },
+  {
+    name: 'hsi morning vip mapping',
+    feedCodes: ['hangseng_morning_vip'],
+    row: hsiMorningVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-17');
+      assert.strictEqual(snapshot.firstPrize, '567');
+      assert.strictEqual(snapshot.threeTop, '567');
+      assert.strictEqual(snapshot.twoTop, '67');
+      assert.strictEqual(snapshot.twoBottom, '21');
+      assert.deepStrictEqual(snapshot.runTop, ['5', '6', '7']);
+      assert.deepStrictEqual(snapshot.runBottom, ['2', '1']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://www.hsi-vip.com/');
+    }
+  },
+  {
+    name: 'hsi afternoon vip mapping',
+    feedCodes: ['hangseng_afternoon_vip'],
+    row: hsiAfternoonVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-17');
+      assert.strictEqual(snapshot.firstPrize, '911');
+      assert.strictEqual(snapshot.threeTop, '911');
+      assert.strictEqual(snapshot.twoTop, '11');
+      assert.strictEqual(snapshot.twoBottom, '72');
+      assert.deepStrictEqual(snapshot.runTop, ['9', '1']);
+      assert.deepStrictEqual(snapshot.runBottom, ['7', '2']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://www.hsi-vip.com/');
+    }
+  },
+  {
+    name: 'nikkei morning vip mapping',
+    feedCodes: ['nikkei_morning_vip'],
+    row: nikkeiMorningVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '914');
+      assert.strictEqual(snapshot.threeTop, '914');
+      assert.strictEqual(snapshot.twoTop, '14');
+      assert.strictEqual(snapshot.twoBottom, '56');
+      assert.deepStrictEqual(snapshot.runTop, ['9', '1', '4']);
+      assert.deepStrictEqual(snapshot.runBottom, ['5', '6']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://nikkeivipstock.com/');
+    }
+  },
+  {
+    name: 'nikkei afternoon vip mapping',
+    feedCodes: ['nikkei_afternoon_vip'],
+    row: nikkeiAfternoonVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '644');
+      assert.strictEqual(snapshot.threeTop, '644');
+      assert.strictEqual(snapshot.twoTop, '44');
+      assert.strictEqual(snapshot.twoBottom, '91');
+      assert.deepStrictEqual(snapshot.runTop, ['6', '4']);
+      assert.deepStrictEqual(snapshot.runBottom, ['9', '1']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://nikkeivipstock.com/');
+    }
+  },
+  {
+    name: 'england vip mapping',
+    feedCodes: ['england_vip'],
+    row: englandVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '64247');
+      assert.strictEqual(snapshot.threeTop, '247');
+      assert.strictEqual(snapshot.twoTop, '47');
+      assert.strictEqual(snapshot.twoBottom, '99');
+      assert.deepStrictEqual(snapshot.runTop, ['2', '4', '7']);
+      assert.deepStrictEqual(snapshot.runBottom, ['9']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://lottosuperrich.com/');
+    }
+  },
+  {
+    name: 'germany vip mapping',
+    feedCodes: ['germany_vip'],
+    row: germanyVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '64475');
+      assert.strictEqual(snapshot.threeTop, '475');
+      assert.strictEqual(snapshot.twoTop, '75');
+      assert.strictEqual(snapshot.twoBottom, '20');
+      assert.deepStrictEqual(snapshot.runTop, ['4', '7', '5']);
+      assert.deepStrictEqual(snapshot.runBottom, ['2', '0']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://lottosuperrich.com/');
+    }
+  },
+  {
+    name: 'russia vip mapping',
+    feedCodes: ['russia_vip'],
+    row: russiaVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-16');
+      assert.strictEqual(snapshot.firstPrize, '53461');
+      assert.strictEqual(snapshot.threeTop, '461');
+      assert.strictEqual(snapshot.twoTop, '61');
+      assert.strictEqual(snapshot.twoBottom, '28');
+      assert.deepStrictEqual(snapshot.runTop, ['4', '6', '1']);
+      assert.deepStrictEqual(snapshot.runBottom, ['2', '8']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://lottosuperrich.com/');
+    }
+  },
+  {
+    name: 'singapore vip mapping',
+    feedCodes: ['singapore_vip'],
+    row: singaporeVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-18');
+      assert.strictEqual(snapshot.firstPrize, '628');
+      assert.strictEqual(snapshot.threeTop, '628');
+      assert.strictEqual(snapshot.twoTop, '28');
+      assert.strictEqual(snapshot.twoBottom, '20');
+      assert.deepStrictEqual(snapshot.runTop, ['6', '2', '8']);
+      assert.deepStrictEqual(snapshot.runBottom, ['2', '0']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://stocks-vip.com/');
+    }
+  },
+  {
+    name: 'korea vip mapping',
+    feedCodes: ['korea_vip'],
+    row: koreaVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-18');
+      assert.strictEqual(snapshot.firstPrize, '717');
+      assert.strictEqual(snapshot.threeTop, '717');
+      assert.strictEqual(snapshot.twoTop, '17');
+      assert.strictEqual(snapshot.twoBottom, '72');
+      assert.deepStrictEqual(snapshot.runTop, ['7', '1']);
+      assert.deepStrictEqual(snapshot.runBottom, ['7', '2']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://ktopvipindex.com/');
+    }
+  },
+  {
+    name: 'taiwan vip mapping',
+    feedCodes: ['taiwan_vip'],
+    row: taiwanVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-18');
+      assert.strictEqual(snapshot.firstPrize, '928');
+      assert.strictEqual(snapshot.threeTop, '928');
+      assert.strictEqual(snapshot.twoTop, '28');
+      assert.strictEqual(snapshot.twoBottom, '20');
+      assert.deepStrictEqual(snapshot.runTop, ['9', '2', '8']);
+      assert.deepStrictEqual(snapshot.runBottom, ['2', '0']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://tsecvipindex.com/');
+    }
+  },
+  {
+    name: 'dowjones vip mapping',
+    feedCodes: ['gsus'],
+    row: dowjonesVipFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-17');
+      assert.strictEqual(snapshot.firstPrize, '40274');
+      assert.strictEqual(snapshot.threeTop, '274');
+      assert.strictEqual(snapshot.twoTop, '74');
+      assert.strictEqual(snapshot.twoBottom, '93');
+      assert.deepStrictEqual(snapshot.runTop, ['2', '7', '4']);
+      assert.deepStrictEqual(snapshot.runBottom, ['9', '3']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://dowjonespowerball.com/');
+    }
   }
 ];
 
 const coveredFeedCodes = new Set(scenarios.flatMap((scenario) => scenario.feedCodes));
 const configuredFeedCodes = SYNC_CONFIGS.map((item) => item.feedCode);
 const mappedFeedCodes = SYNC_CONFIGS
-  .filter((item) => item.provider === 'gsb' || item.provider === 'thaiglo' || item.provider === 'baacofficial' || item.provider === 'huaylao' || item.provider === 'laosvip' || item.provider === 'laosredcross' || item.provider === 'laospathana' || item.provider === 'laostv' || item.provider === 'laoshd' || item.provider === 'laoextra' || item.provider === 'laostars' || item.provider === 'laostarsvip' || item.provider === 'laosunion' || item.provider === 'laosunionvip' || item.provider === 'laosasean' || item.provider === 'hanoiextra' || item.provider === 'hanoistar' || item.provider === 'hanoidevelop' || item.provider === 'hanoihd' || item.provider === 'hanoitv' || item.provider === 'hanoiredcross' || item.provider === 'hanoiunion' || item.provider === 'hanoiasean' || EXPLICIT_FEED_MAPPINGS[item.feedCode])
+  .filter((item) => item.provider === 'gsb' || item.provider === 'thaiglo' || item.provider === 'baacofficial' || item.provider === 'huaylao' || item.provider === 'laosvip' || item.provider === 'laosredcross' || item.provider === 'laospathana' || item.provider === 'laostv' || item.provider === 'laoshd' || item.provider === 'laoextra' || item.provider === 'laostars' || item.provider === 'laostarsvip' || item.provider === 'laosunion' || item.provider === 'laosunionvip' || item.provider === 'laosasean' || item.provider === 'hanoiextra' || item.provider === 'hanoistar' || item.provider === 'hanoidevelop' || item.provider === 'hanoihd' || item.provider === 'hanoitv' || item.provider === 'hanoiredcross' || item.provider === 'hanoiunion' || item.provider === 'hanoiasean' || item.provider === 'shenzhenmorningvip' || item.provider === 'shenzhenafternoonvip' || item.provider === 'hsimorningvip' || item.provider === 'hsiafternoonvip' || item.provider === 'nikkeimorningvip' || item.provider === 'nikkeiafternoonvip' || item.provider === 'englandvip' || item.provider === 'germanyvip' || item.provider === 'russiavip' || item.provider === 'singaporevip' || item.provider === 'koreavip' || item.provider === 'taiwanvip' || item.provider === 'dowjonesvip' || EXPLICIT_FEED_MAPPINGS[item.feedCode])
   .map((item) => item.feedCode);
 assert.deepStrictEqual(
   [...coveredFeedCodes].sort(),

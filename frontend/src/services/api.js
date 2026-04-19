@@ -8,6 +8,16 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 });
+const buildNoCacheConfig = (params = {}) => ({
+  params: {
+    ...params,
+    _t: Date.now()
+  },
+  headers: {
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache'
+  }
+});
 
 // Add auth token to every request
 api.interceptors.request.use((config) => {
@@ -98,7 +108,7 @@ export const getMemberBetItems = (params) => api.get('/member/bets', { params })
 export const getMemberSummary = (params) => api.get('/member/reports/summary', { params });
 
 // Catalog
-export const getCatalogOverview = () => api.get('/catalog/overview');
+export const getCatalogOverview = () => api.get('/catalog/overview', buildNoCacheConfig());
 export const getCatalogLotteries = () => api.get('/catalog/lotteries');
 export const getCatalogRounds = (lotteryId) => api.get('/catalog/rounds', { params: { lotteryId } });
 export const markCatalogAnnouncementRead = (announcementId) => api.post(`/catalog/announcements/${announcementId}/read`);
@@ -107,10 +117,10 @@ export const markCatalogAnnouncementRead = (announcementId) => api.post(`/catalo
 export const sendPresenceHeartbeat = () => api.post('/presence/heartbeat');
 
 // Results feed
-export const getRecentMarketResults = (params) => api.get('/results/recent', { params });
+export const getRecentMarketResults = (params) => api.get('/results/recent', buildNoCacheConfig(params));
 
 // Lottery
-export const getMarketOverview = () => api.get('/lottery/markets');
+export const getMarketOverview = () => api.get('/lottery/markets', buildNoCacheConfig());
 export const getLotterySyncStatus = () => api.get('/lottery/sync-status');
 export const syncLatestLottery = () => api.post('/lottery/sync-latest');
 export const getLatestLottery = () => api.get('/lottery/latest');

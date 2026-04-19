@@ -22,6 +22,14 @@ const parseBoolean = (value, fallback) => {
   return fallback;
 };
 
+const normalizeLogFormat = (value, fallback) => {
+  const normalized = toText(value, fallback).toLowerCase();
+  if (normalized === 'json') {
+    return 'combined';
+  }
+  return normalized;
+};
+
 const nodeEnv = toText(process.env.NODE_ENV, 'development').toLowerCase();
 const isProduction = nodeEnv === 'production';
 const frontendUrl = toText(process.env.FRONTEND_URL);
@@ -29,7 +37,7 @@ const autoSeedAdmin = parseBoolean(process.env.AUTO_SEED_ADMIN, !isProduction);
 const defaultAdminUsername = toText(process.env.DEFAULT_ADMIN_USERNAME, !isProduction ? 'admin' : '');
 const defaultAdminPassword = toText(process.env.DEFAULT_ADMIN_PASSWORD, !isProduction ? 'admin123' : '');
 const jwtSecret = toText(process.env.JWT_SECRET);
-const logFormat = toText(process.env.LOG_FORMAT, isProduction ? 'combined' : 'dev');
+const logFormat = normalizeLogFormat(process.env.LOG_FORMAT, isProduction ? 'combined' : 'dev');
 const trustProxy = parseBoolean(process.env.TRUST_PROXY, isProduction);
 const exposeHealthDetails = parseBoolean(process.env.HEALTH_EXPOSE_DETAILS, !isProduction);
 const backupDir = path.resolve(process.cwd(), toText(process.env.BACKUP_DIR, './backups'));

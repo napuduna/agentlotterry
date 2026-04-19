@@ -38,7 +38,31 @@ const LEGACY_MARKET_CODE_MAP = {
   'lao-vip': 'lao_vip',
   'dowjones-vip': 'dowjones_vip',
   'stock-nikkei-morning': 'nikkei_morning',
-  'stock-china-afternoon': 'china_afternoon'
+  'stock-nikkei-morning-vip': 'nikkei_morning_vip',
+  'nikkei-morning-vip': 'nikkei_morning_vip',
+  'stock-hangseng-morning-vip': 'hangseng_morning_vip',
+  'hangseng-morning-vip': 'hangseng_morning_vip',
+  'stock-china-morning-vip': 'china_morning_vip',
+  'china-morning-vip': 'china_morning_vip',
+  'stock-china-afternoon': 'china_afternoon',
+  'stock-china-afternoon-vip': 'china_afternoon_vip',
+  'china-afternoon-vip': 'china_afternoon_vip',
+  'stock-nikkei-afternoon-vip': 'nikkei_afternoon_vip',
+  'nikkei-afternoon-vip': 'nikkei_afternoon_vip',
+  'stock-korea-vip': 'korea_vip',
+  'korea-vip': 'korea_vip',
+  'stock-taiwan-vip': 'taiwan_vip',
+  'taiwan-vip': 'taiwan_vip',
+  'stock-hangseng-afternoon-vip': 'hangseng_afternoon_vip',
+  'hangseng-afternoon-vip': 'hangseng_afternoon_vip',
+  'stock-russia-vip': 'russia_vip',
+  'russia-vip': 'russia_vip',
+  'stock-singapore-vip': 'singapore_vip',
+  'singapore-vip': 'singapore_vip',
+  'stock-germany-vip': 'germany_vip',
+  'germany-vip': 'germany_vip',
+  'stock-england-vip': 'england_vip',
+  'england-vip': 'england_vip'
 };
 
 const normalizeLotteryCode = (value) => {

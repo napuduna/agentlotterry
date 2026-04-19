@@ -38,10 +38,13 @@ const UI = {
   syncLatest: 'Sync latest',
   syncLatestBusy: 'Syncing...',
   syncLatestSuccess: 'Latest results synced successfully',
+  syncLatestDeferredSuccess: 'Sync latest สำเร็จ และเลื่อน settlement ไปทำขั้นถัดไป',
   syncLatestSkipped: 'A sync is already running, so this request was skipped',
   syncLatestError: 'Failed to sync latest results',
   syncProblemFeeds: 'ฟีดมีปัญหา',
-  syncSettlements: 'settlement ล่าสุด',
+  syncSettlements: 'settlement ในรอบล่าสุด',
+  syncModeFull: 'sync แบบเต็มรวม settlement',
+  syncModeDeferred: 'sync แบบ fetch/store เท่านั้น',
   syncStrictModeOn: 'strict mapping เปิดอยู่',
   syncStrictModeOff: 'strict mapping ปิดอยู่',
   syncLastRun: 'ซิงก์ล่าสุด',
@@ -118,7 +121,19 @@ const CATALOG_MARKET_ALIASES = {
   lao_vip: ['lao-vip', 'lao_vip', 'zcvip'],
   dowjones_vip: ['stock-dowjones', 'dowjones_vip'],
   nikkei_morning: ['stock-nikkei-morning', 'nikkei_morning'],
-  china_afternoon: ['stock-china-afternoon', 'china_afternoon']
+  nikkei_morning_vip: ['stock-nikkei-morning-vip', 'nikkei_morning_vip'],
+  china_morning_vip: ['stock-china-morning-vip', 'china_morning_vip'],
+  hangseng_morning_vip: ['stock-hangseng-morning-vip', 'hangseng_morning_vip'],
+  china_afternoon: ['stock-china-afternoon', 'china_afternoon'],
+  nikkei_afternoon_vip: ['stock-nikkei-afternoon-vip', 'nikkei_afternoon_vip'],
+  china_afternoon_vip: ['stock-china-afternoon-vip', 'china_afternoon_vip'],
+  hangseng_afternoon_vip: ['stock-hangseng-afternoon-vip', 'hangseng_afternoon_vip'],
+  korea_vip: ['stock-korea-vip', 'korea_vip'],
+  taiwan_vip: ['stock-taiwan-vip', 'taiwan_vip'],
+  singapore_vip: ['stock-singapore-vip', 'singapore_vip'],
+  england_vip: ['stock-england-vip', 'england_vip'],
+  germany_vip: ['stock-germany-vip', 'germany_vip'],
+  russia_vip: ['stock-russia-vip', 'russia_vip']
 };
 
 const API_MARKET_RESULT_ALIASES = {
@@ -170,19 +185,31 @@ const API_MARKET_RESULT_ALIASES = {
   'yeekee-vip': ['tykc'],
   'stock-thai': ['gsth'],
   'stock-hangseng-morning': ['gshka'],
+  'stock-hangseng-morning-vip': ['hangseng_morning_vip'],
   'stock-hangseng-afternoon': ['gshkp'],
+  'stock-hangseng-afternoon-vip': ['hangseng_afternoon_vip'],
   'stock-taiwan': ['gstw'],
+  'stock-taiwan-vip': ['taiwan_vip'],
   'stock-nikkei-morning': ['nikkei_morning', 'gsjpa'],
+  'stock-nikkei-morning-vip': ['nikkei_morning_vip'],
   'stock-nikkei-afternoon': ['gsjpp'],
+  'stock-nikkei-afternoon-vip': ['nikkei_afternoon_vip'],
   'stock-korea': ['gskr'],
+  'stock-korea-vip': ['korea_vip'],
   'stock-china-morning': ['gscna'],
+  'stock-china-morning-vip': ['china_morning_vip'],
   'stock-china-afternoon': ['china_afternoon', 'gscnp'],
+  'stock-china-afternoon-vip': ['china_afternoon_vip'],
   'stock-singapore': ['gssg'],
+  'stock-singapore-vip': ['singapore_vip'],
   'stock-india': ['gsin'],
   'stock-egypt': ['gseg'],
   'stock-russia': ['gsru'],
+  'stock-russia-vip': ['russia_vip'],
   'stock-germany': ['gsde'],
+  'stock-germany-vip': ['germany_vip'],
   'stock-england': ['gsuk'],
+  'stock-england-vip': ['england_vip'],
   'stock-dowjones': ['dowjones_vip', 'gsus']
 };
 
@@ -248,17 +275,29 @@ const SYNTHETIC_ROUND_SCHEDULES = {
   'yeekee-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 22, closeMinute: 50, drawHour: 23, drawMinute: 0, roundDateOffsetDays: 0 },
   'stock-thai': { weekdays: [1, 2, 3, 4, 5], closeHour: 18, closeMinute: 0, drawHour: 18, drawMinute: 15, roundDateOffsetDays: 0 },
   'stock-hangseng-morning': { weekdays: [1, 2, 3, 4, 5], closeHour: 11, closeMinute: 45, drawHour: 12, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-hangseng-morning-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 11, closeMinute: 35, drawHour: 11, drawMinute: 40, roundDateOffsetDays: 0 },
   'stock-hangseng-afternoon': { weekdays: [1, 2, 3, 4, 5], closeHour: 15, closeMinute: 45, drawHour: 16, drawMinute: 0, roundDateOffsetDays: 0 },
+  'stock-hangseng-afternoon-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 15, closeMinute: 35, drawHour: 15, drawMinute: 40, roundDateOffsetDays: 0 },
   'stock-taiwan': { weekdays: [1, 2, 3, 4, 5], closeHour: 13, closeMinute: 15, drawHour: 13, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-taiwan-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 12, closeMinute: 30, drawHour: 12, drawMinute: 35, roundDateOffsetDays: 0 },
+  'stock-nikkei-morning-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 11, closeMinute: 0, drawHour: 11, drawMinute: 5, roundDateOffsetDays: 0 },
   'stock-nikkei-afternoon': { weekdays: [1, 2, 3, 4, 5], closeHour: 14, closeMinute: 15, drawHour: 14, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-nikkei-afternoon-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 15, closeMinute: 20, drawHour: 15, drawMinute: 25, roundDateOffsetDays: 0 },
   'stock-korea': { weekdays: [1, 2, 3, 4, 5], closeHour: 14, closeMinute: 15, drawHour: 14, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-korea-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 14, closeMinute: 30, drawHour: 14, drawMinute: 35, roundDateOffsetDays: 0 },
   'stock-china-morning': { weekdays: [1, 2, 3, 4, 5], closeHour: 11, closeMinute: 15, drawHour: 11, drawMinute: 30, roundDateOffsetDays: 0 },
+  'stock-china-morning-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 11, closeMinute: 0, drawHour: 11, drawMinute: 5, roundDateOffsetDays: 0 },
+  'stock-china-afternoon': { weekdays: [1, 2, 3, 4, 5], closeHour: 13, closeMinute: 20, drawHour: 13, drawMinute: 40, roundDateOffsetDays: 0 },
+  'stock-china-afternoon-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 15, closeMinute: 20, drawHour: 15, drawMinute: 25, roundDateOffsetDays: 0 },
   'stock-singapore': { weekdays: [1, 2, 3, 4, 5], closeHour: 16, closeMinute: 45, drawHour: 17, drawMinute: 0, roundDateOffsetDays: 0 },
   'stock-india': { weekdays: [1, 2, 3, 4, 5], closeHour: 17, closeMinute: 45, drawHour: 18, drawMinute: 0, roundDateOffsetDays: 0 },
   'stock-egypt': { weekdays: [1, 2, 3, 4, 5], closeHour: 20, closeMinute: 15, drawHour: 20, drawMinute: 25, roundDateOffsetDays: 0 },
   'stock-russia': { weekdays: [1, 2, 3, 4, 5], closeHour: 23, closeMinute: 50, drawHour: 0, drawMinute: 0, roundDateOffsetDays: -1 },
+  'stock-russia-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 23, closeMinute: 45, drawHour: 23, drawMinute: 50, roundDateOffsetDays: 0 },
   'stock-germany': { weekdays: [1, 2, 3, 4, 5], closeHour: 2, closeMinute: 45, drawHour: 3, drawMinute: 0, roundDateOffsetDays: -1 },
-  'stock-england': { weekdays: [1, 2, 3, 4, 5], closeHour: 0, closeMinute: 30, drawHour: 0, drawMinute: 45, roundDateOffsetDays: -1 }
+  'stock-germany-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 22, closeMinute: 45, drawHour: 22, drawMinute: 50, roundDateOffsetDays: 0 },
+  'stock-england': { weekdays: [1, 2, 3, 4, 5], closeHour: 0, closeMinute: 30, drawHour: 0, drawMinute: 45, roundDateOffsetDays: -1 },
+  'stock-england-vip': { weekdays: [0, 1, 2, 3, 4, 5, 6], closeHour: 21, closeMinute: 45, drawHour: 21, drawMinute: 50, roundDateOffsetDays: 0 }
 };
 
 const normalizeKey = (value) => String(value || '')
@@ -668,6 +707,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     } else {
       setLoading(true);
     }
+    setMarketHistoryCache({});
 
     const [catalogResult, marketResult, syncResult] = await Promise.allSettled([
       getCatalogOverview(),
@@ -727,7 +767,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
       if (summary?.skipped) {
         toast.success(UI.syncLatestSkipped);
       } else {
-        toast.success(UI.syncLatestSuccess);
+        toast.success(summary?.mode === 'fetch-store' ? UI.syncLatestDeferredSuccess : UI.syncLatestSuccess);
       }
       await loadData({ silent: true });
     } catch (error) {
@@ -991,7 +1031,9 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     {
       label: UI.syncSettlements,
       value: syncSummary ? formatInteger(syncSummary.settlements) : '-',
-      note: syncSummary?.syncedAt ? `${UI.syncLastRun} ${formatUpdatedAt(syncSummary.syncedAt)}` : UI.syncSummaryEmpty
+      note: syncSummary?.syncedAt
+        ? `${UI.syncLastRun} ${formatUpdatedAt(syncSummary.syncedAt)} · ${syncSummary?.mode === 'fetch-store' ? UI.syncModeDeferred : UI.syncModeFull}`
+        : UI.syncSummaryEmpty
     }
   ]), [syncCoverage, syncStatus, syncSummary]);
   const settlementRoundId = selectedResult?.roundId

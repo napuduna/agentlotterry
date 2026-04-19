@@ -22,6 +22,11 @@ const getErrorStatus = (error, fallback = 500) => {
   const statusCode = Number(error?.statusCode);
   return Number.isInteger(statusCode) && statusCode >= 400 ? statusCode : fallback;
 };
+const applyNoStore = (res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+};
 
 router.get('/latest', auth, async (req, res) => {
   try {
@@ -48,6 +53,7 @@ router.get('/results', auth, async (req, res) => {
 router.get('/markets', auth, async (req, res) => {
   try {
     const overview = await getMarketOverview();
+    applyNoStore(res);
     res.json(overview);
   } catch (error) {
     console.error('Market overview error:', error);
@@ -61,10 +67,10 @@ router.get('/sync-status', auth, authorize('admin'), async (req, res) => {
 
 router.post('/sync-latest', auth, authorize('admin'), async (req, res) => {
   try {
-    const summary = await syncLatestExternalResults();
-    await createAuditLog(req.user._id, 'SYNC_LATEST_RESULTS', 'manycai', summary);
+    const summary = await syncLatestExternalResults({ runSettlement: false });
+    await createAuditLog(req.user._id, 'SYNC_LATEST_RESULTS_FETCH_STORE', 'manycai', summary);
     res.json({
-      message: 'Latest results synced successfully',
+      message: 'Latest results synced successfully with deferred settlement',
       summary
     });
   } catch (error) {

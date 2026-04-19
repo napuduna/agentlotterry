@@ -384,6 +384,19 @@ const loadPublishedResultForRound = async (roundId, session) => {
   return record;
 };
 
+const hasRoundItems = async (roundId, session, filter = {}) => {
+  const item = await BetItem.findOne({
+    drawRoundId: roundId,
+    status: 'submitted',
+    ...filter
+  })
+    .select('_id')
+    .session(session)
+    .lean();
+
+  return Boolean(item);
+};
+
 const loadRoundItemsWithCustomers = async (roundId, session, filter = {}) => {
   const items = await BetItem.find({
     drawRoundId: roundId,
@@ -411,6 +424,30 @@ const applyRoundSettlement = async (roundId, { force = false, session }) => {
   const record = await loadPublishedResultForRound(round._id, session);
   const normalized = normalizeResultPayload(record.toObject());
   const itemFilter = force ? {} : { isLocked: false };
+  const hasItems = await hasRoundItems(round._id, session, itemFilter);
+
+  if (!hasItems) {
+    const legacyGovernmentResult = await LotteryResult.findOne({ roundDate: round.code }).session(session);
+    if (legacyGovernmentResult) {
+      legacyGovernmentResult.isCalculated = true;
+      await legacyGovernmentResult.save({ session });
+    }
+
+    return {
+      roundId: round._id.toString(),
+      roundCode: round.code,
+      totalItems: 0,
+      wonCount: 0,
+      lostCount: 0,
+      totalWon: 0,
+      totalLost: 0,
+      netProfit: 0,
+      payoutEntryCount: 0,
+      payoutNetDelta: 0,
+      payoutGroupId: ''
+    };
+  }
+
   const { items, customerMap } = await loadRoundItemsWithCustomers(round._id, session, itemFilter);
   const settlementGroupId = makeSettlementGroupId(round.code);
   const payoutUpdatedAt = new Date();

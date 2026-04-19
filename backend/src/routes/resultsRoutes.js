@@ -4,6 +4,11 @@ const { getRecentResults } = require('../services/catalogService');
 const { getRoundResult } = require('../services/resultService');
 
 const router = express.Router();
+const applyNoStore = (res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+};
 
 router.use(auth);
 
@@ -15,6 +20,7 @@ router.get('/recent', async (req, res) => {
         limit: Number(limit) || 50
     });
 
+    applyNoStore(res);
     res.json(items);
   } catch (error) {
     console.error('Recent results error:', error);
@@ -29,6 +35,7 @@ router.get('/round/:roundId', async (req, res) => {
       return res.status(404).json({ message: 'Result not found' });
     }
 
+    applyNoStore(res);
     res.json(item);
   } catch (error) {
     console.error('Round result error:', error);

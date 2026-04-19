@@ -33,10 +33,11 @@ const normalizeRateMap = (value = {}, fallbackRates = {}) =>
     return acc;
   }, {});
 
-const upsertByCode = async (Model, code, payload) => {
-  await Model.updateOne({ code }, { $set: payload }, { upsert: true });
-  return Model.findOne({ code });
-};
+const upsertByCode = (Model, code, payload) => Model.findOneAndUpdate(
+  { code },
+  { $set: payload },
+  { new: true, upsert: true }
+);
 
 const getBangkokWeekday = (date) => {
   const shifted = new Date(date.getTime() + 7 * 60 * 60 * 1000);
@@ -172,17 +173,15 @@ const generateOccurrences = (schedule, startDate = new Date(), horizonDays = 45)
   return buildDailyOccurrences(schedule, startDate, horizonDays);
 };
 
-const ensureRoundsForLottery = async (lotteryType) => {
-  const occurrences = generateOccurrences(lotteryType.schedule);
-
-  for (const occurrence of occurrences) {
-    const status = getRoundStatus(occurrence).status;
-    await DrawRound.updateOne(
-      {
+const buildRoundUpsertOperations = (lotteryType, occurrences) => occurrences.map((occurrence) => {
+  const status = getRoundStatus(occurrence).status;
+  return {
+    updateOne: {
+      filter: {
         lotteryTypeId: lotteryType._id,
         code: occurrence.code
       },
-      {
+      update: {
         $set: {
           title: occurrence.title,
           openAt: occurrence.openAt,
@@ -192,9 +191,20 @@ const ensureRoundsForLottery = async (lotteryType) => {
           isActive: true
         }
       },
-      { upsert: true }
-    );
+      upsert: true
+    }
+  };
+});
+
+const ensureRoundsForLottery = async (lotteryType) => {
+  const occurrences = generateOccurrences(lotteryType.schedule);
+  const operations = buildRoundUpsertOperations(lotteryType, occurrences);
+
+  if (!operations.length) {
+    return;
   }
+
+  await DrawRound.bulkWrite(operations, { ordered: false });
 };
 
 const runCatalogSeed = async () => {
@@ -350,13 +360,20 @@ const getResultChronologyTime = (item) => {
 };
 
 const getRecentResults = async ({ lotteryId = null, limit = 50 } = {}) => {
+  const fetchLimit = Math.max(limit * 3, limit + 20);
+  const now = Date.now();
   const results = await ResultRecord.find({ isPublished: true, ...(lotteryId && { lotteryTypeId: lotteryId }) })
     .sort({ updatedAt: -1 })
-    .limit(limit)
+    .limit(fetchLimit)
     .populate('lotteryTypeId', 'code name shortName provider')
     .populate('drawRoundId', 'code title drawAt resultPublishedAt');
 
-  const mapped = results.map((record) => ({
+  const mapped = results
+    .filter((record) => {
+      const drawAt = record.drawRoundId?.drawAt ? new Date(record.drawRoundId.drawAt).getTime() : 0;
+      return !drawAt || drawAt <= now;
+    })
+    .map((record) => ({
     id: record._id.toString(),
     lotteryTypeId: record.lotteryTypeId?._id?.toString(),
     lotteryCode: record.lotteryTypeId?.code,
@@ -399,7 +416,7 @@ const getRecentResults = async ({ lotteryId = null, limit = 50 } = {}) => {
     return rightDate - leftDate;
   });
 
-  if (lotteryId) return mapped;
+  if (lotteryId) return mapped.slice(0, limit);
 
   const thaiGov = await LotteryType.findOne({ code: 'thai_government' });
   const legacyLatest = await LotteryResult.findOne().sort({ updatedAt: -1, roundDate: -1 });
@@ -687,6 +704,7 @@ const getRoundsByLottery = async (lotteryId, viewer = null) => {
 };
 
 module.exports = {
+  buildRoundUpsertOperations,
   ensureCatalogSeed,
   ensureCatalogReady,
   getCatalogOverview,

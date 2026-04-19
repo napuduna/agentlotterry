@@ -31,6 +31,27 @@ const { fetchHanoiTvSnapshots } = require('./hanoiTvResultService');
 const { fetchHanoiRedcrossSnapshots } = require('./hanoiRedcrossResultService');
 const { fetchHanoiUnionSnapshots } = require('./hanoiUnionResultService');
 const { fetchHanoiAseanSnapshots } = require('./hanoiAseanResultService');
+const {
+  fetchShenzhenMorningVipSnapshots,
+  fetchShenzhenAfternoonVipSnapshots
+} = require('./shenzhenIndexVipResultService');
+const {
+  fetchNikkeiMorningVipSnapshots,
+  fetchNikkeiAfternoonVipSnapshots
+} = require('./nikkeiVipResultService');
+const {
+  fetchEnglandVipSnapshots,
+  fetchGermanyVipSnapshots,
+  fetchRussiaVipSnapshots
+} = require('./lottoSuperRichVipResultService');
+const { fetchKoreaVipSnapshots } = require('./koreaVipResultService');
+const { fetchTaiwanVipSnapshots } = require('./taiwanVipResultService');
+const { fetchSingaporeVipSnapshots } = require('./singaporeVipResultService');
+const { fetchDowjonesVipSnapshots } = require('./dowjonesVipResultService');
+const {
+  fetchHsiMorningVipSnapshots,
+  fetchHsiAfternoonVipSnapshots
+} = require('./hsiVipResultService');
 
 const legacyBaseUrl = (process.env.MANYCAI_BASE_URL || 'http://vip.manycai.com').replace(/\/$/, '');
 const legacyApiKey = String(process.env.MANYCAI_API_KEY || '').trim();
@@ -39,6 +60,7 @@ const MANYCAI_FEED_BASE_URL = (
   (legacyApiKey ? `${legacyBaseUrl}/${legacyApiKey}` : 'http://vip.manycai.com/K269c291856f58e')
 ).replace(/\/$/, '');
 const RESULT_SYNC_TIMEOUT_MS = Number(process.env.RESULT_SYNC_TIMEOUT_MS || 12000);
+const RESULT_SYNC_BATCH_SIZE = Math.max(1, Number(process.env.RESULT_SYNC_BATCH_SIZE || 6));
 const STRICT_FEED_MAPPING = String(process.env.STRICT_FEED_MAPPING || '1') !== '0';
 const GSB_SYNC_LIMIT = Number(process.env.GSB_SYNC_LIMIT || 6);
 const THAI_GOV_SYNC_LIMIT = Number(process.env.THAI_GOV_SYNC_LIMIT || 10);
@@ -63,6 +85,21 @@ const HANOI_TV_SYNC_LIMIT = Number(process.env.HANOI_TV_SYNC_LIMIT || 10);
 const HANOI_REDCROSS_SYNC_LIMIT = Number(process.env.HANOI_REDCROSS_SYNC_LIMIT || 10);
 const HANOI_UNION_SYNC_LIMIT = Number(process.env.HANOI_UNION_SYNC_LIMIT || 10);
 const HANOI_ASEAN_SYNC_LIMIT = Number(process.env.HANOI_ASEAN_SYNC_LIMIT || 10);
+const SHENZHEN_MORNING_VIP_SYNC_LIMIT = Number(process.env.SHENZHEN_MORNING_VIP_SYNC_LIMIT || 10);
+const SHENZHEN_AFTERNOON_VIP_SYNC_LIMIT = Number(process.env.SHENZHEN_AFTERNOON_VIP_SYNC_LIMIT || 10);
+const NIKKEI_MORNING_VIP_SYNC_LIMIT = Number(process.env.NIKKEI_MORNING_VIP_SYNC_LIMIT || 10);
+const NIKKEI_AFTERNOON_VIP_SYNC_LIMIT = Number(process.env.NIKKEI_AFTERNOON_VIP_SYNC_LIMIT || 10);
+const ENGLAND_VIP_SYNC_LIMIT = Number(process.env.ENGLAND_VIP_SYNC_LIMIT || 10);
+const GERMANY_VIP_SYNC_LIMIT = Number(process.env.GERMANY_VIP_SYNC_LIMIT || 10);
+const RUSSIA_VIP_SYNC_LIMIT = Number(process.env.RUSSIA_VIP_SYNC_LIMIT || 10);
+const KOREA_VIP_SYNC_LIMIT = Number(process.env.KOREA_VIP_SYNC_LIMIT || 10);
+const TAIWAN_VIP_SYNC_LIMIT = Number(process.env.TAIWAN_VIP_SYNC_LIMIT || 10);
+const SINGAPORE_VIP_SYNC_LIMIT = Number(process.env.SINGAPORE_VIP_SYNC_LIMIT || 10);
+const DOWJONES_VIP_SYNC_LIMIT = Number(process.env.DOWJONES_VIP_SYNC_LIMIT || 10);
+const HSI_MORNING_VIP_SYNC_LIMIT = Number(process.env.HSI_MORNING_VIP_SYNC_LIMIT || 10);
+const HSI_AFTERNOON_VIP_SYNC_LIMIT = Number(process.env.HSI_AFTERNOON_VIP_SYNC_LIMIT || 10);
+
+const ROUND_CODE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const defaultMappedDigits = (value) => String(value || '').replace(/\D/g, '');
 const defaultMappedList = (value) => {
@@ -163,7 +200,7 @@ const EXPLICIT_FEED_MAPPINGS = {
 const FEED_CONFIGS = [
   { feedCode: 'hnvip', lotteryCode: 'hnvip', marketName: 'ฮานอย VIP', parser: 'simple', syncToResults: true },
   { feedCode: 'tlzc', lotteryCode: 'tlzc', marketName: 'หวยลาว', parser: 'simple', syncToResults: true },
-  { feedCode: 'tykc', lotteryCode: 'tykc', marketName: 'ยี่กี VIP', parser: 'simple', syncToResults: true },
+  { feedCode: 'tykc', lotteryCode: 'tykc', marketName: 'ยี่กี VIP', parser: 'simple', syncToResults: true, releaseByPublishedAt: true },
   { feedCode: 'tgfc', lotteryCode: 'thai_government', marketName: 'รัฐบาลไทย', parser: 'government', syncToResults: true, provider: 'thaiglo' },
   { feedCode: 'baac', lotteryCode: 'baac', marketName: 'ธ.ก.ส.', parser: 'baac', syncToResults: true, provider: 'baacofficial' },
   { feedCode: 'gshka', lotteryCode: 'gshka', marketName: 'หุ้นฮั่งเส็ง เช้า', parser: 'stock', syncToResults: true },
@@ -355,6 +392,114 @@ EXTRA_SYNC_CONFIGS.push({
   provider: 'hanoiasean'
 });
 
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'china_morning_vip',
+  lotteryCode: 'china_morning_vip',
+  marketName: '\u0e08\u0e35\u0e19\u0e40\u0e0a\u0e49\u0e32 VIP',
+  parser: 'shenzhenmorningvip',
+  syncToResults: true,
+  provider: 'shenzhenmorningvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'china_afternoon_vip',
+  lotteryCode: 'china_afternoon_vip',
+  marketName: '\u0e08\u0e35\u0e19\u0e1a\u0e48\u0e32\u0e22 VIP',
+  parser: 'shenzhenafternoonvip',
+  syncToResults: true,
+  provider: 'shenzhenafternoonvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'nikkei_morning_vip',
+  lotteryCode: 'nikkei_morning_vip',
+  marketName: '\u0e19\u0e34\u0e40\u0e04\u0e2d\u0e34\u0e40\u0e0a\u0e49\u0e32 VIP',
+  parser: 'nikkeimorningvip',
+  syncToResults: true,
+  provider: 'nikkeimorningvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'nikkei_afternoon_vip',
+  lotteryCode: 'nikkei_afternoon_vip',
+  marketName: '\u0e19\u0e34\u0e40\u0e04\u0e2d\u0e34\u0e1a\u0e48\u0e32\u0e22 VIP',
+  parser: 'nikkeiafternoonvip',
+  syncToResults: true,
+  provider: 'nikkeiafternoonvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'hangseng_morning_vip',
+  lotteryCode: 'hangseng_morning_vip',
+  marketName: '\u0e2e\u0e31\u0e48\u0e07\u0e40\u0e2a\u0e47\u0e07\u0e40\u0e0a\u0e49\u0e32 VIP',
+  parser: 'hsimorningvip',
+  syncToResults: true,
+  provider: 'hsimorningvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'hangseng_afternoon_vip',
+  lotteryCode: 'hangseng_afternoon_vip',
+  marketName: '\u0e2e\u0e31\u0e48\u0e07\u0e40\u0e2a\u0e47\u0e07\u0e1a\u0e48\u0e32\u0e22 VIP',
+  parser: 'hsiafternoonvip',
+  syncToResults: true,
+  provider: 'hsiafternoonvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'england_vip',
+  lotteryCode: 'england_vip',
+  marketName: '\u0e2d\u0e31\u0e07\u0e01\u0e24\u0e29 VIP',
+  parser: 'englandvip',
+  syncToResults: true,
+  provider: 'englandvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'germany_vip',
+  lotteryCode: 'germany_vip',
+  marketName: '\u0e40\u0e22\u0e2d\u0e23\u0e21\u0e31\u0e19 VIP',
+  parser: 'germanyvip',
+  syncToResults: true,
+  provider: 'germanyvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'russia_vip',
+  lotteryCode: 'russia_vip',
+  marketName: '\u0e23\u0e31\u0e2a\u0e40\u0e0a\u0e35\u0e22 VIP',
+  parser: 'russiavip',
+  syncToResults: true,
+  provider: 'russiavip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'korea_vip',
+  lotteryCode: 'korea_vip',
+  marketName: '\u0e40\u0e01\u0e32\u0e2b\u0e25\u0e35 VIP',
+  parser: 'koreavip',
+  syncToResults: true,
+  provider: 'koreavip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'taiwan_vip',
+  lotteryCode: 'taiwan_vip',
+  marketName: '\u0e44\u0e15\u0e49\u0e2b\u0e27\u0e31\u0e19 VIP',
+  parser: 'taiwanvip',
+  syncToResults: true,
+  provider: 'taiwanvip'
+});
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'singapore_vip',
+  lotteryCode: 'singapore_vip',
+  marketName: '\u0e2a\u0e34\u0e07\u0e04\u0e42\u0e1b\u0e23\u0e4c VIP',
+  parser: 'singaporevip',
+  syncToResults: true,
+  provider: 'singaporevip'
+});
+
 const SYNC_CONFIGS = [...FEED_CONFIGS, ...EXTRA_SYNC_CONFIGS];
 
 for (const config of FEED_CONFIGS) {
@@ -364,6 +509,11 @@ for (const config of FEED_CONFIGS) {
 
   if (config.feedCode === 'zcvip') {
     config.provider = 'laosvip';
+  }
+
+  if (config.feedCode === 'gsus') {
+    config.provider = 'dowjonesvip';
+    config.parser = 'dowjonesvip';
   }
 }
 
@@ -390,7 +540,20 @@ const OFFICIAL_PROVIDER_CODES = new Set([
   'hanoitv',
   'hanoiredcross',
   'hanoiunion',
-  'hanoiasean'
+  'hanoiasean',
+  'shenzhenmorningvip',
+  'shenzhenafternoonvip',
+  'hsimorningvip',
+  'hsiafternoonvip',
+  'nikkeimorningvip',
+  'nikkeiafternoonvip',
+  'englandvip',
+  'germanyvip',
+  'russiavip',
+  'koreavip',
+  'taiwanvip',
+  'singaporevip',
+  'dowjonesvip'
 ]);
 const isConfigMappingCovered = (config) => Boolean(
   OFFICIAL_PROVIDER_CODES.has(config?.provider)
@@ -849,6 +1012,71 @@ const fetchSyncRows = async (config) => {
     return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
   }
 
+  if (config.provider === 'shenzhenmorningvip') {
+    const snapshots = await fetchShenzhenMorningVipSnapshots({ limit: SHENZHEN_MORNING_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'shenzhenafternoonvip') {
+    const snapshots = await fetchShenzhenAfternoonVipSnapshots({ limit: SHENZHEN_AFTERNOON_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'nikkeimorningvip') {
+    const snapshots = await fetchNikkeiMorningVipSnapshots({ limit: NIKKEI_MORNING_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'nikkeiafternoonvip') {
+    const snapshots = await fetchNikkeiAfternoonVipSnapshots({ limit: NIKKEI_AFTERNOON_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'englandvip') {
+    const snapshots = await fetchEnglandVipSnapshots({ limit: ENGLAND_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'germanyvip') {
+    const snapshots = await fetchGermanyVipSnapshots({ limit: GERMANY_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'russiavip') {
+    const snapshots = await fetchRussiaVipSnapshots({ limit: RUSSIA_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'koreavip') {
+    const snapshots = await fetchKoreaVipSnapshots({ limit: KOREA_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'taiwanvip') {
+    const snapshots = await fetchTaiwanVipSnapshots({ limit: TAIWAN_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'singaporevip') {
+    const snapshots = await fetchSingaporeVipSnapshots({ limit: SINGAPORE_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'dowjonesvip') {
+    const snapshots = await fetchDowjonesVipSnapshots({ limit: DOWJONES_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'hsimorningvip') {
+    const snapshots = await fetchHsiMorningVipSnapshots({ limit: HSI_MORNING_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
+  if (config.provider === 'hsiafternoonvip') {
+    const snapshots = await fetchHsiAfternoonVipSnapshots({ limit: HSI_AFTERNOON_VIP_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
   return fetchFeedRows(config.feedCode);
 };
 
@@ -874,6 +1102,47 @@ const buildSnapshot = (config, row, { strict = STRICT_FEED_MAPPING } = {}) => {
   }
 
   return builder(config, row);
+};
+
+const getRoundDrawAt = (lotteryType, roundCode) => {
+  const match = String(roundCode || '').match(ROUND_CODE_PATTERN);
+  if (!match || !lotteryType?.schedule) {
+    return null;
+  }
+
+  return createBangkokDate(
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+    Number(lotteryType.schedule.drawHour || 0),
+    Number(lotteryType.schedule.drawMinute || 0),
+    0
+  );
+};
+
+const resolveSnapshotReleaseAt = (snapshot, round, lotteryType, config = {}) => {
+  if (config?.releaseByPublishedAt && snapshot?.resultPublishedAt) {
+    return new Date(snapshot.resultPublishedAt);
+  }
+
+  return round?.drawAt || getRoundDrawAt(lotteryType, snapshot?.roundCode);
+};
+
+const resolveProcessingRound = async (snapshot, lotteryType, config = {}, now = new Date()) => {
+  if (!snapshot?.roundCode || !lotteryType) {
+    return { round: null, released: true };
+  }
+
+  const round = await ensureRoundForLottery(lotteryType, snapshot.roundCode);
+  const releaseAt = resolveSnapshotReleaseAt(snapshot, round, lotteryType, config);
+  if (!releaseAt) {
+    return { round, released: true };
+  }
+
+  return {
+    round,
+    released: now.getTime() >= new Date(releaseAt).getTime()
+  };
 };
 
 const upsertSnapshot = async (snapshot, lotteryType) => {
@@ -929,18 +1198,43 @@ const upsertLegacyGovernmentResult = async (snapshot) => {
   return LotteryResult.create(payload);
 };
 
-const syncSnapshotToResults = async (snapshot, lotteryType) => {
+const resolveSyncExecutionMode = (options = {}) => {
+  const runSettlement = options?.runSettlement !== false;
+  return {
+    runSettlement,
+    mode: runSettlement ? 'full' : 'fetch-store'
+  };
+};
+
+const runItemsInBatches = async (items, batchSize, worker) => {
+  const normalizedBatchSize = Math.max(1, Number(batchSize) || 1);
+  const results = [];
+
+  for (let index = 0; index < items.length; index += normalizedBatchSize) {
+    const chunk = items.slice(index, index + normalizedBatchSize);
+    const chunkResults = await Promise.all(
+      chunk.map((item, chunkIndex) => worker(item, index + chunkIndex))
+    );
+    results.push(...chunkResults);
+  }
+
+  return results;
+};
+
+const syncSnapshotToResults = async (snapshot, lotteryType, round = null, options = {}) => {
+  const { runSettlement } = resolveSyncExecutionMode(options);
+
   if (!snapshot.isSettlementSafe || !lotteryType) {
     return { synced: false, settlement: null };
   }
 
-  const round = await ensureRoundForLottery(lotteryType, snapshot.roundCode);
-  if (!round) {
+  const targetRound = round || await ensureRoundForLottery(lotteryType, snapshot.roundCode);
+  if (!targetRound) {
     throw new Error(`Round "${snapshot.roundCode}" not found for ${snapshot.lotteryCode}`);
   }
 
   await upsertRoundResult({
-    roundId: round._id,
+    roundId: targetRound._id,
     lotteryTypeId: lotteryType._id,
     resultData: {
       headline: snapshot.headline,
@@ -963,11 +1257,120 @@ const syncSnapshotToResults = async (snapshot, lotteryType) => {
     isPublished: true
   });
 
-  const settlement = await settleRoundById(round._id, { force: true });
+  if (!runSettlement) {
+    return { synced: true, settlement: null, settlementDeferred: true };
+  }
+
+  const settlement = await settleRoundById(targetRound._id, { force: true });
   return { synced: true, settlement };
 };
 
-const syncLatestExternalResults = async () => {
+const processSyncConfig = async (config, lotteryByCode, executionMode) => {
+  const feedSummary = {
+    feedCode: config.feedCode,
+    lotteryCode: config.lotteryCode,
+    marketName: config.marketName,
+    parser: config.parser,
+    mappingMode: getFeedMappingMode(config),
+    syncToResults: Boolean(config.syncToResults),
+    settlementMode: executionMode.mode,
+    fetchedRows: 0,
+    processedRounds: 0,
+    savedSnapshots: 0,
+    syncedResults: 0,
+    settlements: 0,
+    skippedBeforeDraw: 0,
+    warnings: [],
+    status: 'ok',
+    error: ''
+  };
+
+  const counters = {
+    fetched: 0,
+    savedSnapshots: 0,
+    syncedResults: 0,
+    settlements: 0,
+    skipped: 0
+  };
+  const warnings = [];
+
+  try {
+    const rows = await fetchSyncRows(config);
+    feedSummary.fetchedRows = rows.length;
+    if (!rows.length) {
+      counters.skipped += 1;
+      const warning = `No data in feed ${config.feedCode}`;
+      warnings.push(warning);
+      feedSummary.warnings.push(warning);
+      feedSummary.status = 'warning';
+      return { feedSummary, counters, warnings };
+    }
+
+    const lotteryType = lotteryByCode.get(config.lotteryCode) || null;
+    const processedRounds = new Set();
+
+    for (const row of rows) {
+      const snapshot = buildSnapshot(config, row);
+      if (!snapshot.roundCode || !snapshot.headline || processedRounds.has(snapshot.roundCode)) {
+        continue;
+      }
+
+      const { round, released } = await resolveProcessingRound(snapshot, lotteryType, config);
+      if (!released) {
+        counters.skipped += 1;
+        feedSummary.skippedBeforeDraw += 1;
+        continue;
+      }
+
+      processedRounds.add(snapshot.roundCode);
+      await upsertSnapshot(snapshot, lotteryType);
+      counters.fetched += 1;
+      counters.savedSnapshots += 1;
+      feedSummary.savedSnapshots += 1;
+
+      if (snapshot.lotteryCode === 'thai_government') {
+        await upsertLegacyGovernmentResult(snapshot);
+      }
+
+      if (config.syncToResults) {
+        const result = await syncSnapshotToResults(snapshot, lotteryType, round, executionMode);
+        if (result.synced) {
+          counters.syncedResults += 1;
+          feedSummary.syncedResults += 1;
+        }
+        if (result.settlement) {
+          counters.settlements += 1;
+          feedSummary.settlements += 1;
+        }
+      }
+    }
+
+    feedSummary.processedRounds = processedRounds.size;
+    if (!processedRounds.size) {
+      counters.skipped += 1;
+      const warning = feedSummary.skippedBeforeDraw === rows.length
+        ? `No released results yet for ${config.feedCode}`
+        : `Incomplete snapshot for ${config.feedCode}`;
+      warnings.push(warning);
+      feedSummary.warnings.push(warning);
+      feedSummary.status = 'warning';
+    } else if (feedSummary.warnings.length) {
+      feedSummary.status = 'warning';
+    }
+  } catch (error) {
+    const warning = `${config.feedCode}: ${error.message}`;
+    warnings.push(warning);
+    feedSummary.warnings.push(warning);
+    feedSummary.status = 'error';
+    feedSummary.error = error.message;
+  }
+
+  return { feedSummary, counters, warnings };
+};
+
+const syncLatestExternalResults = async (options = {}) => {
+  const executionMode = resolveSyncExecutionMode(options);
+
   if (syncState.running) {
     return {
       skipped: true,
@@ -987,6 +1390,9 @@ const syncLatestExternalResults = async () => {
     const lotteryByCode = new Map(lotteryTypes.map((item) => [item.code, item]));
     const summary = {
       syncedAt: new Date().toISOString(),
+      mode: executionMode.mode,
+      runSettlement: executionMode.runSettlement,
+      batchSize: executionMode.runSettlement ? Math.min(RESULT_SYNC_BATCH_SIZE, 3) : RESULT_SYNC_BATCH_SIZE,
       fetched: 0,
       savedSnapshots: 0,
       syncedResults: 0,
@@ -997,88 +1403,21 @@ const syncLatestExternalResults = async () => {
       mappingCoverage: getMappingCoverageSummary(),
       feedSummaries: []
     };
+    const feedResults = await runItemsInBatches(
+      SYNC_CONFIGS,
+      summary.batchSize,
+      (config) => processSyncConfig(config, lotteryByCode, executionMode)
+    );
 
-    for (const config of SYNC_CONFIGS) {
-      const feedSummary = {
-        feedCode: config.feedCode,
-        lotteryCode: config.lotteryCode,
-        marketName: config.marketName,
-        parser: config.parser,
-        mappingMode: getFeedMappingMode(config),
-        syncToResults: Boolean(config.syncToResults),
-        fetchedRows: 0,
-        processedRounds: 0,
-        savedSnapshots: 0,
-        syncedResults: 0,
-        settlements: 0,
-        warnings: [],
-        status: 'ok',
-        error: ''
-      };
-      summary.feedSummaries.push(feedSummary);
-
-      try {
-        const rows = await fetchSyncRows(config);
-        feedSummary.fetchedRows = rows.length;
-        if (!rows.length) {
-          summary.skipped++;
-          const warning = `No data in feed ${config.feedCode}`;
-          summary.warnings.push(warning);
-          feedSummary.warnings.push(warning);
-          feedSummary.status = 'warning';
-          continue;
-        }
-
-        const lotteryType = lotteryByCode.get(config.lotteryCode) || null;
-        const processedRounds = new Set();
-
-        for (const row of rows) {
-          const snapshot = buildSnapshot(config, row);
-          if (!snapshot.roundCode || !snapshot.headline || processedRounds.has(snapshot.roundCode)) {
-            continue;
-          }
-
-          processedRounds.add(snapshot.roundCode);
-          await upsertSnapshot(snapshot, lotteryType);
-          summary.fetched++;
-          summary.savedSnapshots++;
-          feedSummary.savedSnapshots++;
-
-          if (snapshot.lotteryCode === 'thai_government') {
-            await upsertLegacyGovernmentResult(snapshot);
-          }
-
-          if (config.syncToResults) {
-            const result = await syncSnapshotToResults(snapshot, lotteryType);
-            if (result.synced) {
-              summary.syncedResults++;
-              feedSummary.syncedResults++;
-            }
-            if (result.settlement) {
-              summary.settlements++;
-              feedSummary.settlements++;
-            }
-          }
-        }
-
-        feedSummary.processedRounds = processedRounds.size;
-        if (!processedRounds.size) {
-          summary.skipped++;
-          const warning = `Incomplete snapshot for ${config.feedCode}`;
-          summary.warnings.push(warning);
-          feedSummary.warnings.push(warning);
-          feedSummary.status = 'warning';
-        } else if (feedSummary.warnings.length) {
-          feedSummary.status = 'warning';
-        }
-      } catch (error) {
-        const warning = `${config.feedCode}: ${error.message}`;
-        summary.warnings.push(warning);
-        feedSummary.warnings.push(warning);
-        feedSummary.status = 'error';
-        feedSummary.error = error.message;
-      }
-    }
+    summary.feedSummaries = feedResults.map((item) => item.feedSummary);
+    feedResults.forEach(({ counters, warnings }) => {
+      summary.fetched += counters.fetched;
+      summary.savedSnapshots += counters.savedSnapshots;
+      summary.syncedResults += counters.syncedResults;
+      summary.settlements += counters.settlements;
+      summary.skipped += counters.skipped;
+      summary.warnings.push(...warnings);
+    });
 
     summary.okFeeds = summary.feedSummaries.filter((feed) => feed.status === 'ok').length;
     summary.warningFeeds = summary.feedSummaries.filter((feed) => feed.status === 'warning').length;
@@ -1096,13 +1435,21 @@ const syncLatestExternalResults = async () => {
 };
 
 const getStoredLatestExternalResults = async ({ lotteryId = null, limit = 50 } = {}) => {
+  const fetchLimit = Math.max(limit * 3, limit + 20);
   const query = lotteryId ? { lotteryTypeId: lotteryId } : {};
   const items = await MarketFeedResult.find(query)
     .sort({ resultPublishedAt: -1, updatedAt: -1 })
-    .limit(limit)
-    .populate('lotteryTypeId', 'code name shortName provider');
+    .limit(fetchLimit)
+    .populate('lotteryTypeId', 'code name shortName provider schedule');
+  const now = new Date();
 
-  return items.map((item) => ({
+  return items
+    .filter((item) => {
+      const drawAt = getRoundDrawAt(item.lotteryTypeId, item.roundCode);
+      return !drawAt || drawAt.getTime() <= now.getTime();
+    })
+    .slice(0, limit)
+    .map((item) => ({
     id: `feed-${item._id.toString()}`,
     lotteryTypeId: item.lotteryTypeId?._id?.toString() || item.lotteryTypeId?.toString() || null,
     lotteryCode: item.lotteryTypeId?.code || item.lotteryCode,
@@ -1188,6 +1535,9 @@ module.exports = {
   buildSnapshot,
   fetchFeedRows,
   fetchThaiGovernmentResultByRoundCode,
+  resolveSnapshotReleaseAt,
+  resolveSyncExecutionMode,
+  runItemsInBatches,
   syncLatestExternalResults,
   startExternalResultAutoSync,
   getStoredLatestExternalResults,

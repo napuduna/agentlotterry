@@ -222,7 +222,7 @@ const LOTTERY_TYPES = [
     name: 'ฮานอยสตาร์',
     shortName: 'HN Star',
     description: 'ฮานอยสตาร์ใช้ผล 5 ตัวจาก minhngocstar.com โดยแปลงเป็น 3 ตัวบน 2 ตัวบน และ 2 ตัวล่างตามกติกามาตรฐานของระบบ',
-    provider: 'Minh Ngoc Star Official',
+    provider: 'Exphuay Minh Ngoc Star',
     schedule: createDailySchedule({
       closeHour: 12,
       closeMinute: 10,
@@ -570,6 +570,22 @@ const LOTTERY_TYPES = [
     supportedBetTypes: STOCK_BET_TYPES
   }),
   createLottery({
+    code: 'nikkei_morning_vip',
+    leagueCode: 'vip',
+    name: 'นิเคอิเช้า VIP',
+    description: 'หวยหุ้นนิเคอิเช้า VIP อ้างอิง Nikkei VIP Stock Official',
+    provider: 'Nikkei VIP Stock Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 11,
+      closeMinute: 0,
+      drawHour: 11,
+      drawMinute: 5
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
     code: 'gshka',
     leagueCode: 'stocks',
     name: 'ฮั่งเส็งเช้า',
@@ -584,6 +600,22 @@ const LOTTERY_TYPES = [
     supportedBetTypes: STOCK_BET_TYPES
   }),
   createLottery({
+    code: 'hangseng_morning_vip',
+    leagueCode: 'vip',
+    name: 'ฮั่งเส็งเช้า VIP',
+    description: 'หวยหุ้นฮั่งเส็งเช้า VIP อ้างอิง HSI VIP Official',
+    provider: 'HSI VIP Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 11,
+      closeMinute: 35,
+      drawHour: 11,
+      drawMinute: 40
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
     code: 'gscna',
     leagueCode: 'stocks',
     name: 'หุ้นจีนเช้า',
@@ -596,6 +628,22 @@ const LOTTERY_TYPES = [
       drawMinute: 30
     }),
     supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'china_morning_vip',
+    leagueCode: 'vip',
+    name: 'จีนเช้า VIP',
+    description: 'หวยหุ้นจีนเช้า VIP อ้างอิง Shenzhen Index Official',
+    provider: 'Shenzhen Index Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 11,
+      closeMinute: 0,
+      drawHour: 11,
+      drawMinute: 5
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
   }),
   createLottery({
     code: 'gstw',
@@ -626,6 +674,22 @@ const LOTTERY_TYPES = [
     supportedBetTypes: STOCK_BET_TYPES
   }),
   createLottery({
+    code: 'china_afternoon_vip',
+    leagueCode: 'vip',
+    name: 'จีนบ่าย VIP',
+    description: 'หวยหุ้นจีนบ่าย VIP อ้างอิง Shenzhen Index Official',
+    provider: 'Shenzhen Index Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 15,
+      closeMinute: 20,
+      drawHour: 15,
+      drawMinute: 25
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
     code: 'gsjpp',
     leagueCode: 'stocks',
     name: 'นิเคอิบ่าย',
@@ -638,6 +702,22 @@ const LOTTERY_TYPES = [
       drawMinute: 30
     }),
     supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'nikkei_afternoon_vip',
+    leagueCode: 'vip',
+    name: 'นิเคอิบ่าย VIP',
+    description: 'หวยหุ้นนิเคอิบ่าย VIP อ้างอิง Nikkei VIP Stock Official',
+    provider: 'Nikkei VIP Stock Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 15,
+      closeMinute: 20,
+      drawHour: 15,
+      drawMinute: 25
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
   }),
   createLottery({
     code: 'gskr',
@@ -654,6 +734,38 @@ const LOTTERY_TYPES = [
     supportedBetTypes: STOCK_BET_TYPES
   }),
   createLottery({
+    code: 'korea_vip',
+    leagueCode: 'vip',
+    name: 'เกาหลี VIP',
+    description: 'หวยหุ้นเกาหลี VIP อ้างอิง KTop VIP Index Official',
+    provider: 'KTop VIP Index Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 14,
+      closeMinute: 30,
+      drawHour: 14,
+      drawMinute: 35
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'taiwan_vip',
+    leagueCode: 'vip',
+    name: 'ไต้หวัน VIP',
+    description: 'หวยหุ้นไต้หวัน VIP อ้างอิง TSEC VIP Index Official',
+    provider: 'TSEC VIP Index Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 12,
+      closeMinute: 30,
+      drawHour: 12,
+      drawMinute: 35
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
     code: 'gshkp',
     leagueCode: 'stocks',
     name: 'ฮั่งเส็งบ่าย',
@@ -666,6 +778,22 @@ const LOTTERY_TYPES = [
       drawMinute: 0
     }),
     supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'hangseng_afternoon_vip',
+    leagueCode: 'vip',
+    name: 'ฮั่งเส็งบ่าย VIP',
+    description: 'หวยหุ้นฮั่งเส็งบ่าย VIP อ้างอิง HSI VIP Official',
+    provider: 'HSI VIP Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 15,
+      closeMinute: 35,
+      drawHour: 15,
+      drawMinute: 40
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
   }),
   createLottery({
     code: 'gssg',
@@ -777,6 +905,70 @@ const LOTTERY_TYPES = [
       drawMinute: 0
     }),
     supportedBetTypes: STOCK_BET_TYPES
+  }),
+  createLottery({
+    code: 'england_vip',
+    leagueCode: 'vip',
+    name: 'อังกฤษ VIP',
+    description: 'หวยหุ้นอังกฤษ VIP อ้างอิง Lotto Super Rich Official',
+    provider: 'Lotto Super Rich Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 21,
+      closeMinute: 45,
+      drawHour: 21,
+      drawMinute: 50
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'germany_vip',
+    leagueCode: 'vip',
+    name: 'เยอรมัน VIP',
+    description: 'หวยหุ้นเยอรมัน VIP อ้างอิง Lotto Super Rich Official',
+    provider: 'Lotto Super Rich Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 22,
+      closeMinute: 45,
+      drawHour: 22,
+      drawMinute: 50
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'russia_vip',
+    leagueCode: 'vip',
+    name: 'รัสเชีย VIP',
+    description: 'หวยหุ้นรัสเชีย VIP อ้างอิง Lotto Super Rich Official',
+    provider: 'Lotto Super Rich Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 23,
+      closeMinute: 45,
+      drawHour: 23,
+      drawMinute: 50
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
+    code: 'singapore_vip',
+    leagueCode: 'vip',
+    name: 'สิงคโปร์ VIP',
+    description: 'หวยหุ้นสิงคโปร์ VIP อ้างอิง Stocks VIP Official',
+    provider: 'Stocks VIP Official',
+    schedule: createDailySchedule({
+      weekdays: DAILY_ALL_DAYS,
+      closeHour: 18,
+      closeMinute: 0,
+      drawHour: 18,
+      drawMinute: 5
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
   })
 ];
 
@@ -809,6 +1001,16 @@ const NORMALIZED_LOTTERY_TYPES = LOTTERY_TYPES.map((lottery) => (
               shortName: 'HD',
               description: 'Lao HD uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.'
             }
+          : lottery.code === 'dowjones_vip'
+            ? {
+                ...lottery,
+                name: '\u0e14\u0e32\u0e27\u0e42\u0e08\u0e19\u0e2a\u0e4c VIP',
+                shortName: '\u0e14\u0e32\u0e27\u0e42\u0e08\u0e19\u0e2a\u0e4c VIP',
+                provider: 'Dow Jones Powerball Official',
+                description: 'Dow Jones VIP uses the standard project betting rules with 3 top, 2 top, and 2 bottom from the official API.',
+                supportedBetTypes: STOCK_BET_TYPES,
+                resultSource: 'api'
+              }
           : lottery.code === 'lao_extra'
             ? {
                 ...lottery,
