@@ -9,7 +9,7 @@ const { fetchLotteryResult, saveLotteryResult, getLatestResult, getRecentResults
 const { getMarketOverview } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
 const { BET_TYPES } = require('../constants/betting');
-const { getRoundStatus } = require('../services/catalogService');
+const { clearCatalogOverviewCache, getRoundStatus } = require('../services/catalogService');
 const {
   reconcileRoundSettlementById,
   reverseRoundSettlementById,
@@ -69,6 +69,7 @@ router.post('/sync-latest', auth, authorize('admin'), async (req, res) => {
   try {
     const summary = await syncLatestExternalResults({ runSettlement: false });
     await createAuditLog(req.user._id, 'SYNC_LATEST_RESULTS_FETCH_STORE', 'manycai', summary);
+    clearCatalogOverviewCache();
     res.json({
       message: 'Latest results synced successfully with deferred settlement',
       summary
@@ -108,6 +109,7 @@ router.post('/fetch', auth, authorize('admin'), async (req, res) => {
     });
 
     await createAuditLog(req.user._id, 'FETCH_LOTTERY', roundDate, saved.settlement || {});
+    clearCatalogOverviewCache();
 
     res.json({
       message: 'Lottery result fetched, saved, and settled successfully',
@@ -142,6 +144,7 @@ router.post('/manual', auth, authorize('admin'), async (req, res) => {
 
     const saved = await saveLotteryResult(resultData);
     await createAuditLog(req.user._id, 'MANUAL_LOTTERY', roundDate, saved.settlement || {});
+    clearCatalogOverviewCache();
 
     res.json({
       message: 'Lottery result saved and settled successfully',
@@ -178,6 +181,7 @@ router.put('/rounds/:roundId/closed-bet-types', auth, authorize('admin'), async 
 
     round.closedBetTypes = normalizedClosedBetTypes;
     await round.save();
+    clearCatalogOverviewCache();
 
     await createAuditLog(req.user._id, 'UPDATE_ROUND_CLOSED_BET_TYPES', round._id.toString(), {
       lotteryCode: lottery.code,
@@ -225,6 +229,7 @@ router.put('/rounds/:roundId/betting-override', auth, authorize('admin'), async 
     const statusMeta = getRoundStatus(round);
     round.status = statusMeta.status;
     await round.save();
+    clearCatalogOverviewCache();
 
     await createAuditLog(req.user._id, 'UPDATE_ROUND_BETTING_OVERRIDE', round._id.toString(), {
       lotteryCode: lottery.code,
@@ -253,6 +258,7 @@ router.get('/rounds/:roundId/settlement/reconcile', auth, authorize('admin'), as
   try {
     const summary = await reconcileRoundSettlementById(req.params.roundId);
     await createAuditLog(req.user._id, 'RECONCILE_ROUND_SETTLEMENT', req.params.roundId, summary);
+    clearCatalogOverviewCache();
     res.json(summary);
   } catch (error) {
     console.error('Reconcile round settlement error:', error);
@@ -264,6 +270,7 @@ router.post('/rounds/:roundId/settlement/reverse', auth, authorize('admin'), asy
   try {
     const summary = await reverseRoundSettlementById(req.params.roundId);
     await createAuditLog(req.user._id, 'REVERSE_ROUND_SETTLEMENT', req.params.roundId, summary);
+    clearCatalogOverviewCache();
     res.json({
       message: 'Round settlement reversed successfully',
       summary
@@ -278,6 +285,7 @@ router.post('/rounds/:roundId/settlement/rerun', auth, authorize('admin'), async
   try {
     const summary = await rerunRoundSettlementById(req.params.roundId);
     await createAuditLog(req.user._id, 'RERUN_ROUND_SETTLEMENT', req.params.roundId, summary);
+    clearCatalogOverviewCache();
     res.json({
       message: 'Round settlement rerun successfully',
       summary

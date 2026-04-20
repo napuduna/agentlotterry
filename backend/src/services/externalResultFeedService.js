@@ -1398,6 +1398,8 @@ const syncLatestExternalResults = async (options = {}) => {
       syncedResults: 0,
       settlements: 0,
       skipped: 0,
+      snapshotRebuilt: false,
+      snapshotError: '',
       warnings: [],
       strictMapping: STRICT_FEED_MAPPING,
       mappingCoverage: getMappingCoverageSummary(),
@@ -1422,6 +1424,17 @@ const syncLatestExternalResults = async (options = {}) => {
     summary.okFeeds = summary.feedSummaries.filter((feed) => feed.status === 'ok').length;
     summary.warningFeeds = summary.feedSummaries.filter((feed) => feed.status === 'warning').length;
     summary.errorFeeds = summary.feedSummaries.filter((feed) => feed.status === 'error').length;
+
+    try {
+      const { rebuildMarketOverviewSnapshot } = require('./marketResultsService');
+      const { clearCatalogOverviewCache } = require('./catalogService');
+      await rebuildMarketOverviewSnapshot();
+      clearCatalogOverviewCache();
+      summary.snapshotRebuilt = true;
+    } catch (error) {
+      summary.snapshotError = error.message || 'Failed to rebuild market overview snapshot';
+      summary.warnings.push(`market-overview-snapshot: ${summary.snapshotError}`);
+    }
 
     syncState.lastCompletedAt = new Date().toISOString();
     syncState.lastSummary = summary;

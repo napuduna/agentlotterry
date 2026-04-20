@@ -23,8 +23,12 @@ const {
 } = require('../utils/bangkokTime');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CATALOG_OVERVIEW_CACHE_MS = Math.max(0, Number(process.env.CATALOG_OVERVIEW_CACHE_MS || 10000));
+const CATALOG_OVERVIEW_CACHE_MAX_ENTRIES = Math.max(1, Number(process.env.CATALOG_OVERVIEW_CACHE_MAX_ENTRIES || 200));
 let catalogSeedPromise = null;
 let catalogReadinessPromise = null;
+const catalogOverviewCache = new Map();
+const catalogOverviewInFlight = new Map();
 const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() || '';
 const normalizeBettingOverride = (value) => (value === 'open' || value === 'closed' ? value : 'auto');
 const normalizeRateMap = (value = {}, fallbackRates = {}) =>
@@ -450,7 +454,31 @@ const getAnnouncementFilter = (viewer = null) => {
   };
 };
 
-const getCatalogOverview = async (viewer = null) => {
+const getCatalogOverviewCacheKey = (viewer = null) => {
+  const role = viewer?.role || 'anonymous';
+  const viewerId = toIdString(viewer?._id || viewer?.id);
+  return `${role}:${viewerId}`;
+};
+
+const clearCatalogOverviewCache = () => {
+  catalogOverviewCache.clear();
+  catalogOverviewInFlight.clear();
+};
+
+const pruneCatalogOverviewCache = (now = Date.now()) => {
+  for (const [key, cached] of catalogOverviewCache.entries()) {
+    if (now - cached.cachedAt >= CATALOG_OVERVIEW_CACHE_MS) {
+      catalogOverviewCache.delete(key);
+    }
+  }
+
+  while (catalogOverviewCache.size > CATALOG_OVERVIEW_CACHE_MAX_ENTRIES) {
+    const oldestKey = catalogOverviewCache.keys().next().value;
+    catalogOverviewCache.delete(oldestKey);
+  }
+};
+
+const buildCatalogOverview = async (viewer = null) => {
   await ensureCatalogReady();
 
   const [leagues, lotteries, rounds, announcements, recentResults] = await Promise.all([
@@ -615,6 +643,39 @@ const getCatalogOverview = async (viewer = null) => {
   };
 };
 
+const getCatalogOverview = async (viewer = null) => {
+  const cacheKey = getCatalogOverviewCacheKey(viewer);
+  const now = Date.now();
+  pruneCatalogOverviewCache(now);
+  const cached = catalogOverviewCache.get(cacheKey);
+
+  if (cached && now - cached.cachedAt < CATALOG_OVERVIEW_CACHE_MS) {
+    return cached.data;
+  }
+
+  if (catalogOverviewInFlight.has(cacheKey)) {
+    return catalogOverviewInFlight.get(cacheKey);
+  }
+
+  const request = buildCatalogOverview(viewer)
+    .then((data) => {
+      catalogOverviewCache.set(cacheKey, {
+        cachedAt: Date.now(),
+        data
+      });
+      pruneCatalogOverviewCache();
+      catalogOverviewInFlight.delete(cacheKey);
+      return data;
+    })
+    .catch((error) => {
+      catalogOverviewInFlight.delete(cacheKey);
+      throw error;
+    });
+
+  catalogOverviewInFlight.set(cacheKey, request);
+  return request;
+};
+
 const markAnnouncementRead = async ({ viewer, announcementId }) => {
   await ensureCatalogReady();
 
@@ -639,6 +700,7 @@ const markAnnouncementRead = async ({ viewer, announcementId }) => {
     },
     { upsert: true }
   );
+  clearCatalogOverviewCache();
 
   return {
     id: announcement._id.toString(),
@@ -707,6 +769,7 @@ module.exports = {
   buildRoundUpsertOperations,
   ensureCatalogSeed,
   ensureCatalogReady,
+  clearCatalogOverviewCache,
   getCatalogOverview,
   getLotteryOptions,
   getRoundsByLottery,

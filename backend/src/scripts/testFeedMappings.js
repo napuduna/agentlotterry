@@ -647,7 +647,7 @@ const hanoiStarFixture = {
     lotteryCode: 'hanoi_star',
     feedCode: 'hanoi_star',
     marketName: 'ฮานอยสตาร์',
-    roundCode: '2026-04-18',
+    roundCode: '2026-04-19',
     headline: '821',
     firstPrize: '49821',
     threeTop: '821',
@@ -662,7 +662,7 @@ const hanoiStarFixture = {
     threeBottomHits: [],
     runTop: ['8', '2', '1'],
     runBottom: ['0', '5'],
-    resultPublishedAt: new Date('2026-04-18T05:30:00.000Z'),
+    resultPublishedAt: new Date('2026-04-19T05:30:00.000Z'),
     isSettlementSafe: true,
     sourceUrl: 'https://exphuay.com/result/minhngocstar',
     rawPayload: {
@@ -1623,7 +1623,7 @@ const scenarios = [
     feedCodes: ['hanoi_star'],
     row: hanoiStarFixture,
     verify(snapshot) {
-      assert.strictEqual(snapshot.roundCode, '2026-04-18');
+      assert.strictEqual(snapshot.roundCode, '2026-04-19');
       assert.strictEqual(snapshot.firstPrize, '49821');
       assert.strictEqual(snapshot.threeTop, '821');
       assert.strictEqual(snapshot.twoTop, '21');

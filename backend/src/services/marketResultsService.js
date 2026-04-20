@@ -2,7 +2,11 @@ const axios = require('axios');
 const LotteryResult = require('../models/LotteryResult');
 const LotteryType = require('../models/LotteryType');
 const ResultRecord = require('../models/ResultRecord');
+const MarketFeedResult = require('../models/MarketFeedResult');
+const MarketOverviewSnapshot = require('../models/MarketOverviewSnapshot');
+const { LOTTERY_TYPES } = require('../constants/catalogDefinitions');
 const { createBangkokDate } = require('../utils/bangkokTime');
+const { normalizeLotteryCode } = require('../utils/lotteryCode');
 const { MANYCAI_FEED_BASE_URL } = require('./externalResultFeedService');
 const {
   GSB_MARKET_ID,
@@ -212,7 +216,13 @@ const PROVIDER_BASE_URL = (
     ? `${(process.env.MANYCAI_BASE_URL || 'http://vip.manycai.com').replace(/\/$/, '')}/${RAW_PROVIDER_KEY}`
     : MANYCAI_FEED_BASE_URL
 ).replace(/\/$/, '');
-const CACHE_TTL_MS = Number(process.env.MARKET_RESULTS_CACHE_MS || 60000);
+const DEFAULT_MARKET_RESULTS_CACHE_MS = 300000;
+const DEFAULT_MARKET_RESULTS_BATCH_SIZE = 12;
+const CACHE_TTL_MS = Number(process.env.MARKET_RESULTS_CACHE_MS || DEFAULT_MARKET_RESULTS_CACHE_MS);
+const MARKET_RESULTS_BATCH_SIZE = Math.max(
+  1,
+  Number(process.env.MARKET_RESULTS_BATCH_SIZE || DEFAULT_MARKET_RESULTS_BATCH_SIZE)
+);
 const LAOS_NOTE = 'ตรวจจับจาก Huay Lao Official และแปลงผลแบบลาว 4 ตัวของระบบ';
 const LAOS_VIP_NOTE = 'ตรวจจับจาก Lao VIP Official และแปลงผลแบบลาว VIP ของระบบ';
 const LAOS_NUMBER_LABELS = {
@@ -341,6 +351,7 @@ const cache = {
   data: null,
   fetchedAt: 0
 };
+const MARKET_OVERVIEW_SNAPSHOT_KEY = 'default';
 
 const MANYCAI_MARKETS = [
   { code: 'hnvip', marketId: 'hanoi-vip', name: 'ฮานอย VIP', sectionId: 'international', type: 'standard' },
@@ -372,10 +383,26 @@ const MANYCAI_MARKETS = [
 const ACTIVE_MANYCAI_MARKETS = MANYCAI_MARKETS.filter(
   (market) => !['tlzc', 'zcvip', 'gsus'].includes(market.code)
 );
+const MANYCAI_MARKET_BY_ID = new Map(MANYCAI_MARKETS.map((market) => [market.marketId, market]));
 
 const ROUND_CODE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const MARKET_ID_TO_LOTTERY_CODE = {
+const withMarketIdAliases = (mapping) => Object.entries(mapping).reduce((acc, [key, value]) => {
+  acc[key] = value;
+
+  const kebabKey = String(key).replace(/_/g, '-');
+  const snakeKey = String(key).replace(/-/g, '_');
+  acc[kebabKey] = value;
+  acc[snakeKey] = value;
+
+  return acc;
+}, {});
+
+const MARKET_ID_TO_LOTTERY_CODE = withMarketIdAliases({
   ...Object.fromEntries(MANYCAI_MARKETS.map((market) => [market.marketId, market.code])),
+  'hanoi-special': 'hanoi_special',
+  'stock-nikkei-morning': 'nikkei_morning',
+  'stock-china-afternoon': 'china_afternoon',
+  'stock-dowjones': 'dowjones_vip',
   [THAI_GOV_MARKET_ID]: 'thai_government',
   [BAAC_MARKET_ID]: 'baac',
   [GSB_MARKET_ID]: 'gsb',
@@ -412,6 +439,95 @@ const MARKET_ID_TO_LOTTERY_CODE = {
   [TAIWAN_VIP_MARKET_ID]: 'taiwan_vip',
   [SINGAPORE_VIP_MARKET_ID]: 'singapore_vip',
   [DOWJONES_VIP_MARKET_ID]: 'dowjones_vip'
+});
+
+const resolveMarketLotteryCode = (marketId) =>
+  MARKET_ID_TO_LOTTERY_CODE[marketId] || normalizeLotteryCode(marketId);
+
+const LOTTERY_CODE_TO_LEAGUE_CODE = new Map([
+  ...LOTTERY_TYPES.map((lottery) => [lottery.code, lottery.leagueCode]),
+  ['hsi_morning_vip', 'vip'],
+  ['hsi_afternoon_vip', 'vip']
+]);
+const DISPLAY_SECTION_BY_LEAGUE_CODE = {
+  government: 'government',
+  foreign: 'international',
+  daily: 'daily',
+  vip: 'stock-vip',
+  stocks: 'stocks'
+};
+const DISPLAY_SECTION_BY_SOURCE_SECTION = {
+  government: 'government',
+  international: 'international',
+  stocks: 'stocks'
+};
+const DISPLAY_SECTIONS = [
+  {
+    id: 'government',
+    title: 'รัฐบาลไทย',
+    description: 'ผลรัฐบาลไทย ธกส และออมสิน'
+  },
+  {
+    id: 'international',
+    title: 'หวยต่างประเทศ',
+    description: 'ผลหวยต่างประเทศกลุ่มฮานอยและตลาดต่างประเทศ'
+  },
+  {
+    id: 'daily',
+    title: 'หวยรายวัน',
+    description: 'ผลหวยรายวันที่ออกรอบประจำ'
+  },
+  {
+    id: 'stock-vip',
+    title: 'หุ้น VIP',
+    description: 'ผลหวยหุ้น VIP จากแหล่งข้อมูลทางการ'
+  },
+  {
+    id: 'stocks',
+    title: 'หุ้น',
+    description: 'ผลหวยหุ้นทั่วไป'
+  }
+];
+
+const resolveDisplaySectionId = (market, sourceSectionId) => {
+  const lotteryCode = resolveMarketLotteryCode(market?.id);
+  const leagueCode = LOTTERY_CODE_TO_LEAGUE_CODE.get(lotteryCode);
+
+  if (leagueCode === 'vip') {
+    const marketId = String(market?.id || '');
+    return sourceSectionId === 'stocks' || marketId.startsWith('stock-')
+      ? 'stock-vip'
+      : DISPLAY_SECTION_BY_SOURCE_SECTION[sourceSectionId] || 'international';
+  }
+
+  return DISPLAY_SECTION_BY_LEAGUE_CODE[leagueCode]
+    || DISPLAY_SECTION_BY_SOURCE_SECTION[sourceSectionId]
+    || 'international';
+};
+
+const groupSectionsForDisplay = (sections = []) => {
+  const grouped = DISPLAY_SECTIONS.map((section) => ({
+    ...section,
+    markets: []
+  }));
+  const groupedById = new Map(grouped.map((section) => [section.id, section]));
+  const seenMarketIds = new Set();
+
+  (sections || []).forEach((section) => {
+    (section.markets || []).forEach((market) => {
+      const marketKey = market?.id || `${section.id}:${market?.name || ''}`;
+      if (seenMarketIds.has(marketKey)) {
+        return;
+      }
+
+      seenMarketIds.add(marketKey);
+      const displaySectionId = resolveDisplaySectionId(market, section.id);
+      const displaySection = groupedById.get(displaySectionId) || groupedById.get('international');
+      displaySection.markets.push(market);
+    });
+  });
+
+  return grouped.filter((section) => section.markets.length > 0);
 };
 
 const baseSections = [
@@ -1818,6 +1934,92 @@ const buildMarket = ({ id, name, provider, resultDate, headline, numbers, note, 
   status: marketStatus(headline, numbers)
 });
 
+const buildStoredHeadline = (marketId, result = {}) => {
+  if (marketId === THAI_GOV_MARKET_ID || marketId === BAAC_MARKET_ID) {
+    return stringValue(result.firstPrize || result.headline || result.threeTop || result.twoBottom);
+  }
+
+  if (marketId === 'lao' || marketId === 'lao-vip') {
+    return stringValue(result.headline || result.threeTop || result.twoTop || result.twoBottom);
+  }
+
+  const manyCaiMarket = MANYCAI_MARKET_BY_ID.get(marketId);
+  if (manyCaiMarket?.type === 'standard') {
+    return stringValue(
+      result.firstPrize ||
+      result.headline ||
+      result.threeTop ||
+      result.twoTop ||
+      result.twoBottom
+    );
+  }
+
+  return stringValue(result.headline || result.threeTop || result.firstPrize || result.twoBottom);
+};
+
+const buildStoredNumbersForMarket = (marketId, result = {}) => {
+  if (marketId === THAI_GOV_MARKET_ID) {
+    return buildNumbers([
+      { label: '3 ตัวบน', value: result.threeTop },
+      { label: '2 ตัวบน', value: result.twoTop },
+      { label: '3 ตัวหน้า', value: mergeUniqueValues(result.threeFrontHits || [], result.threeFront || '').join(' / ') },
+      { label: '3 ตัวล่าง', value: mergeUniqueValues(result.threeBottomHits || [], result.threeBottom || '').join(' / ') },
+      { label: '2 ตัวล่าง', value: result.twoBottom }
+    ]);
+  }
+
+  if (marketId === 'lao' || marketId === 'lao-vip') {
+    return buildNumbers([
+      { label: '3 ตัวบน', value: result.threeTop },
+      { label: '2 ตัวบน', value: result.twoTop },
+      { label: '2 ตัวล่าง', value: result.twoBottom }
+    ]);
+  }
+
+  const manyCaiMarket = MANYCAI_MARKET_BY_ID.get(marketId);
+  if (manyCaiMarket?.type === 'standard') {
+    return buildNumbers([
+      { label: '4 ตัวบน', value: tailDigits(result.firstPrize || result.headline, 4) || result.firstPrize },
+      { label: '3 ตัวบน', value: result.threeTop },
+      { label: '2 ตัวบน', value: result.twoTop },
+      { label: '2 ตัวล่าง', value: result.twoBottom }
+    ]);
+  }
+
+  return buildNumbers([
+    { label: '3 ตัวบน', value: result.threeTop },
+    { label: '2 ตัวบน', value: result.twoTop },
+    { label: '2 ตัวล่าง', value: result.twoBottom }
+  ]);
+};
+
+const hydrateSectionsFromStoredSnapshot = (sections, snapshotByCode) => {
+  sections.forEach((section) => {
+    section.markets = (section.markets || []).map((market) => {
+      const lotteryCode = resolveMarketLotteryCode(market.id);
+      const snapshot = lotteryCode ? snapshotByCode.get(lotteryCode) : null;
+
+      if (!snapshot?.result) {
+        return market;
+      }
+
+      const headline = buildStoredHeadline(market.id, snapshot.result);
+      const numbers = buildStoredNumbersForMarket(market.id, snapshot.result);
+
+      return {
+        ...market,
+        resultDate: stringValue(snapshot.roundCode),
+        headline,
+        numbers,
+        sourceUrl: stringValue(snapshot.result.sourceUrl),
+        status: marketStatus(headline, numbers)
+      };
+    });
+  });
+
+  return sections;
+};
+
 const getScheduledDrawAt = (lotteryType, roundCode) => {
   const match = String(roundCode || '').match(ROUND_CODE_PATTERN);
   if (!match || !lotteryType?.schedule) {
@@ -1866,6 +2068,133 @@ const resolveStoredValueByLabel = (label, result) => {
   }
 
   return '';
+};
+
+const getStoredSnapshotDrawAt = ({ lotteryType, roundCode, resultPublishedAt, drawAt }) => {
+  if (drawAt) {
+    return new Date(drawAt);
+  }
+
+  if (resultPublishedAt) {
+    return new Date(resultPublishedAt);
+  }
+
+  return getScheduledDrawAt(lotteryType, roundCode);
+};
+
+const upsertLatestStoredSnapshot = (snapshotByCode, lotteryCode, candidate) => {
+  if (!lotteryCode || !candidate?.drawAt) {
+    return;
+  }
+
+  const candidateTime = new Date(candidate.drawAt).getTime();
+  if (Number.isNaN(candidateTime)) {
+    return;
+  }
+
+  const current = snapshotByCode.get(lotteryCode);
+  const currentTime = current ? new Date(current.drawAt).getTime() : -Infinity;
+
+  if (
+    !current ||
+    candidateTime > currentTime ||
+    (candidateTime === currentTime && Number(candidate.priority || 0) > Number(current.priority || 0))
+  ) {
+    snapshotByCode.set(lotteryCode, candidate);
+  }
+};
+
+const buildStoredSnapshotMap = async (lotteryCodes, now = new Date()) => {
+  if (!lotteryCodes.length) {
+    return { lotteryTypeByCode: new Map(), snapshotByCode: new Map() };
+  }
+
+  const lotteryTypes = await LotteryType.find({ code: { $in: lotteryCodes } }).lean();
+  const lotteryTypeByCode = new Map(lotteryTypes.map((item) => [item.code, item]));
+  const lotteryTypeIds = lotteryTypes.map((item) => item._id);
+  const lotteryCodeById = new Map(lotteryTypes.map((item) => [String(item._id), item.code]));
+  const snapshotByCode = new Map();
+
+  const resultRecords = await ResultRecord.find({
+    lotteryTypeId: { $in: lotteryTypeIds },
+    isPublished: true
+  })
+    .sort({ updatedAt: -1 })
+    .limit(Math.max(lotteryCodes.length * 20, 100))
+    .populate('drawRoundId', 'code drawAt');
+
+  resultRecords.forEach((record) => {
+    const lotteryCode = lotteryCodeById.get(String(record.lotteryTypeId));
+    const lotteryType = lotteryTypeByCode.get(lotteryCode);
+    const roundCode = record.drawRoundId?.code || '';
+    const drawAt = getStoredSnapshotDrawAt({
+      lotteryType,
+      roundCode,
+      drawAt: record.drawRoundId?.drawAt
+    });
+
+    if (!lotteryCode || !drawAt || drawAt.getTime() > now.getTime()) {
+      return;
+    }
+
+    upsertLatestStoredSnapshot(snapshotByCode, lotteryCode, {
+      roundCode,
+      drawAt,
+      priority: 2,
+      result: {
+        headline: stringValue(record.headline),
+        firstPrize: stringValue(record.firstPrize),
+        threeTop: stringValue(record.threeTop),
+        twoTop: stringValue(record.twoTop),
+        twoBottom: stringValue(record.twoBottom),
+        threeFront: stringValue(record.threeFront),
+        threeBottom: stringValue(record.threeBottom),
+        threeFrontHits: [...(record.threeFrontHits || [])],
+        threeBottomHits: [...(record.threeBottomHits || [])],
+        sourceUrl: stringValue(record.sourceUrl)
+      }
+    });
+  });
+
+  const feedResults = await MarketFeedResult.find({
+    lotteryCode: { $in: lotteryCodes }
+  })
+    .sort({ resultPublishedAt: -1, updatedAt: -1 })
+    .limit(Math.max(lotteryCodes.length * 20, 100))
+    .lean();
+
+  feedResults.forEach((record) => {
+    const lotteryType = lotteryTypeByCode.get(record.lotteryCode);
+    const drawAt = getStoredSnapshotDrawAt({
+      lotteryType,
+      roundCode: record.roundCode,
+      resultPublishedAt: record.resultPublishedAt
+    });
+
+    if (!record.lotteryCode || !drawAt || drawAt.getTime() > now.getTime()) {
+      return;
+    }
+
+    upsertLatestStoredSnapshot(snapshotByCode, record.lotteryCode, {
+      roundCode: record.roundCode,
+      drawAt,
+      priority: 1,
+      result: {
+        headline: stringValue(record.headline),
+        firstPrize: stringValue(record.firstPrize),
+        threeTop: stringValue(record.threeTop),
+        twoTop: stringValue(record.twoTop),
+        twoBottom: stringValue(record.twoBottom),
+        threeFront: stringValue(record.threeFront),
+        threeBottom: stringValue(record.threeBottom),
+        threeFrontHits: [...(record.threeFrontHits || [])],
+        threeBottomHits: [...(record.threeBottomHits || [])],
+        sourceUrl: stringValue(record.sourceUrl)
+      }
+    });
+  });
+
+  return { lotteryTypeByCode, snapshotByCode };
 };
 
 const buildVisibleStoredResultsMap = async (lotteryCodes, now = new Date()) => {
@@ -2462,394 +2791,180 @@ const buildSummary = (sections) => {
   };
 };
 
+const createOverviewPayload = ({ sections, warnings, fetchedAt = new Date().toISOString() }) => {
+  const displaySections = groupSectionsForDisplay(sections);
+
+  return {
+    provider: {
+      name: PROVIDER_NAME,
+      configured: true,
+      baseUrl: 'db://market-overview-snapshot',
+      fetchedAt,
+      cacheTtlMs: CACHE_TTL_MS,
+      mode: 'db-snapshot'
+    },
+    summary: buildSummary(displaySections),
+    warnings,
+    sections: displaySections
+  };
+};
+
+const createOverviewSnapshotDocument = (overview) => ({
+  key: MARKET_OVERVIEW_SNAPSHOT_KEY,
+  payload: {
+    provider: overview?.provider || null,
+    summary: overview?.summary || null,
+    warnings: Array.isArray(overview?.warnings) ? overview.warnings : [],
+    sections: Array.isArray(overview?.sections) ? overview.sections : []
+  },
+  builtAt: new Date(),
+  version: 1
+});
+
+const restoreOverviewFromSnapshotDocument = (document) => {
+  const payload = document?.payload;
+  if (!payload || !Array.isArray(payload.sections)) {
+    return null;
+  }
+
+  const displaySections = groupSectionsForDisplay(payload.sections);
+
+  return {
+    provider: payload.provider || null,
+    summary: payload.summary || buildSummary(displaySections),
+    warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
+    sections: displaySections
+  };
+};
+
+const buildMarketOverviewFromDb = async () => {
+  const sections = cloneSections();
+  const lotteryCodes = [...new Set(
+    sections
+      .flatMap((section) => section.markets || [])
+      .map((market) => resolveMarketLotteryCode(market.id))
+      .filter(Boolean)
+  )];
+  const { snapshotByCode } = await buildStoredSnapshotMap(lotteryCodes, new Date());
+  hydrateSectionsFromStoredSnapshot(sections, snapshotByCode);
+
+  const waitingMarkets = sections
+    .flatMap((section) => section.markets || [])
+    .filter((market) => market.status === 'waiting')
+    .map((market) => market.name);
+
+  const warnings = [];
+  if (waitingMarkets.length) {
+    const preview = waitingMarkets.slice(0, 4).join(', ');
+    const remaining = waitingMarkets.length - Math.min(waitingMarkets.length, 4);
+    warnings.push(
+      remaining > 0
+        ? `ยังไม่มี snapshot ในระบบสำหรับ ${preview} และอีก ${remaining} ตลาด`
+        : `ยังไม่มี snapshot ในระบบสำหรับ ${preview}`
+    );
+  }
+
+  return createOverviewPayload({
+    sections,
+    warnings
+  });
+};
+
+const persistMarketOverviewSnapshot = async (overview) => {
+  const snapshotDocument = createOverviewSnapshotDocument(overview);
+  await MarketOverviewSnapshot.findOneAndUpdate(
+    { key: MARKET_OVERVIEW_SNAPSHOT_KEY },
+    snapshotDocument,
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
+  );
+};
+
+const loadMarketOverviewSnapshot = async () => {
+  const document = await MarketOverviewSnapshot.findOne({ key: MARKET_OVERVIEW_SNAPSHOT_KEY }).lean();
+  return restoreOverviewFromSnapshotDocument(document);
+};
+
+const rebuildMarketOverviewSnapshot = async () => {
+  const overview = await buildMarketOverviewFromDb();
+  await persistMarketOverviewSnapshot(overview);
+  cache.data = overview;
+  cache.fetchedAt = Date.now();
+  return overview;
+};
+
+const runBatchedMarketTasks = async (tasks, batchSize = DEFAULT_MARKET_RESULTS_BATCH_SIZE) => {
+  const effectiveBatchSize = Math.max(1, Number(batchSize) || DEFAULT_MARKET_RESULTS_BATCH_SIZE);
+  const results = [];
+
+  for (let index = 0; index < tasks.length; index += effectiveBatchSize) {
+    const batch = tasks.slice(index, index + effectiveBatchSize);
+    const batchResults = await Promise.allSettled(batch.map((task) => task.run()));
+    batchResults.forEach((result, batchIndex) => {
+      results.push({
+        key: batch[batchIndex]?.key || '',
+        ...result
+      });
+    });
+  }
+
+  return results;
+};
+
+const OFFICIAL_MARKET_TASKS = [
+  { key: 'baac', run: applyBaacMarket, warning: 'Unable to fetch BAAC official results.' },
+  { key: 'gsb', run: applyGsbMarket, warning: 'Unable to fetch GSB official results.' },
+  { key: 'lao', run: applyLaosMarket, warning: 'Unable to fetch Lao official results.' },
+  { key: 'lao_vip', run: applyLaosVipMarket, warning: 'Unable to fetch Lao VIP official results.' },
+  { key: 'lao_pathana', run: applyLaosPathanaMarket, warning: 'Unable to fetch Lao Pathana official results.' },
+  { key: 'lao_redcross', run: applyLaosRedcrossMarket, warning: 'Unable to fetch Lao Redcross official results.' },
+  { key: 'lao_tv', run: applyLaosTvMarket, warning: 'Unable to fetch Lao TV official results.' },
+  { key: 'lao_hd', run: applyLaosHdMarket, warning: 'Unable to fetch Lao HD official results.' },
+  { key: 'lao_extra', run: applyLaosExtraMarket, warning: 'Unable to fetch Lao Extra official results.' },
+  { key: 'lao_star', run: applyLaosStarsMarket, warning: 'Unable to fetch Lao Star official results.' },
+  { key: 'lao_star_vip', run: applyLaosStarsVipMarket, warning: 'Unable to fetch Lao Star VIP official results.' },
+  { key: 'lao_union', run: applyLaosUnionMarket, warning: 'Unable to fetch Lao Union official results.' },
+  { key: 'lao_union_vip', run: applyLaosUnionVipMarket, warning: 'Unable to fetch Lao Union VIP official results.' },
+  { key: 'lao_asean', run: applyLaosAseanMarket, warning: 'Unable to fetch Lao ASEAN official results.' },
+  { key: 'hanoi_extra', run: applyHanoiExtraMarket, warning: 'Unable to fetch Hanoi Extra official results.' },
+  { key: 'hanoi_star', run: applyHanoiStarMarket, warning: 'Unable to fetch Hanoi Star official results.' },
+  { key: 'hanoi_develop', run: applyHanoiDevelopMarket, warning: 'Unable to fetch Hanoi Develop official results.' },
+  { key: 'hanoi_hd', run: applyHanoiHdMarket, warning: 'Unable to fetch Hanoi HD official results.' },
+  { key: 'hanoi_tv', run: applyHanoiTvMarket, warning: 'Unable to fetch Hanoi TV official results.' },
+  { key: 'hanoi_redcross', run: applyHanoiRedcrossMarket, warning: 'Unable to fetch Hanoi Redcross official results.' },
+  { key: 'hanoi_union', run: applyHanoiUnionMarket, warning: 'Unable to fetch Hanoi Union official results.' },
+  { key: 'hanoi_asean', run: applyHanoiAseanMarket, warning: 'Unable to fetch Hanoi ASEAN official results.' },
+  { key: 'china_morning_vip', run: applyChinaMorningVipMarket, warning: 'Unable to fetch China Morning VIP official results.' },
+  { key: 'china_afternoon_vip', run: applyChinaAfternoonVipMarket, warning: 'Unable to fetch China Afternoon VIP official results.' },
+  { key: 'hsi_morning_vip', run: applyHsiMorningVipMarket, warning: 'Unable to fetch HSI Morning VIP official results.' },
+  { key: 'hsi_afternoon_vip', run: applyHsiAfternoonVipMarket, warning: 'Unable to fetch HSI Afternoon VIP official results.' },
+  { key: 'nikkei_morning_vip', run: applyNikkeiMorningVipMarket, warning: 'Unable to fetch Nikkei Morning VIP official results.' },
+  { key: 'nikkei_afternoon_vip', run: applyNikkeiAfternoonVipMarket, warning: 'Unable to fetch Nikkei Afternoon VIP official results.' },
+  { key: 'england_vip', run: applyEnglandVipMarket, warning: 'Unable to fetch England VIP official results.' },
+  { key: 'germany_vip', run: applyGermanyVipMarket, warning: 'Unable to fetch Germany VIP official results.' },
+  { key: 'russia_vip', run: applyRussiaVipMarket, warning: 'Unable to fetch Russia VIP official results.' },
+  { key: 'korea_vip', run: applyKoreaVipMarket, warning: 'Unable to fetch Korea VIP official results.' },
+  { key: 'taiwan_vip', run: applyTaiwanVipMarket, warning: 'Unable to fetch Taiwan VIP official results.' },
+  { key: 'singapore_vip', run: applySingaporeVipMarket, warning: 'Unable to fetch Singapore VIP official results.' },
+  { key: 'dowjones_vip', run: applyDowjonesVipMarket, warning: 'Unable to fetch Dow Jones VIP official results.' }
+];
+
 const getMarketOverview = async () => {
   if (cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
     return cache.data;
   }
 
-  const sections = cloneSections();
-  const warnings = [];
-  let hasGovernmentData = false;
-
-  try {
-    hasGovernmentData = await applyThaiGovernmentMarket(sections);
-  } catch (error) {
-    hasGovernmentData = false;
+  const persistedOverview = await loadMarketOverviewSnapshot();
+  if (persistedOverview) {
+    cache.data = persistedOverview;
+    cache.fetchedAt = Date.now();
+    return persistedOverview;
   }
 
-  if (!hasGovernmentData) {
-    const hasGovernmentFallback = await applyGovernmentFromLocal(sections);
-    if (!hasGovernmentFallback) {
-      warnings.push('ยังไม่มีผลหวยรัฐบาลไทยในระบบฐานข้อมูล');
-    } else {
-      warnings.push('ไม่สามารถดึงข้อมูลรัฐบาลไทยจาก GLO Official ได้ จึงใช้ผลในระบบแทน');
-    }
-  }
-
-  try {
-    const hasBaacData = await applyBaacMarket(sections);
-    if (!hasBaacData) {
-      warnings.push('ยังไม่สามารถแปลงข้อมูล ธ.ก.ส. จากหน้า BAAC ทางการได้');
-    }
-  } catch (error) {
-    warnings.push('ไม่สามารถดึงข้อมูล ธ.ก.ส. จาก BAAC Official ได้');
-  }
-
-  try {
-    const hasGsbData = await applyGsbMarket(sections);
-    if (!hasGsbData) {
-      warnings.push('ยังไม่สามารถแปลงข้อมูลออมสินจากเว็บไซต์ GSB ได้');
-    }
-  } catch (error) {
-    warnings.push('ไม่สามารถดึงข้อมูลออมสินจากเว็บไซต์ GSB ได้');
-  }
-
-  try {
-    const hasLaosData = await applyLaosMarket(sections);
-    if (!hasLaosData) {
-      warnings.push('ยังไม่สามารถแปลงข้อมูลหวยลาวจาก Huay Lao Official ได้');
-    }
-  } catch (error) {
-    warnings.push('ไม่สามารถดึงข้อมูลหวยลาวจาก Huay Lao Official ได้');
-  }
-
-  try {
-    const hasLaosVipData = await applyLaosVipMarket(sections);
-    if (!hasLaosVipData) {
-      warnings.push('ยังไม่สามารถแปลงข้อมูลลาว VIP จาก Lao VIP Official ได้');
-    }
-  } catch (error) {
-    warnings.push('ไม่สามารถดึงข้อมูลลาว VIP จาก Lao VIP Official ได้');
-  }
-
-  try {
-    const hasLaosPathanaData = await applyLaosPathanaMarket(sections);
-    if (!hasLaosPathanaData) {
-      warnings.push('ยังไม่สามารถแปลงข้อมูลลาวพัฒนาจากเว็บไซต์ Lao Pathana ได้');
-    }
-  } catch (error) {
-    warnings.push('ไม่สามารถดึงข้อมูลลาวพัฒนาจากเว็บไซต์ Lao Pathana ได้');
-  }
-
-  try {
-    const hasLaosRedcrossData = await applyLaosRedcrossMarket(sections);
-    if (!hasLaosRedcrossData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e01\u0e32\u0e0a\u0e32\u0e14\u0e08\u0e32\u0e01 API Lao Red Cross \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e01\u0e32\u0e0a\u0e32\u0e14\u0e08\u0e32\u0e01 API Lao Red Cross \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosTvData = await applyLaosTvMarket(sections);
-    if (!hasLaosTvData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 TV \u0e08\u0e32\u0e01 API Lao TV \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 TV \u0e08\u0e32\u0e01 API Lao TV \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosHdData = await applyLaosHdMarket(sections);
-    if (!hasLaosHdData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 HD \u0e08\u0e32\u0e01 API Lao HD \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 HD \u0e08\u0e32\u0e01 API Lao HD \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosExtraData = await applyLaosExtraMarket(sections);
-    if (!hasLaosExtraData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 Extra \u0e08\u0e32\u0e01 API Lao Extra \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27 Extra \u0e08\u0e32\u0e01 API Lao Extra \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosStarsData = await applyLaosStarsMarket(sections);
-    if (!hasLaosStarsData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 API Lao Stars \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 API Lao Stars \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosStarsVipData = await applyLaosStarsVipMarket(sections);
-    if (!hasLaosStarsVipData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c VIP \u0e08\u0e32\u0e01 API Lao Stars VIP \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e15\u0e32\u0e23\u0e4c VIP \u0e08\u0e32\u0e01 API Lao Stars VIP \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosUnionData = await applyLaosUnionMarket(sections);
-    if (!hasLaosUnionData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 \u0e08\u0e32\u0e01 API Lao Union \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 \u0e08\u0e32\u0e01 API Lao Union \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosUnionVipData = await applyLaosUnionVipMarket(sections);
-    if (!hasLaosUnionVipData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 VIP \u0e08\u0e32\u0e01 API Lao Union VIP \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 VIP \u0e08\u0e32\u0e01 API Lao Union VIP \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasLaosAseanData = await applyLaosAseanMarket(sections);
-    if (!hasLaosAseanData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Lao ASEAN \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e25\u0e32\u0e27\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Lao ASEAN \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasHanoiExtraData = await applyHanoiExtraMarket(sections);
-    if (!hasHanoiExtraData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22 Extra \u0e08\u0e32\u0e01 API Xoso Extra \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22 Extra \u0e08\u0e32\u0e01 API Xoso Extra \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasHanoiStarData = await applyHanoiStarMarket(sections);
-    if (!hasHanoiStarData) {
-        warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 Exphuay Minh Ngoc Star \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e15\u0e32\u0e23\u0e4c \u0e08\u0e32\u0e01 Exphuay Minh Ngoc Star \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasHanoiDevelopData = await applyHanoiDevelopMarket(sections);
-    if (!hasHanoiDevelopData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e1e\u0e31\u0e12\u0e19\u0e32 \u0e08\u0e32\u0e01 API Xoso Develop \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e1e\u0e31\u0e12\u0e19\u0e32 \u0e08\u0e32\u0e01 API Xoso Develop \u0e44\u0e14\u0e49');
-  }
-
-  try {
-    const hasHanoiHdData = await applyHanoiHdMarket(sections);
-    if (!hasHanoiHdData) {
-      warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22 HD \u0e08\u0e32\u0e01 API Xoso HD \u0e44\u0e14\u0e49');
-    }
-  } catch (error) {
-    warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22 HD \u0e08\u0e32\u0e01 API Xoso HD \u0e44\u0e14\u0e49');
-  }
-
-    try {
-      const hasHanoiTvData = await applyHanoiTvMarket(sections);
-      if (!hasHanoiTvData) {
-        warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22 TV \u0e08\u0e32\u0e01 API Minh Ngoc TV \u0e44\u0e14\u0e49');
-      }
-    } catch (error) {
-      warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22 TV \u0e08\u0e32\u0e01 API Minh Ngoc TV \u0e44\u0e14\u0e49');
-    }
-
-    try {
-      const hasHanoiRedcrossData = await applyHanoiRedcrossMarket(sections);
-      if (!hasHanoiRedcrossData) {
-        warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e01\u0e32\u0e0a\u0e32\u0e14 \u0e08\u0e32\u0e01 API Xoso Redcross \u0e44\u0e14\u0e49');
-      }
-    } catch (error) {
-      warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e01\u0e32\u0e0a\u0e32\u0e14 \u0e08\u0e32\u0e01 API Xoso Redcross \u0e44\u0e14\u0e49');
-    }
-
-    try {
-      const hasHanoiUnionData = await applyHanoiUnionMarket(sections);
-      if (!hasHanoiUnionData) {
-        warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 \u0e08\u0e32\u0e01 API Xoso Union \u0e44\u0e14\u0e49');
-      }
-    } catch (error) {
-      warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2a\u0e32\u0e21\u0e31\u0e04\u0e04\u0e35 \u0e08\u0e32\u0e01 API Xoso Union \u0e44\u0e14\u0e49');
-    }
-
-    try {
-      const hasHanoiAseanData = await applyHanoiAseanMarket(sections);
-      if (!hasHanoiAseanData) {
-        warnings.push('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e41\u0e1b\u0e25\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Hanoi ASEAN \u0e44\u0e14\u0e49');
-      }
-    } catch (error) {
-      warnings.push('\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e2d\u0e32\u0e40\u0e0b\u0e35\u0e22\u0e19 \u0e08\u0e32\u0e01 API Hanoi ASEAN \u0e44\u0e14\u0e49');
-    }
-
-    try {
-      const hasChinaMorningVipData = await applyChinaMorningVipMarket(sections);
-      if (!hasChinaMorningVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลจีนเช้า VIP จาก API Shenzhen Index Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลจีนเช้า VIP จาก API Shenzhen Index Official ได้');
-    }
-
-    try {
-      const hasChinaAfternoonVipData = await applyChinaAfternoonVipMarket(sections);
-      if (!hasChinaAfternoonVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลจีนบ่าย VIP จาก API Shenzhen Index Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลจีนบ่าย VIP จาก API Shenzhen Index Official ได้');
-    }
-
-    try {
-      const hasHsiMorningVipData = await applyHsiMorningVipMarket(sections);
-      if (!hasHsiMorningVipData) {
-        warnings.push('à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹à¸›à¸¥à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¹€à¸Šà¹‰à¸² VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
-      }
-    } catch (error) {
-      warnings.push('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸”à¸¶à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¹€à¸Šà¹‰à¸² VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
-    }
-
-    try {
-      const hasHsiAfternoonVipData = await applyHsiAfternoonVipMarket(sections);
-      if (!hasHsiAfternoonVipData) {
-        warnings.push('à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹à¸›à¸¥à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¸šà¹ˆà¸²à¸¢ VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
-      }
-    } catch (error) {
-      warnings.push('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸”à¸¶à¸‡à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸®à¸±à¹ˆà¸‡à¹€à¸ªà¹‡à¸‡à¸šà¹ˆà¸²à¸¢ VIP à¸ˆà¸²à¸ API HSI VIP Official à¹„à¸”à¹‰');
-    }
-
-    try {
-      const hasNikkeiMorningVipData = await applyNikkeiMorningVipMarket(sections);
-      if (!hasNikkeiMorningVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลนิเคอิเช้า VIP จาก API Nikkei VIP Stock Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลนิเคอิเช้า VIP จาก API Nikkei VIP Stock Official ได้');
-    }
-
-    try {
-      const hasNikkeiAfternoonVipData = await applyNikkeiAfternoonVipMarket(sections);
-      if (!hasNikkeiAfternoonVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลนิเคอิบ่าย VIP จาก API Nikkei VIP Stock Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลนิเคอิบ่าย VIP จาก API Nikkei VIP Stock Official ได้');
-    }
-
-    try {
-      const hasEnglandVipData = await applyEnglandVipMarket(sections);
-      if (!hasEnglandVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลอังกฤษ VIP จาก Lotto Super Rich Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลอังกฤษ VIP จาก Lotto Super Rich Official ได้');
-    }
-
-    try {
-      const hasGermanyVipData = await applyGermanyVipMarket(sections);
-      if (!hasGermanyVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลเยอรมัน VIP จาก Lotto Super Rich Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลเยอรมัน VIP จาก Lotto Super Rich Official ได้');
-    }
-
-    try {
-      const hasRussiaVipData = await applyRussiaVipMarket(sections);
-      if (!hasRussiaVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลรัสเชีย VIP จาก Lotto Super Rich Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลรัสเชีย VIP จาก Lotto Super Rich Official ได้');
-    }
-
-    try {
-      const hasKoreaVipData = await applyKoreaVipMarket(sections);
-      if (!hasKoreaVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลเกาหลี VIP จาก KTop VIP Index Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลเกาหลี VIP จาก KTop VIP Index Official ได้');
-    }
-
-    try {
-      const hasTaiwanVipData = await applyTaiwanVipMarket(sections);
-      if (!hasTaiwanVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลไต้หวัน VIP จาก TSEC VIP Index Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลไต้หวัน VIP จาก TSEC VIP Index Official ได้');
-    }
-
-    try {
-      const hasSingaporeVipData = await applySingaporeVipMarket(sections);
-      if (!hasSingaporeVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลสิงคโปร์ VIP จาก Stocks VIP Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลสิงคโปร์ VIP จาก Stocks VIP Official ได้');
-    }
-
-    try {
-      const hasDowjonesVipData = await applyDowjonesVipMarket(sections);
-      if (!hasDowjonesVipData) {
-        warnings.push('ยังไม่สามารถแปลงข้อมูลดาวโจนส์ VIP จาก Dow Jones Powerball Official ได้');
-      }
-    } catch (error) {
-      warnings.push('ไม่สามารถดึงข้อมูลดาวโจนส์ VIP จาก Dow Jones Powerball Official ได้');
-    }
-
-  if (!PROVIDER_KEY) {
-    warnings.push('ยังไม่ได้ตั้งค่า MANYCAI_API_KEY บน backend ตลาดที่ใช้ ManyCai จะแสดงเป็นรอเชื่อมต่อ');
-
-    warnings.push('Using ManyCai feed fallback because MANYCAI_API_KEY is not configured');
-  }
-
-  const requests = await Promise.allSettled(ACTIVE_MANYCAI_MARKETS.map((market) => fetchProvider(market.code)));
-
-  requests.forEach((result, index) => {
-    const market = ACTIVE_MANYCAI_MARKETS[index];
-    if (!market) {
-      return;
-    }
-
-    if (result.status !== 'fulfilled') {
-      warnings.push(`ไม่สามารถดึงข้อมูล ${market.name} จาก ManyCai ได้`);
-      return;
-    }
-
-    const hydrated = market.type === 'stock'
-      ? applyManyCaiStockMarket(sections, market, result.value)
-      : market.type === 'baac'
-        ? applyManyCaiBaacMarket(sections, market, result.value)
-      : applyManyCaiStandardMarket(sections, market, result.value);
-
-    if (!hydrated) {
-      warnings.push(`ไม่สามารถแปลงข้อมูล ${market.name} จาก ManyCai ได้`);
-    }
-  });
-
-  await applyDrawTimeVisibilityGuards(sections);
-
-  const overview = {
-    provider: {
-      name: PROVIDER_NAME,
-      configured: true,
-      baseUrl: PROVIDER_BASE_URL,
-      fetchedAt: new Date().toISOString(),
-      cacheTtlMs: CACHE_TTL_MS
-    },
-    summary: buildSummary(sections),
-    warnings,
-    sections
-  };
-
-  cache.data = overview;
-  cache.fetchedAt = Date.now();
-
-  return overview;
+  return rebuildMarketOverviewSnapshot();
 };
 
 const getMarketById = async (marketId) => {
@@ -2870,4 +2985,18 @@ const getMarketById = async (marketId) => {
   return null;
 };
 
-module.exports = { getMarketOverview, getMarketById };
+module.exports = {
+  getMarketOverview,
+  getMarketById,
+  rebuildMarketOverviewSnapshot,
+  __test: {
+    DEFAULT_MARKET_RESULTS_CACHE_MS,
+    DEFAULT_MARKET_RESULTS_BATCH_SIZE,
+    runBatchedMarketTasks,
+    cloneSectionsForTest: cloneSections,
+    groupSectionsForDisplay,
+    hydrateSectionsFromStoredSnapshot,
+    createOverviewSnapshotDocument,
+    restoreOverviewFromSnapshotDocument
+  }
+};

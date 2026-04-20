@@ -24,6 +24,12 @@ import {
 } from '../../services/api';
 import { formatDateTime, formatRoundLabel, formatThaiDate, THAI_TIMEZONE } from '../../utils/formatters';
 import { getLotteryVisual } from '../../utils/lotteryVisuals';
+import {
+  hasResultContent,
+  getLatestResultCandidate,
+  sortResultsByLatestFirst,
+  getResultChronologyTime
+} from '../../utils/lotteryResultSelection';
 
 const UI = {
   eyebrow: 'ผลหวย API',
@@ -459,18 +465,6 @@ const formatLotteryDisplayDate = (value, fallback = '-') => {
   return formatRoundLabel(value, { fallback });
 };
 
-const hasResultContent = (result) => Boolean(
-  result
-  && (
-    (result.headline && result.headline !== '-')
-    || result.firstPrize
-    || result.twoBottom
-    || result.threeTop
-    || result.resultPublishedAt
-    || (result.numbers || []).some((item) => item?.value)
-  )
-);
-
 const buildSyntheticRound = (marketId, now = new Date()) => {
   const schedule = SYNTHETIC_ROUND_SCHEDULES[marketId];
   if (!schedule) return null;
@@ -582,7 +576,7 @@ const getLatestRecentResult = (recentResultsMap, resultKeys) => {
   for (const key of resultKeys) {
     const entries = recentResultsMap.get(normalizeKey(key));
     if (entries?.length) {
-      return entries[0];
+      return getLatestResultCandidate(entries);
     }
   }
 
@@ -603,42 +597,8 @@ const getRecentHistory = (recentResultsMap, resultKeys, limit = 6) => {
     });
   });
 
-  return merged
-    .sort((left, right) => {
-      const leftDate = getResultChronologyTime(left);
-      const rightDate = getResultChronologyTime(right);
-      return rightDate - leftDate;
-    })
-    .slice(0, limit);
+  return sortResultsByLatestFirst(merged).slice(0, limit);
 };
-
-const getResultChronologyTime = (result) => {
-  const drawAt = result?.drawAt ? new Date(result.drawAt).getTime() : 0;
-  if (Number.isFinite(drawAt) && drawAt > 0) {
-    return drawAt;
-  }
-
-  const roundCodeMatch = String(result?.roundCode || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (roundCodeMatch) {
-    return Date.UTC(
-      Number(roundCodeMatch[1]),
-      Number(roundCodeMatch[2]) - 1,
-      Number(roundCodeMatch[3]),
-      12,
-      0,
-      0
-    );
-  }
-
-  const publishedAt = result?.resultPublishedAt ? new Date(result.resultPublishedAt).getTime() : 0;
-  return Number.isFinite(publishedAt) ? publishedAt : 0;
-};
-
-const sortResultsByLatestFirst = (results = []) => [...results].sort((left, right) => {
-  const leftDate = getResultChronologyTime(left);
-  const rightDate = getResultChronologyTime(right);
-  return rightDate - leftDate;
-});
 
 const formatInteger = (value) => new Intl.NumberFormat('th-TH').format(Number(value || 0));
 
@@ -701,7 +661,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
   const [settlementFeedback, setSettlementFeedback] = useState(null);
   const [marketHistoryCache, setMarketHistoryCache] = useState({});
 
-  const loadData = async ({ silent = false } = {}) => {
+  const loadData = async ({ silent = false, force = false } = {}) => {
     if (silent) {
       setRefreshing(true);
     } else {
@@ -710,9 +670,9 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     setMarketHistoryCache({});
 
     const [catalogResult, marketResult, syncResult] = await Promise.allSettled([
-      getCatalogOverview(),
-      getMarketOverview(),
-      isAdmin ? getLotterySyncStatus() : Promise.resolve({ data: null })
+      getCatalogOverview({ force }),
+      getMarketOverview({ force }),
+      isAdmin ? getLotterySyncStatus({ force }) : Promise.resolve({ data: null })
     ]);
 
     if (catalogResult.status === 'fulfilled') {
@@ -769,7 +729,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
       } else {
         toast.success(summary?.mode === 'fetch-store' ? UI.syncLatestDeferredSuccess : UI.syncLatestSuccess);
       }
-      await loadData({ silent: true });
+      await loadData({ silent: true, force: true });
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || UI.syncLatestError);
@@ -790,7 +750,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     try {
       await updateRoundBettingOverride(activeRoundId, { bettingOverride: nextOverride });
       toast.success(BETTING_TOGGLE_UI.updated);
-      await loadData({ silent: true });
+      await loadData({ silent: true, force: true });
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || BETTING_TOGGLE_UI.error);
@@ -810,7 +770,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     try {
       await updateRoundBettingOverride(activeRoundId, { bettingOverride: 'auto' });
       toast.success(BETTING_TOGGLE_UI.resetDone);
-      await loadData({ silent: true });
+      await loadData({ silent: true, force: true });
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || BETTING_TOGGLE_UI.error);
@@ -842,9 +802,11 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
           const matchedLottery = resolveCatalogLottery(apiMarket, catalogLotteryMap);
           const resultKeys = resolveResultKeys(apiMarket, matchedLottery);
           const fallbackRecentResult = getLatestRecentResult(recentResultsMap, resultKeys);
-          const latestResult = hasResultContent(matchedLottery?.latestResult)
-            ? matchedLottery.latestResult
-            : (fallbackRecentResult || buildApiResultSnapshot(apiMarket));
+          const latestResult = getLatestResultCandidate([
+            matchedLottery?.latestResult,
+            fallbackRecentResult,
+            buildApiResultSnapshot(apiMarket)
+          ]) || buildApiResultSnapshot(apiMarket);
           const effectiveStatus = matchedLottery?.status
             || ((apiMarket.status === 'waiting' || apiMarket.status === 'missing') && fallbackRecentResult ? 'live' : (apiMarket.status || 'missing'));
           const statusMeta = resolveStatusMeta(effectiveStatus);
@@ -911,12 +873,15 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     () => displaySections.flatMap((section) => section.cards).find((card) => card.selectionKey === selectedCode) || null,
     [displaySections, selectedCode]
   );
+  const selectedLotteryId = selectedCard?.id || '';
+  const selectedSelectionKey = selectedCard?.selectionKey || '';
+  const hasSelectedMarketHistory = selectedLotteryId ? Boolean(marketHistoryCache[selectedLotteryId]) : false;
 
   useEffect(() => {
-    const lotteryId = selectedCard?.id;
-    const canLoadMarketHistory = Boolean(lotteryId && lotteryId !== selectedCard?.selectionKey);
+    const lotteryId = selectedLotteryId;
+    const canLoadMarketHistory = Boolean(lotteryId && lotteryId !== selectedSelectionKey);
 
-    if (!canLoadMarketHistory || marketHistoryCache[lotteryId]) {
+    if (!canLoadMarketHistory || hasSelectedMarketHistory) {
       return undefined;
     }
 
@@ -941,7 +906,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     return () => {
       cancelled = true;
     };
-  }, [marketHistoryCache, selectedCard]);
+  }, [hasSelectedMarketHistory, selectedLotteryId, selectedSelectionKey]);
 
   const availableSelectedHistory = useMemo(() => {
     if (!selectedCard) return [];
@@ -1122,7 +1087,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
 
       const payload = action === 'reconcile' ? response.data : (response.data?.summary || null);
       setSettlementFeedback(buildSettlementFeedback(action, payload));
-      await loadData({ silent: true });
+      await loadData({ silent: true, force: true });
 
       if (action === 'reconcile') {
         toast.success('ตรวจสอบ settlement สำเร็จ');
@@ -1166,7 +1131,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
           <button
             type="button"
             className="button button-secondary refresh-button"
-            onClick={() => loadData({ silent: true })}
+            onClick={() => loadData({ silent: true, force: true })}
             disabled={refreshing || syncingLatest}
           >
             <FiRefreshCw className={refreshing ? 'spin' : ''} />
@@ -1753,6 +1718,11 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
         .lottery-section-card,
         .lottery-detail-card {
           padding: 18px;
+        }
+
+        .lottery-section-card {
+          content-visibility: auto;
+          contain-intrinsic-size: 420px;
         }
 
         .lottery-detail-card {

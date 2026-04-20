@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { createBangkokDate } = require('../utils/bangkokTime');
+const { createBangkokDate, formatBangkokDate } = require('../utils/bangkokTime');
 
 const HANOI_STAR_PROVIDER_NAME = 'Exphuay Minh Ngoc Star';
 const HANOI_STAR_MARKET_ID = 'hanoi_star';
@@ -35,6 +35,14 @@ const tailDigits = (value, length) => {
 
 const parseRoundCode = (value) => {
   const normalized = stringValue(value);
+
+  if (/^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)) {
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatBangkokDate(parsed);
+    }
+  }
+
   const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return '';
   return `${match[1]}-${match[2]}-${match[3]}`;
@@ -163,5 +171,9 @@ module.exports = {
   HANOI_STAR_MARKET_NAME,
   HANOI_STAR_SITE_URL,
   fetchHanoiStarSnapshots,
-  fetchLatestHanoiStarSnapshot
+  fetchLatestHanoiStarSnapshot,
+  __test: {
+    buildSnapshot,
+    parseRoundCode
+  }
 };

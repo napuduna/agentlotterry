@@ -23,6 +23,7 @@ const emptySelection = {
   roundId: null,
   rateProfileId: null
 };
+const shouldLoadCatalogForUser = (user) => Boolean(user && user.role !== 'admin');
 
 const normalizeOverviewPayload = (payload) => ({
   ...(payload || {}),
@@ -46,7 +47,7 @@ export const CatalogProvider = ({ children }) => {
   const [selection, setSelection] = useState(emptySelection);
 
   const loadOverview = async () => {
-    if (!user) {
+    if (!shouldLoadCatalogForUser(user)) {
       setOverview(null);
       setSelection(emptySelection);
       return;

@@ -1,27 +1,29 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CatalogProvider } from './context/CatalogContext';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
+import PageSkeleton from './components/PageSkeleton';
 import ProtectedRoute from './components/ProtectedRoute';
 import { getAppRouteForRole } from './utils/roleRoutes';
 
 // Pages
-import Login from './pages/Login';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AgentManagement from './pages/admin/AgentManagement';
-import CustomerManagement from './pages/admin/CustomerManagement';
-import AdminBets from './pages/admin/AdminBets';
-import AdminReports from './pages/admin/AdminReports';
-import AdminLottery from './pages/admin/AdminLottery';
-import AgentDashboard from './pages/agent/AgentDashboard';
-import AgentCustomers from './pages/agent/AgentCustomers';
-import AgentMemberDetail from './pages/agent/AgentMemberDetail';
-import AgentBets from './pages/agent/AgentBets';
-import AgentLottery from './pages/agent/AgentLottery';
-import AgentReports from './pages/agent/AgentReports';
-import OperatorBetting from './pages/shared/OperatorBetting';
+const Login = lazy(() => import('./pages/Login'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AgentManagement = lazy(() => import('./pages/admin/AgentManagement'));
+const CustomerManagement = lazy(() => import('./pages/admin/CustomerManagement'));
+const AdminBets = lazy(() => import('./pages/admin/AdminBets'));
+const AdminReports = lazy(() => import('./pages/admin/AdminReports'));
+const AdminLottery = lazy(() => import('./pages/admin/AdminLottery'));
+const AgentDashboard = lazy(() => import('./pages/agent/AgentDashboard'));
+const AgentCustomers = lazy(() => import('./pages/agent/AgentCustomers'));
+const AgentMemberDetail = lazy(() => import('./pages/agent/AgentMemberDetail'));
+const AgentBets = lazy(() => import('./pages/agent/AgentBets'));
+const AgentLottery = lazy(() => import('./pages/agent/AgentLottery'));
+const AgentReports = lazy(() => import('./pages/agent/AgentReports'));
+const OperatorBetting = lazy(() => import('./pages/shared/OperatorBetting'));
 
 const AppLayout = ({ children }) => {
   const { user } = useAuth();
@@ -66,6 +68,7 @@ function App() {
               error: { iconTheme: { primary: '#ef4444', secondary: '#f0f4f8' } },
             }}
           />
+          <Suspense fallback={<PageSkeleton />}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<HomeRedirect />} />
@@ -149,6 +152,7 @@ function App() {
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
+          </Suspense>
         </CatalogProvider>
       </AuthProvider>
     </Router>

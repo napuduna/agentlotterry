@@ -18,6 +18,58 @@ const buildNoCacheConfig = (params = {}) => ({
     Pragma: 'no-cache'
   }
 });
+const READ_CACHE_DEFAULT_TTL_MS = Number(import.meta.env.VITE_API_READ_CACHE_MS || 15000);
+const readCache = new Map();
+
+const stableStringify = (value = {}) => {
+  if (!value || typeof value !== 'object') return String(value);
+
+  return JSON.stringify(
+    Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        const nextValue = value[key];
+        if (nextValue !== undefined && nextValue !== null && nextValue !== '') {
+          acc[key] = nextValue;
+        }
+        return acc;
+      }, {})
+  );
+};
+
+const getReadCacheKey = (url, params = {}) => {
+  const token = localStorage.getItem('token') || '';
+  return `${token}:${url}:${stableStringify(params)}`;
+};
+
+export const clearApiReadCache = () => {
+  readCache.clear();
+};
+
+const cachedGet = (url, { params = {}, ttlMs = READ_CACHE_DEFAULT_TTL_MS, force = false } = {}) => {
+  const cacheKey = getReadCacheKey(url, params);
+  const now = Date.now();
+  const cached = readCache.get(cacheKey);
+
+  if (!force && cached && cached.expiresAt > now) {
+    return cached.promise;
+  }
+
+  const request = api.get(
+    url,
+    force ? buildNoCacheConfig(params) : { params }
+  ).catch((error) => {
+    readCache.delete(cacheKey);
+    throw error;
+  });
+
+  readCache.set(cacheKey, {
+    expiresAt: now + Math.max(0, ttlMs),
+    promise: request
+  });
+
+  return request;
+};
 
 // Add auth token to every request
 api.interceptors.request.use((config) => {
@@ -33,6 +85,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      clearApiReadCache();
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -108,29 +161,74 @@ export const getMemberBetItems = (params) => api.get('/member/bets', { params })
 export const getMemberSummary = (params) => api.get('/member/reports/summary', { params });
 
 // Catalog
-export const getCatalogOverview = () => api.get('/catalog/overview', buildNoCacheConfig());
+export const getCatalogOverview = (options = {}) => cachedGet('/catalog/overview', {
+  ttlMs: 30000,
+  force: Boolean(options.force)
+});
 export const getCatalogLotteries = () => api.get('/catalog/lotteries');
 export const getCatalogRounds = (lotteryId) => api.get('/catalog/rounds', { params: { lotteryId } });
-export const markCatalogAnnouncementRead = (announcementId) => api.post(`/catalog/announcements/${announcementId}/read`);
+export const markCatalogAnnouncementRead = async (announcementId) => {
+  const response = await api.post(`/catalog/announcements/${announcementId}/read`);
+  clearApiReadCache();
+  return response;
+};
 
 // Presence
 export const sendPresenceHeartbeat = () => api.post('/presence/heartbeat');
 
 // Results feed
-export const getRecentMarketResults = (params) => api.get('/results/recent', buildNoCacheConfig(params));
+export const getRecentMarketResults = (params, options = {}) => cachedGet('/results/recent', {
+  params,
+  ttlMs: 60000,
+  force: Boolean(options.force)
+});
 
 // Lottery
-export const getMarketOverview = () => api.get('/lottery/markets', buildNoCacheConfig());
-export const getLotterySyncStatus = () => api.get('/lottery/sync-status');
-export const syncLatestLottery = () => api.post('/lottery/sync-latest');
+export const getMarketOverview = (options = {}) => cachedGet('/lottery/markets', {
+  ttlMs: 15000,
+  force: Boolean(options.force)
+});
+export const getLotterySyncStatus = (options = {}) => cachedGet('/lottery/sync-status', {
+  ttlMs: 5000,
+  force: Boolean(options.force)
+});
+export const syncLatestLottery = async () => {
+  const response = await api.post('/lottery/sync-latest');
+  clearApiReadCache();
+  return response;
+};
 export const getLatestLottery = () => api.get('/lottery/latest');
 export const getLotteryResults = () => api.get('/lottery/results');
-export const fetchLottery = (data) => api.post('/lottery/fetch', data);
-export const manualLottery = (data) => api.post('/lottery/manual', data);
-export const updateRoundClosedBetTypes = (roundId, data) => api.put(`/lottery/rounds/${roundId}/closed-bet-types`, data);
-export const updateRoundBettingOverride = (roundId, data) => api.put(`/lottery/rounds/${roundId}/betting-override`, data);
+export const fetchLottery = async (data) => {
+  const response = await api.post('/lottery/fetch', data);
+  clearApiReadCache();
+  return response;
+};
+export const manualLottery = async (data) => {
+  const response = await api.post('/lottery/manual', data);
+  clearApiReadCache();
+  return response;
+};
+export const updateRoundClosedBetTypes = async (roundId, data) => {
+  const response = await api.put(`/lottery/rounds/${roundId}/closed-bet-types`, data);
+  clearApiReadCache();
+  return response;
+};
+export const updateRoundBettingOverride = async (roundId, data) => {
+  const response = await api.put(`/lottery/rounds/${roundId}/betting-override`, data);
+  clearApiReadCache();
+  return response;
+};
 export const reconcileLotteryRoundSettlement = (roundId) => api.get(`/lottery/rounds/${roundId}/settlement/reconcile`);
-export const reverseLotteryRoundSettlement = (roundId) => api.post(`/lottery/rounds/${roundId}/settlement/reverse`);
-export const rerunLotteryRoundSettlement = (roundId) => api.post(`/lottery/rounds/${roundId}/settlement/rerun`);
+export const reverseLotteryRoundSettlement = async (roundId) => {
+  const response = await api.post(`/lottery/rounds/${roundId}/settlement/reverse`);
+  clearApiReadCache();
+  return response;
+};
+export const rerunLotteryRoundSettlement = async (roundId) => {
+  const response = await api.post(`/lottery/rounds/${roundId}/settlement/rerun`);
+  clearApiReadCache();
+  return response;
+};
 
 export default api;
