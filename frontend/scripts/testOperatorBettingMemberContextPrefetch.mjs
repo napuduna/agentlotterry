@@ -28,6 +28,8 @@ assert.match(
   /sortedSearchResults[\s\S]*slice\(0, MEMBER_CONTEXT_PREFETCH_LIMIT\)[\s\S]*prefetchMemberContext\(member\.id\)/,
   'member search results should prefetch top member contexts'
 );
+assert.match(source, /const MEMBER_CONTEXT_PREFETCH_LIMIT = 1;/, 'member context auto-prefetch should be limited to one result');
+assert.match(source, /const MEMBER_CONTEXT_PREFETCH_STAGGER_MS = 250;/, 'member context auto-prefetch should avoid bursty requests');
 assert.match(
   source,
   /copy\.getContext\(memberId\)\.catch/,
@@ -42,7 +44,7 @@ assert.match(
 const adminContextBlock = apiSource.match(/export const getAdminBettingMemberContext[\s\S]*?\}\);/)?.[0] || '';
 const agentContextBlock = apiSource.match(/export const getAgentBettingMemberContext[\s\S]*?\}\);/)?.[0] || '';
 
-assert.match(adminContextBlock, /READ_TTL_MEDIUM_MS/, 'admin member context cache should stay warm long enough for selection');
-assert.match(agentContextBlock, /READ_TTL_MEDIUM_MS/, 'agent member context cache should stay warm long enough for selection');
+assert.match(adminContextBlock, /READ_TTL_LONG_MS/, 'admin member context cache should stay warm long enough for selection');
+assert.match(agentContextBlock, /READ_TTL_LONG_MS/, 'agent member context cache should stay warm long enough for selection');
 
 console.log('testOperatorBettingMemberContextPrefetch: ok');

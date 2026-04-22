@@ -10,10 +10,12 @@ const ui = {
 };
 
 const GroupedSlipSummary = ({ slip, dense = false, showMemo = false, className = '', summaryBlock = null }) => {
+  const slipItems = slip?.items || [];
+  const slipDisplayGroups = slip?.displayGroups || [];
   const groups = useMemo(() => {
-    const baseGroups = slip?.items?.length ? buildSlipDisplayGroups(slip.items) : (slip?.displayGroups || []);
+    const baseGroups = slipDisplayGroups.length ? slipDisplayGroups : buildSlipDisplayGroups(slipItems);
     return sortSlipDisplayGroups(baseGroups);
-  }, [slip]);
+  }, [slipDisplayGroups, slipItems]);
 
   const memoText = String(slip?.memo || '').trim();
 

@@ -131,5 +131,10 @@ const betSlipSchema = new mongoose.Schema({
 
 betSlipSchema.index({ customerId: 1, status: 1, createdAt: -1 });
 betSlipSchema.index({ drawRoundId: 1, status: 1 });
+betSlipSchema.index({ status: 1, createdAt: -1, _id: -1 });
+betSlipSchema.index({ status: 1, agentId: 1, createdAt: -1, _id: -1 });
+betSlipSchema.index({ status: 1, agentId: 1, customerId: 1, createdAt: -1, _id: -1 });
+betSlipSchema.index({ status: 1, lotteryCode: 1, roundCode: 1, createdAt: -1, _id: -1 });
+betSlipSchema.index({ status: 1, agentId: 1, lotteryCode: 1, roundCode: 1, createdAt: -1, _id: -1 });
 
 module.exports = mongoose.model('BetSlip', betSlipSchema);

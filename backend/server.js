@@ -36,6 +36,7 @@ const walletRoutes = require('./src/routes/walletRoutes');
 const presenceRoutes = require('./src/routes/presenceRoutes');
 const { ensureCatalogSeed } = require('./src/services/catalogService');
 const { startExternalResultAutoSync } = require('./src/services/externalResultFeedService');
+const { startReadModelSnapshotAutoRefresh } = require('./src/services/readModelSnapshotService');
 const User = require('./src/models/User');
 
 const app = express();
@@ -172,6 +173,9 @@ bootstrapApp()
         `External result auto-sync disabled on web startup; use POST /api/lottery/sync-latest/cron${cronSyncToken ? ' with configured token' : ''}`
       );
     }
+
+    startReadModelSnapshotAutoRefresh();
+    console.log('Read model snapshot auto-refresh enabled');
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

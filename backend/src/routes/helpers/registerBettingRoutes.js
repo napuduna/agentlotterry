@@ -1,7 +1,8 @@
 const { createAuditLog } = require('../../middleware/auditLog');
 const { getBetTotals, listBettingRecentItems } = require('../../services/analyticsService');
 const { previewSlip, createSlip, cancelSlipByActor } = require('../../services/betSlipService');
-const { getCatalogOverview } = require('../../services/catalogService');
+const { getBettingCatalogOverview } = require('../../services/catalogService');
+const { scheduleReadModelSnapshotRebuild } = require('../../services/readModelSnapshotService');
 const { searchMembersForBetting, getMemberForBettingActor } = require('../../services/memberManagementService');
 const { getDraftSession, saveDraftSession, clearDraftSession } = require('../../services/bettingDraftService');
 const { buildDraftScopePayload } = require('../../utils/bettingDraftPayload');
@@ -65,9 +66,12 @@ const registerBettingRoutes = (
         memberId: req.params.memberId
       });
 
+      const shouldIncludeTotals = req.query.includeTotals === '1' || req.query.includeTotals === 'true';
       const [catalog, totals] = await Promise.all([
-        getCatalogOverview(member),
-        getBetTotals(buildMemberTotalsParams(req, member))
+        getBettingCatalogOverview(member),
+        shouldIncludeTotals
+          ? getBetTotals(buildMemberTotalsParams(req, member))
+          : Promise.resolve({})
       ]);
 
       res.json({
@@ -109,6 +113,11 @@ const registerBettingRoutes = (
         slip.id,
         buildSlipAuditPayload({ customerId: req.body.customerId, slip })
       );
+      scheduleReadModelSnapshotRebuild({
+        reason: 'betting-slip-create',
+        agentIds: req.user.role === 'agent' ? [req.user._id] : [],
+        includeAgents: req.user.role === 'admin'
+      });
 
       res.status(201).json(slip);
     } catch (error) {
@@ -130,6 +139,11 @@ const registerBettingRoutes = (
       await createAuditLog(req.user._id, cancelSlipOptions.auditAction, slip.id, {
         slipNumber: slip.slipNumber,
         customerId: slip.customerId
+      });
+      scheduleReadModelSnapshotRebuild({
+        reason: 'betting-slip-cancel',
+        agentIds: req.user.role === 'agent' ? [req.user._id] : [],
+        includeAgents: req.user.role === 'admin'
       });
 
       res.json(slip);

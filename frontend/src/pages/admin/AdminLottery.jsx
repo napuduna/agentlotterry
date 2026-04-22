@@ -714,46 +714,56 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     }
     setMarketHistoryCache({});
 
-    const [catalogResult, marketResult, syncResult] = await Promise.allSettled([
-      getCatalogOverview({ force }),
-      getMarketOverview({ force }),
-      isAdmin ? getLotterySyncStatus({ force }) : Promise.resolve({ data: null })
-    ]);
-
-    if (catalogResult.status === 'fulfilled') {
-      setCatalogOverview(catalogResult.value.data || null);
-    } else {
-      console.error(catalogResult.reason);
-      toast.error('โหลดข้อมูลผลหวยไม่สำเร็จ');
-      setCatalogOverview({ leagues: [], recentResults: [] });
-    }
-
-    if (marketResult.status === 'fulfilled') {
-      setMarketOverview(marketResult.value.data || null);
-    } else {
-      console.error(marketResult.reason);
-      toast.error('โหลดสถานะ API ผลหวยไม่สำเร็จ');
-      setMarketOverview({ provider: { configured: false }, warnings: [] });
-    }
-
-    if (syncResult.status === 'fulfilled') {
-      setSyncStatus(syncResult.value.data || null);
-    } else if (isAdmin) {
-      console.error(syncResult.reason);
-      toast.error('โหลดสถานะซิงก์ผลหวยไม่สำเร็จ');
-      setSyncStatus({
-        running: false,
-        lastError: syncResult.reason?.message || 'โหลดสถานะซิงก์ไม่สำเร็จ',
-        lastSummary: null,
-        mappingCoverage: null,
-        feeds: []
+    const catalogTask = getCatalogOverview({ force })
+      .then((response) => {
+        setCatalogOverview(response.data || null);
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error('โหลดข้อมูลผลหวยไม่สำเร็จ');
+        setCatalogOverview({ leagues: [], recentResults: [] });
       });
-    } else {
-      setSyncStatus(null);
+
+    const marketTask = getMarketOverview({ force })
+      .then((response) => {
+        setMarketOverview(response.data || null);
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error('โหลดสถานะ API ผลหวยไม่สำเร็จ');
+        setMarketOverview({ provider: { configured: false }, warnings: [] });
+      });
+
+    const syncTask = isAdmin
+      ? getLotterySyncStatus({ force })
+        .then((response) => {
+          setSyncStatus(response.data || null);
+        })
+        .catch((error) => {
+          console.error(error);
+          toast.error('โหลดสถานะซิงก์ผลหวยไม่สำเร็จ');
+          setSyncStatus({
+            running: false,
+            lastError: error?.message || 'โหลดสถานะซิงก์ไม่สำเร็จ',
+            lastSummary: null,
+            mappingCoverage: null,
+            feeds: []
+          });
+        })
+      : Promise.resolve().then(() => setSyncStatus(null));
+
+    if (silent) {
+      await Promise.allSettled([catalogTask, marketTask, syncTask]);
+      setRefreshing(false);
+      return;
     }
 
+    await marketTask;
     setLoading(false);
-    setRefreshing(false);
+
+    Promise.allSettled([catalogTask, syncTask]).finally(() => {
+      setRefreshing(false);
+    });
   };
 
   useEffect(() => {

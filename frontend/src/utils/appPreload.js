@@ -11,7 +11,6 @@ import {
   getAgents,
   getCatalogLotteries,
   getCatalogOverview,
-  getLotterySyncStatus,
   getMarketOverview
 } from '../services/api';
 import { DEFAULT_ADMIN_CUSTOMER_FILTERS, normalizeAdminCustomerFilters } from './adminCustomerFilters';
@@ -115,8 +114,7 @@ const routeWarmersByPath = Object.freeze({
   ],
   '/admin/lottery': [
     () => getCatalogOverview(),
-    () => getMarketOverview(),
-    () => getLotterySyncStatus()
+    () => getMarketOverview()
   ],
   '/admin/betting': [],
   '/agent': [() => getAgentDashboard()],

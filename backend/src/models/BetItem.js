@@ -132,5 +132,9 @@ betItemSchema.index({ slipId: 1, status: 1, sequence: 1 });
 betItemSchema.index({ customerId: 1, drawRoundId: 1 });
 betItemSchema.index({ drawRoundId: 1, status: 1, isLocked: 1 });
 betItemSchema.index({ migrationSourceType: 1, migrationSourceId: 1 });
+betItemSchema.index({ status: 1, agentId: 1, customerId: 1, createdAt: -1 });
+betItemSchema.index({ status: 1, customerId: 1, createdAt: -1 });
+betItemSchema.index({ status: 1, agentId: 1, result: 1, createdAt: -1 });
+betItemSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('BetItem', betItemSchema);

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useDeferredValue } from 'react';
 import toast from 'react-hot-toast';
 import {
   FiAlertCircle,
@@ -52,8 +53,8 @@ import { copySlipPreviewImage } from '../../utils/slipImage';
 const RECENT_MARKETS_LIMIT = 6;
 const CLOSING_SOON_LIMIT = 6;
 const FAVORITE_MARKETS_LIMIT = 8;
-const MEMBER_CONTEXT_PREFETCH_LIMIT = 3;
-const MEMBER_CONTEXT_PREFETCH_STAGGER_MS = 120;
+const MEMBER_CONTEXT_PREFETCH_LIMIT = 1;
+const MEMBER_CONTEXT_PREFETCH_STAGGER_MS = 250;
 const MEMBER_CONTEXT_WARM_MARK_TTL_MS = 15000;
 const MARKET_CATEGORY_ORDER = ['main', 'stock_am', 'stock_pm', 'vip', 'foreign', 'daily', 'other'];
 const MARKET_CATEGORY_LABELS = {
@@ -1299,13 +1300,18 @@ const OperatorBetting = () => {
     return [...manualItems, ...rawItems];
   }, [discardedTokenCountMap, excludedFastNumbers, fastCandidateCountMap, visibleFastDiscardedTokens]);
   const activeFastCandidateEntries = useMemo(
-    () => parsedFastCandidateEntries.filter((number) => !excludedFastNumbers.includes(number)),
+    () => {
+      if (!excludedFastNumbers.length) return parsedFastCandidateEntries;
+      const excluded = new Set(excludedFastNumbers);
+      return parsedFastCandidateEntries.filter((number) => !excluded.has(number));
+    },
     [excludedFastNumbers, parsedFastCandidateEntries]
   );
   const activeFastNumbers = useMemo(
     () => dedupeOrderedNumbers(activeFastCandidateEntries),
     [activeFastCandidateEntries]
   );
+  const activeFastNumberSet = useMemo(() => new Set(activeFastNumbers), [activeFastNumbers]);
   const parsedFastEntryCount = useMemo(
     () => parsedFastCandidateEntries.length,
     [parsedFastCandidateEntries]
@@ -1350,7 +1356,6 @@ const OperatorBetting = () => {
       candidateCounts: fastCandidateCountMap
     });
   }, [activeFastCandidateEntries, fastAmounts, fastCandidateCountMap, fastFamily, helperFastNumbers, includeDoubleSet, mode, rawInput, reverse, roundClosedBetTypes, selectedLottery, selectedRateProfile]);
-  const fastDraftGroups = useMemo(() => buildSlipDisplayGroups(fastDraftItems), [fastDraftItems]);
   const gridDraftItems = useMemo(() => {
     if (mode !== 'grid') return [];
 
@@ -1360,23 +1365,29 @@ const OperatorBetting = () => {
         return [];
       }
     }, [digitMode, gridRows, mode, selectedLottery]);
-  const gridDraftGroups = useMemo(() => buildSlipDisplayGroups(gridDraftItems), [gridDraftItems]);
   const currentDraftItems = mode === 'fast' ? fastDraftItems : gridDraftItems;
   const combinedDraftItems = useMemo(
     () => [...savedDraftEntries.flatMap((entry) => entry.items || []), ...currentDraftItems],
     [currentDraftItems, savedDraftEntries]
   );
-  const combinedDraftGroups = useMemo(() => buildSlipDisplayGroups(combinedDraftItems), [combinedDraftItems]);
+  const deferredCombinedDraftItems = useDeferredValue(combinedDraftItems);
+  const combinedDraftGroups = useMemo(() => buildSlipDisplayGroups(deferredCombinedDraftItems), [deferredCombinedDraftItems]);
   const combinedDraftSummary = useMemo(() => ({
     itemCount: combinedDraftItems.length,
     totalAmount: combinedDraftItems.reduce((sum, item) => sum + Number(item?.amount || 0), 0),
     potentialPayout: combinedDraftItems.reduce((sum, item) => sum + Number(item?.potentialPayout || (Number(item?.amount || 0) * Number(item?.payRate || 0))), 0)
   }), [combinedDraftItems]);
+  const deferredCombinedDraftSummary = useMemo(() => ({
+    itemCount: deferredCombinedDraftItems.length,
+    totalAmount: deferredCombinedDraftItems.reduce((sum, item) => sum + Number(item?.amount || 0), 0),
+    potentialPayout: deferredCombinedDraftItems.reduce((sum, item) => sum + Number(item?.potentialPayout || (Number(item?.amount || 0) * Number(item?.payRate || 0))), 0)
+  }), [deferredCombinedDraftItems]);
   const hasDraftItems = currentDraftItems.length > 0;
   const combinedDraftMemo = useMemo(
     () => [...savedDraftEntries.map((entry) => entry.memo).filter(Boolean), hasDraftItems ? memo : ''].filter(Boolean).join(' | '),
     [hasDraftItems, memo, savedDraftEntries]
   );
+  const deferredCombinedDraftMemo = useDeferredValue(combinedDraftMemo);
   const hasSavedDraftEntries = savedDraftEntries.length > 0;
   const hasPendingSlip = combinedDraftItems.length > 0;
 
@@ -3034,7 +3045,7 @@ const OperatorBetting = () => {
                       <div className="operator-fast-chip-list">
                         {parsedFastCandidates.length ? (
                           parsedFastCandidates.map((number) => {
-                            const isActive = activeFastNumbers.includes(number);
+                            const isActive = activeFastNumberSet.has(number);
                             const repeatCount = getFastCandidateCount(fastCandidateCountMap, number);
                             return (
                               <button
@@ -3315,9 +3326,9 @@ const OperatorBetting = () => {
                     </div>
                   ) : null}
                   <GroupedSlipSummary
-                    slip={{ items: combinedDraftItems, displayGroups: combinedDraftGroups, memo: combinedDraftMemo }}
+                    slip={{ items: deferredCombinedDraftItems, displayGroups: combinedDraftGroups, memo: deferredCombinedDraftMemo }}
                     dense
-                    showMemo={Boolean(combinedDraftMemo)}
+                    showMemo={Boolean(deferredCombinedDraftMemo)}
                     summaryBlock={(
                       <div className="card operator-preview-compact-summary">
                         <div>
@@ -3326,7 +3337,7 @@ const OperatorBetting = () => {
                         </div>
                         <div>
                           <div className="ops-table-note" style={{ margin: 0 }}>{previewCopy.totalAmountLabel}</div>
-                          <strong>{money(combinedDraftSummary.totalAmount)} {copyText.baht}</strong>
+                          <strong>{money(deferredCombinedDraftSummary.totalAmount)} {copyText.baht}</strong>
                         </div>
                       </div>
                     )}

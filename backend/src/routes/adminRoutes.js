@@ -4,8 +4,6 @@ const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
 const { createAuditLog } = require('../middleware/auditLog');
 const {
-  getBetTotals,
-  getRecentBetItems,
   getTotalsGroupedByField,
   getAgentReportRows,
   listAgentBetItems
@@ -17,6 +15,9 @@ const {
   listAdminCustomers,
   updateAdminMember
 } = require('../services/memberManagementService');
+const { clearCatalogOverviewCache } = require('../services/catalogService');
+const { getAdminDashboardSummary } = require('../services/dashboardSnapshotService');
+const { scheduleReadModelSnapshotRebuild } = require('../services/readModelSnapshotService');
 const { registerBettingRoutes } = require('./helpers/registerBettingRoutes');
 const { parsePaginationQuery } = require('../utils/pagination');
 
@@ -128,36 +129,7 @@ registerBettingRoutes(router, {
 // GET /api/admin/dashboard
 router.get('/dashboard', async (req, res) => {
   try {
-    const [
-      totalAgents,
-      totalCustomers,
-      activeAgents,
-      activeCustomers,
-      betStats,
-      recentBets
-    ] = await Promise.all([
-      User.countDocuments({ role: 'agent' }),
-      User.countDocuments({ role: 'customer' }),
-      User.countDocuments({ role: 'agent', isActive: true }),
-      User.countDocuments({ role: 'customer', isActive: true }),
-      getBetTotals(),
-      getRecentBetItems({ limit: 10 })
-    ]);
-
-    res.json({
-      stats: {
-        totalAgents,
-        totalCustomers,
-        activeAgents,
-        activeCustomers,
-        totalBets: betStats.totalBets,
-        pendingBets: betStats.pendingBets,
-        totalAmount: betStats.totalAmount,
-        totalWon: betStats.totalWon,
-        netProfit: betStats.netProfit
-      },
-      recentBets
-    });
+    res.json(await getAdminDashboardSummary());
   } catch (error) {
     console.error('Dashboard error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -226,6 +198,7 @@ router.post('/agents', async (req, res) => {
       name: agent.name,
       status: agent.status
     });
+    scheduleReadModelSnapshotRebuild({ reason: 'admin-agent-create', includeAgents: true });
     res.status(201).json(agent);
   } catch (error) {
     console.error('Create agent error:', error);
@@ -251,6 +224,7 @@ router.put('/agents/:id', async (req, res) => {
       name: agent.name,
       status: agent.status
     });
+    scheduleReadModelSnapshotRebuild({ reason: 'admin-agent-update', agentIds: [agent._id] });
     res.json(agent);
   } catch (error) {
     res.status(400).json({ message: error.message || 'Failed to update agent' });
@@ -273,6 +247,7 @@ router.delete('/agents/:id', async (req, res) => {
     await User.updateMany({ agentId: agent._id }, { isActive: false });
 
     await createAuditLog(req.user._id, 'DEACTIVATE_AGENT', agent._id.toString(), { name: agent.name });
+    scheduleReadModelSnapshotRebuild({ reason: 'admin-agent-deactivate', includeAgents: true });
     res.json({ message: 'Agent deactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -329,6 +304,11 @@ router.post('/customers', async (req, res) => {
       name: detail.member.name,
       agentId: detail.member.agentId
     });
+    scheduleReadModelSnapshotRebuild({
+      reason: 'admin-customer-create',
+      agentIds: detail.member.agentId ? [detail.member.agentId] : [],
+      includeAgents: !detail.member.agentId
+    });
 
     res.status(201).json(detail);
   } catch (error) {
@@ -363,6 +343,12 @@ router.put('/customers/:id', async (req, res) => {
       name: detail.member.name,
       agentId: detail.member.agentId
     });
+    clearCatalogOverviewCache({ includeSnapshots: false });
+    scheduleReadModelSnapshotRebuild({
+      reason: 'admin-customer-update',
+      agentIds: detail.member.agentId ? [detail.member.agentId] : [],
+      includeAgents: !detail.member.agentId
+    });
 
     res.json(detail);
   } catch (error) {
@@ -382,6 +368,11 @@ router.delete('/customers/:id', async (req, res) => {
     await customer.save();
 
     await createAuditLog(req.user._id, 'DEACTIVATE_CUSTOMER', customer._id.toString(), { name: customer.name });
+    scheduleReadModelSnapshotRebuild({
+      reason: 'admin-customer-deactivate',
+      agentIds: customer.agentId ? [customer.agentId] : [],
+      includeAgents: !customer.agentId
+    });
     res.json({ message: 'Customer deactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

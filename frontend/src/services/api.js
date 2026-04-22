@@ -22,7 +22,7 @@ const buildNoCacheConfig = (params = {}) => ({
 const READ_CACHE_DEFAULT_TTL_MS = Number(import.meta.env.VITE_API_READ_CACHE_MS || 15000);
 const READ_TTL_SHORT_MS = 5000;
 const READ_TTL_MEDIUM_MS = 15000;
-const READ_TTL_LONG_MS = 30000;
+const READ_TTL_LONG_MS = 60000;
 const readCache = new Map();
 
 export const clearApiReadCache = () => {
@@ -138,7 +138,7 @@ export const getAdminReports = (params, options = {}) => cachedGet('/admin/repor
 });
 export const searchAdminBettingMembers = (params) => api.get('/admin/betting/members/search', { params });
 export const getAdminBettingMemberContext = (memberId, options = {}) => cachedGet(`/admin/betting/members/${memberId}/context`, {
-  ttlMs: READ_TTL_MEDIUM_MS,
+  ttlMs: READ_TTL_LONG_MS,
   force: Boolean(options.force)
 });
 export const parseAdminBettingSlip = (data) => api.post('/admin/betting/slips/parse', data);
@@ -193,7 +193,7 @@ export const getAgentReports = (params, options = {}) => cachedGet('/agent/repor
 });
 export const searchAgentBettingMembers = (params) => api.get('/agent/betting/members/search', { params });
 export const getAgentBettingMemberContext = (memberId, options = {}) => cachedGet(`/agent/betting/members/${memberId}/context`, {
-  ttlMs: READ_TTL_MEDIUM_MS,
+  ttlMs: READ_TTL_LONG_MS,
   force: Boolean(options.force)
 });
 export const parseAgentBettingSlip = (data) => api.post('/agent/betting/slips/parse', data);
@@ -263,11 +263,11 @@ export const getRecentMarketResults = (params, options = {}) => cachedGet('/resu
 
 // Lottery
 export const getMarketOverview = (options = {}) => cachedGet('/lottery/markets', {
-  ttlMs: READ_TTL_MEDIUM_MS,
+  ttlMs: READ_TTL_LONG_MS,
   force: Boolean(options.force)
 });
 export const getLotterySyncStatus = (options = {}) => cachedGet('/lottery/sync-status', {
-  ttlMs: READ_TTL_SHORT_MS,
+  ttlMs: READ_TTL_MEDIUM_MS,
   force: Boolean(options.force)
 });
 export const syncLatestLottery = async () => {

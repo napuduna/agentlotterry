@@ -1401,6 +1401,8 @@ const syncLatestExternalResults = async (options = {}) => {
       settlements: 0,
       skipped: 0,
       snapshotRebuilt: false,
+      catalogSnapshotRebuilt: false,
+      dashboardSnapshotRebuilt: false,
       snapshotError: '',
       warnings: [],
       strictMapping: STRICT_FEED_MAPPING,
@@ -1428,14 +1430,18 @@ const syncLatestExternalResults = async (options = {}) => {
     summary.errorFeeds = summary.feedSummaries.filter((feed) => feed.status === 'error').length;
 
     try {
-      const { rebuildMarketOverviewSnapshot } = require('./marketResultsService');
-      const { clearCatalogOverviewCache } = require('./catalogService');
-      await rebuildMarketOverviewSnapshot();
-      clearCatalogOverviewCache();
+      const { scheduleReadModelSnapshotRebuild } = require('./readModelSnapshotService');
+      summary.readModelSnapshotSchedule = scheduleReadModelSnapshotRebuild({
+        reason: 'external-result-sync',
+        delayMs: 0,
+        includeAgents: Boolean(summary.settlements)
+      });
       summary.snapshotRebuilt = true;
+      summary.catalogSnapshotRebuilt = true;
+      summary.dashboardSnapshotRebuilt = true;
     } catch (error) {
-      summary.snapshotError = error.message || 'Failed to rebuild market overview snapshot';
-      summary.warnings.push(`market-overview-snapshot: ${summary.snapshotError}`);
+      summary.snapshotError = error.message || 'Failed to schedule read model snapshot rebuild';
+      summary.warnings.push(`read-model-snapshot: ${summary.snapshotError}`);
     }
 
     syncState.lastCompletedAt = new Date().toISOString();

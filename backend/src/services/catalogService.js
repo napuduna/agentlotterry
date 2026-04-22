@@ -1,11 +1,13 @@
 const Announcement = require('../models/Announcement');
 const AnnouncementRead = require('../models/AnnouncementRead');
+const CatalogOverviewSnapshot = require('../models/CatalogOverviewSnapshot');
 const DrawRound = require('../models/DrawRound');
 const LotteryLeague = require('../models/LotteryLeague');
 const LotteryResult = require('../models/LotteryResult');
 const LotteryType = require('../models/LotteryType');
 const RateProfile = require('../models/RateProfile');
 const ResultRecord = require('../models/ResultRecord');
+const User = require('../models/User');
 const { getStoredLatestExternalResults } = require('./externalResultFeedService');
 const { getMemberConfigRows, normalizeEnabledBetTypes } = require('./memberManagementService');
 const {
@@ -23,8 +25,16 @@ const {
 } = require('../utils/bangkokTime');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CATALOG_OVERVIEW_CACHE_MS = Math.max(0, Number(process.env.CATALOG_OVERVIEW_CACHE_MS || 10000));
+const CATALOG_OVERVIEW_CACHE_MS = Math.max(0, Number(process.env.CATALOG_OVERVIEW_CACHE_MS || 60000));
 const CATALOG_OVERVIEW_CACHE_MAX_ENTRIES = Math.max(1, Number(process.env.CATALOG_OVERVIEW_CACHE_MAX_ENTRIES || 200));
+const CATALOG_OVERVIEW_SNAPSHOT_TTL_MS = Math.max(
+  0,
+  Number(process.env.CATALOG_OVERVIEW_SNAPSHOT_TTL_MS || CATALOG_OVERVIEW_CACHE_MS)
+);
+const CATALOG_OVERVIEW_STALE_MAX_MS = Math.max(
+  CATALOG_OVERVIEW_SNAPSHOT_TTL_MS,
+  Number(process.env.CATALOG_OVERVIEW_STALE_MAX_MS || 10 * 60 * 1000)
+);
 let catalogSeedPromise = null;
 let catalogReadinessPromise = null;
 const catalogOverviewCache = new Map();
@@ -405,7 +415,8 @@ const getRecentResults = async ({ lotteryId = null, limit = 50 } = {}) => {
     .sort({ updatedAt: -1 })
     .limit(fetchLimit)
     .populate('lotteryTypeId', 'code name shortName provider')
-    .populate('drawRoundId', 'code title drawAt resultPublishedAt');
+    .populate('drawRoundId', 'code title drawAt resultPublishedAt')
+    .lean();
 
   const mapped = results
     .filter((record) => {
@@ -489,15 +500,33 @@ const getAnnouncementFilter = (viewer = null) => {
   };
 };
 
-const getCatalogOverviewCacheKey = (viewer = null) => {
+const getCatalogOverviewCacheKey = (viewer = null, variant = 'full') => {
   const role = viewer?.role || 'anonymous';
   const viewerId = toIdString(viewer?._id || viewer?.id);
-  return `${role}:${viewerId}`;
+  return `${variant}:${role}:${viewerId}`;
 };
 
-const clearCatalogOverviewCache = () => {
+const canUseCatalogOverviewSnapshot = (viewer = null, options = {}) => {
+  if (viewer?.role === 'customer') {
+    return false;
+  }
+
+  return options.cacheVariant === 'full' &&
+    options.includeAnnouncements !== false &&
+    options.includeRecentResults !== false;
+};
+
+const clearCatalogOverviewCache = ({ includeSnapshots = true } = {}) => {
   catalogOverviewCache.clear();
   catalogOverviewInFlight.clear();
+
+  if (includeSnapshots) {
+    return CatalogOverviewSnapshot.deleteMany({}).catch((error) => {
+      console.warn('Failed to clear catalog overview snapshots:', error.message);
+    });
+  }
+
+  return Promise.resolve();
 };
 
 const pruneCatalogOverviewCache = (now = Date.now()) => {
@@ -513,20 +542,123 @@ const pruneCatalogOverviewCache = (now = Date.now()) => {
   }
 };
 
-const buildCatalogOverview = async (viewer = null) => {
+const createCatalogOverviewSnapshotDocument = (key, overview) => ({
+  key,
+  payload: overview || {},
+  builtAt: new Date(),
+  version: 1
+});
+
+const restoreCatalogOverviewFromSnapshotDocument = (document) => {
+  const payload = document?.payload;
+  if (!payload || !Array.isArray(payload.leagues)) {
+    return null;
+  }
+
+  return payload;
+};
+
+const getSnapshotAgeMs = (builtAt, now = Date.now()) => {
+  const builtAtMs = new Date(builtAt || 0).getTime();
+  return Number.isFinite(builtAtMs) ? now - builtAtMs : Infinity;
+};
+
+const isCatalogOverviewSnapshotFresh = (builtAt, now = Date.now()) => {
+  if (!builtAt) {
+    return false;
+  }
+
+  return CATALOG_OVERVIEW_SNAPSHOT_TTL_MS <= 0 ||
+    getSnapshotAgeMs(builtAt, now) < CATALOG_OVERVIEW_SNAPSHOT_TTL_MS;
+};
+
+const isCatalogOverviewSnapshotUsable = (builtAt, now = Date.now()) => {
+  if (!builtAt) {
+    return false;
+  }
+
+  return isCatalogOverviewSnapshotFresh(builtAt, now) ||
+    (CATALOG_OVERVIEW_STALE_MAX_MS > 0 && getSnapshotAgeMs(builtAt, now) < CATALOG_OVERVIEW_STALE_MAX_MS);
+};
+
+const scheduleCatalogOverviewSnapshotRefresh = (reason) => {
+  try {
+    const { scheduleReadModelSnapshotRebuild } = require('./readModelSnapshotService');
+    scheduleReadModelSnapshotRebuild({
+      reason,
+      targets: ['catalog']
+    });
+  } catch (error) {
+    console.warn('Failed to schedule catalog snapshot refresh:', error.message);
+  }
+};
+
+const loadCatalogOverviewSnapshotState = async (key, now = Date.now(), { allowStale = false } = {}) => {
+  const document = await CatalogOverviewSnapshot.findOne({ key }).lean();
+  if (!document?.builtAt) {
+    return null;
+  }
+
+  const data = restoreCatalogOverviewFromSnapshotDocument(document);
+  if (!data) {
+    return null;
+  }
+
+  const isFresh = isCatalogOverviewSnapshotFresh(document.builtAt, now);
+  if (!isFresh && (!allowStale || !isCatalogOverviewSnapshotUsable(document.builtAt, now))) {
+    return null;
+  }
+
+  return {
+    data,
+    builtAt: document.builtAt,
+    isFresh
+  };
+};
+
+const loadCatalogOverviewSnapshot = async (key, now = Date.now()) => {
+  const snapshot = await loadCatalogOverviewSnapshotState(key, now);
+  return snapshot?.data || null;
+};
+
+const saveCatalogOverviewSnapshot = async (key, overview) => {
+  const snapshotDocument = createCatalogOverviewSnapshotDocument(key, overview);
+  await CatalogOverviewSnapshot.findOneAndUpdate(
+    { key },
+    snapshotDocument,
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
+  );
+};
+
+const buildCatalogOverview = async (viewer = null, options = {}) => {
+  const {
+    includeAnnouncements = true,
+    includeRecentResults = true
+  } = options;
+
   await ensureCatalogReady();
 
   const [leagues, lotteries, rounds, announcements, recentResults] = await Promise.all([
-    LotteryLeague.find({ isActive: true }).sort({ sortOrder: 1, name: 1 }),
+    LotteryLeague.find({ isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
     LotteryType.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
       .populate('leagueId', 'code name')
       .populate('rateProfileIds')
-      .populate('defaultRateProfileId'),
+      .populate('defaultRateProfileId')
+      .lean(),
     DrawRound.find({ isActive: true, drawAt: { $gte: new Date(Date.now() - 5 * DAY_MS) } })
-      .sort({ drawAt: 1 }),
-    Announcement.find(getAnnouncementFilter(viewer)).sort({ publishedAt: -1 }).limit(5),
-    getRecentResults({ limit: 50 })
+      .sort({ drawAt: 1 })
+      .lean(),
+    includeAnnouncements
+      ? Announcement.find(getAnnouncementFilter(viewer)).sort({ publishedAt: -1 }).limit(5).lean()
+      : Promise.resolve([]),
+    includeRecentResults
+      ? getRecentResults({ limit: 50 })
+      : Promise.resolve([])
   ]);
 
   let memberConfigMap = null;
@@ -559,7 +691,7 @@ const buildCatalogOverview = async (viewer = null) => {
     ? await AnnouncementRead.find({
       userId: viewer._id,
       announcementId: { $in: announcements.map((item) => item._id) }
-    }).select('announcementId readAt')
+    }).select('announcementId readAt').lean()
     : [];
   const announcementReadMap = announcementReads.reduce((acc, item) => {
     acc[toIdString(item.announcementId)] = item.readAt;
@@ -681,9 +813,11 @@ const buildCatalogOverview = async (viewer = null) => {
   };
 };
 
-const getCatalogOverview = async (viewer = null) => {
-  const cacheKey = getCatalogOverviewCacheKey(viewer);
+const getCachedCatalogOverview = async (viewer = null, options = {}) => {
+  const { cacheVariant = 'full', ...buildOptions } = options;
+  const cacheKey = getCatalogOverviewCacheKey(viewer, cacheVariant);
   const now = Date.now();
+  const shouldUseSnapshot = canUseCatalogOverviewSnapshot(viewer, { cacheVariant, ...buildOptions });
   pruneCatalogOverviewCache(now);
   const cached = catalogOverviewCache.get(cacheKey);
 
@@ -691,18 +825,51 @@ const getCatalogOverview = async (viewer = null) => {
     return cached.data;
   }
 
+  if (
+    shouldUseSnapshot &&
+    cached?.data &&
+    isCatalogOverviewSnapshotUsable(cached.builtAt || cached.cachedAt, now)
+  ) {
+    scheduleCatalogOverviewSnapshotRefresh('catalog-stale-memory-read');
+    return cached.data;
+  }
+
+  if (shouldUseSnapshot) {
+    const snapshot = await loadCatalogOverviewSnapshotState(cacheKey, now, { allowStale: true });
+    if (snapshot) {
+      catalogOverviewCache.set(cacheKey, {
+        cachedAt: Date.now(),
+        builtAt: snapshot.builtAt,
+        data: snapshot.data
+      });
+      pruneCatalogOverviewCache();
+      if (!snapshot.isFresh) {
+        scheduleCatalogOverviewSnapshotRefresh('catalog-stale-persistent-read');
+      }
+      return snapshot.data;
+    }
+  }
+
   if (catalogOverviewInFlight.has(cacheKey)) {
     return catalogOverviewInFlight.get(cacheKey);
   }
 
-  const request = buildCatalogOverview(viewer)
-    .then((data) => {
+  const request = buildCatalogOverview(viewer, buildOptions)
+    .then(async (data) => {
       catalogOverviewCache.set(cacheKey, {
         cachedAt: Date.now(),
+        builtAt: new Date(),
         data
       });
       pruneCatalogOverviewCache();
       catalogOverviewInFlight.delete(cacheKey);
+
+      if (shouldUseSnapshot) {
+        await saveCatalogOverviewSnapshot(cacheKey, data).catch((error) => {
+          console.warn('Failed to save catalog overview snapshot:', error.message);
+        });
+      }
+
       return data;
     })
     .catch((error) => {
@@ -713,6 +880,73 @@ const getCatalogOverview = async (viewer = null) => {
   catalogOverviewInFlight.set(cacheKey, request);
   return request;
 };
+
+const getCatalogOverview = async (viewer = null) => getCachedCatalogOverview(viewer, {
+  cacheVariant: 'full',
+  includeAnnouncements: true,
+  includeRecentResults: true
+});
+
+const rebuildCatalogOverviewSnapshot = async (viewer = null) => {
+  const options = {
+    cacheVariant: 'full',
+    includeAnnouncements: true,
+    includeRecentResults: true
+  };
+  const cacheKey = getCatalogOverviewCacheKey(viewer, options.cacheVariant);
+  const overview = await buildCatalogOverview(viewer, {
+    includeAnnouncements: options.includeAnnouncements,
+    includeRecentResults: options.includeRecentResults
+  });
+
+  catalogOverviewCache.set(cacheKey, {
+    cachedAt: Date.now(),
+    builtAt: new Date(),
+    data: overview
+  });
+  await saveCatalogOverviewSnapshot(cacheKey, overview);
+  return overview;
+};
+
+const rebuildOperatorCatalogOverviewSnapshots = async ({ limit = 50 } = {}) => {
+  const operators = await User.find({
+    role: { $in: ['admin', 'agent'] },
+    isActive: { $ne: false }
+  })
+    .select('_id role')
+    .sort({ role: 1, createdAt: 1 })
+    .limit(Math.max(1, Number(limit) || 50))
+    .lean();
+
+  const summary = {
+    attempted: operators.length,
+    rebuilt: 0,
+    failed: 0,
+    errors: []
+  };
+
+  for (const operator of operators) {
+    try {
+      await rebuildCatalogOverviewSnapshot(operator);
+      summary.rebuilt += 1;
+    } catch (error) {
+      summary.failed += 1;
+      summary.errors.push({
+        userId: toIdString(operator._id),
+        role: operator.role,
+        message: error.message
+      });
+    }
+  }
+
+  return summary;
+};
+
+const getBettingCatalogOverview = async (viewer = null) => getCachedCatalogOverview(viewer, {
+  cacheVariant: 'betting',
+  includeAnnouncements: false,
+  includeRecentResults: false
+});
 
 const markAnnouncementRead = async ({ viewer, announcementId }) => {
   await ensureCatalogReady();
@@ -747,20 +981,66 @@ const markAnnouncementRead = async ({ viewer, announcementId }) => {
 };
 
 const getLotteryOptions = async (viewer = null) => {
-  const overview = await getCatalogOverview(viewer);
-  return overview.leagues.flatMap((league) =>
-    league.lotteries.map((lottery) => ({
-      id: lottery.id,
+  if (viewer?.role === 'customer') {
+    const overview = await getCatalogOverview(viewer);
+    return overview.leagues.flatMap((league) =>
+      league.lotteries.map((lottery) => ({
+        id: lottery.id,
+        name: lottery.name,
+        code: lottery.code,
+        leagueId: league.id,
+        leagueName: league.name,
+        supportedBetTypes: lottery.supportedBetTypes || [],
+        roundId: lottery.activeRound?.id || null,
+        roundTitle: lottery.activeRound?.title || null,
+        defaultRateProfileId: lottery.defaultRateProfileId
+      }))
+    );
+  }
+
+  await ensureCatalogReady();
+
+  const [lotteries, rounds] = await Promise.all([
+    LotteryType.find({ isActive: true })
+      .sort({ sortOrder: 1, name: 1 })
+      .select('code name supportedBetTypes leagueId defaultRateProfileId')
+      .populate('leagueId', 'name')
+      .lean(),
+    DrawRound.find({ isActive: true, drawAt: { $gte: new Date(Date.now() - 5 * DAY_MS) } })
+      .sort({ drawAt: 1 })
+      .select('lotteryTypeId title drawAt closeAt')
+      .lean()
+  ]);
+
+  const roundsByLottery = rounds.reduce((acc, round) => {
+    const key = round.lotteryTypeId?.toString?.() || String(round.lotteryTypeId || '');
+    if (!key) return acc;
+    acc[key] = acc[key] || [];
+    acc[key].push(round);
+    return acc;
+  }, {});
+  const now = new Date();
+
+  return lotteries.map((lottery) => {
+    const lotteryRounds = roundsByLottery[lottery._id.toString()] || [];
+    const activeRound =
+      lotteryRounds.find((round) => now <= round.closeAt) ||
+      lotteryRounds.find((round) => now <= round.drawAt) ||
+      lotteryRounds[0] ||
+      null;
+
+    return {
+      id: lottery._id.toString(),
       name: lottery.name,
       code: lottery.code,
-      leagueId: league.id,
-      leagueName: league.name,
+      leagueId: lottery.leagueId?._id?.toString?.() || lottery.leagueId?.toString?.() || '',
+      leagueName: lottery.leagueId?.name || '',
       supportedBetTypes: lottery.supportedBetTypes || [],
-      roundId: lottery.activeRound?.id || null,
-      roundTitle: lottery.activeRound?.title || null,
-      defaultRateProfileId: lottery.defaultRateProfileId
-    }))
-  );
+      roundId: activeRound?._id?.toString?.() || null,
+      roundTitle: activeRound?.title || null,
+      defaultRateProfileId: lottery.defaultRateProfileId?.toString?.() || null
+    };
+  });
 };
 
 const getRoundsByLottery = async (lotteryId, viewer = null) => {
@@ -812,11 +1092,21 @@ module.exports = {
   ensureCatalogReady,
   clearCatalogOverviewCache,
   getCatalogOverview,
+  rebuildCatalogOverviewSnapshot,
+  rebuildOperatorCatalogOverviewSnapshots,
+  getBettingCatalogOverview,
   getLotteryOptions,
   getRoundsByLottery,
   getRecentResults,
   getRoundStatus,
   normalizeRoundTimingPayload,
-  markAnnouncementRead
+  markAnnouncementRead,
+  __test: {
+    canUseCatalogOverviewSnapshot,
+    createCatalogOverviewSnapshotDocument,
+    restoreCatalogOverviewFromSnapshotDocument,
+    isCatalogOverviewSnapshotFresh,
+    isCatalogOverviewSnapshotUsable
+  }
 };
 

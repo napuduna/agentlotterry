@@ -86,5 +86,7 @@ const resultRecordSchema = new mongoose.Schema({
 });
 
 resultRecordSchema.index({ drawRoundId: 1 }, { unique: true });
+resultRecordSchema.index({ isPublished: 1, updatedAt: -1 });
+resultRecordSchema.index({ isPublished: 1, lotteryTypeId: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('ResultRecord', resultRecordSchema);

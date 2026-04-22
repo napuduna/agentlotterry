@@ -1,11 +1,8 @@
 const express = require('express');
-const User = require('../models/User');
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/rbac');
 const { createAuditLog } = require('../middleware/auditLog');
 const {
-  getBetTotals,
-  getRecentBetItems,
   listAgentBetItems,
   getAgentReportsBundle
 } = require('../services/analyticsService');
@@ -15,9 +12,11 @@ const {
   getAgentMemberDetail,
   createAgentMember,
   updateAgentMember,
-  deactivateAgentMember,
-  isUserOnline
+  deactivateAgentMember
 } = require('../services/memberManagementService');
+const { clearCatalogOverviewCache } = require('../services/catalogService');
+const { getAgentDashboardSummary } = require('../services/dashboardSnapshotService');
+const { scheduleReadModelSnapshotRebuild } = require('../services/readModelSnapshotService');
 const { registerBettingRoutes } = require('./helpers/registerBettingRoutes');
 const { parsePaginationQuery } = require('../utils/pagination');
 
@@ -44,63 +43,7 @@ registerBettingRoutes(router, {
 // GET /api/agent/dashboard
 router.get('/dashboard', async (req, res) => {
   try {
-    const agentId = req.user._id;
-    const onlineSince = new Date(Date.now() - 5 * 60 * 1000);
-    const [totalCustomers, activeCustomers, onlineCustomers, memberRows, betStats, recentBets, onlineMemberRows] = await Promise.all([
-      User.countDocuments({ agentId, role: 'customer' }),
-      User.countDocuments({ agentId, role: 'customer', isActive: true }),
-      User.countDocuments({
-        agentId,
-        role: 'customer',
-        isActive: true,
-        status: 'active',
-        lastActiveAt: { $gte: onlineSince }
-      }),
-      User.find({ agentId, role: 'customer' })
-        .select('creditBalance stockPercent isActive status lastActiveAt'),
-      getBetTotals({ agentId }),
-      getRecentBetItems({ agentId, limit: 10 }),
-      User.find({
-        agentId,
-        role: 'customer',
-        isActive: true,
-        status: 'active',
-        lastActiveAt: { $gte: onlineSince }
-      })
-        .select('name username lastActiveAt')
-        .sort({ lastActiveAt: -1 })
-        .limit(6)
-    ]);
-
-    const totalCreditBalance = memberRows.reduce((sum, member) => sum + (member.creditBalance || 0), 0);
-    const averageStockPercent = memberRows.length
-      ? memberRows.reduce((sum, member) => sum + (member.stockPercent || 0), 0) / memberRows.length
-      : 0;
-
-    res.json({
-      stats: {
-        totalCustomers,
-        activeCustomers,
-        onlineCustomers,
-        agentCreditBalance: req.user.creditBalance || 0,
-        totalBets: betStats.totalBets,
-        pendingBets: betStats.pendingBets,
-        totalAmount: betStats.totalAmount,
-        totalWon: betStats.totalWon,
-        netProfit: betStats.netProfit,
-        totalCreditBalance,
-        averageStockPercent
-      },
-      recentBets
-      ,
-      onlineMembers: onlineMemberRows.map((member) => ({
-        id: member._id.toString(),
-        name: member.name,
-        username: member.username,
-        lastActiveAt: member.lastActiveAt,
-        isOnline: isUserOnline(member)
-      }))
-    });
+    res.json(await getAgentDashboardSummary({ agent: req.user }));
   } catch (error) {
     console.error('Agent dashboard error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -148,6 +91,11 @@ router.put('/config/members/:id/lotteries', async (req, res) => {
 
     await createAuditLog(req.user._id, 'UPDATE_MEMBER_LOTTERY_CONFIG', detail.member.id, {
       enabledLotteryCount: detail.lotteryConfigs.filter((lottery) => lottery.isEnabled).length
+    });
+    clearCatalogOverviewCache({ includeSnapshots: false });
+    scheduleReadModelSnapshotRebuild({
+      reason: 'agent-member-lottery-config-update',
+      agentIds: [req.user._id]
     });
 
     res.json({
@@ -204,6 +152,7 @@ router.post('/members', async (req, res) => {
       username: detail.member.username,
       name: detail.member.name
     });
+    scheduleReadModelSnapshotRebuild({ reason: 'agent-member-create', agentIds: [req.user._id] });
 
     res.status(201).json(detail);
   } catch (error) {
@@ -224,6 +173,8 @@ router.put('/members/:id', async (req, res) => {
       username: detail.member.username,
       name: detail.member.name
     });
+    clearCatalogOverviewCache({ includeSnapshots: false });
+    scheduleReadModelSnapshotRebuild({ reason: 'agent-member-update', agentIds: [req.user._id] });
 
     res.json(detail);
   } catch (error) {
@@ -281,6 +232,7 @@ router.post('/customers', async (req, res) => {
     });
 
     await createAuditLog(req.user._id, 'CREATE_CUSTOMER', detail.member.id, { name: detail.member.name });
+    scheduleReadModelSnapshotRebuild({ reason: 'agent-customer-create', agentIds: [req.user._id] });
     res.status(201).json(detail.member);
   } catch (error) {
     res.status(400).json({ message: error.message || 'Server error' });
@@ -302,6 +254,7 @@ router.put('/customers/:id', async (req, res) => {
     });
 
     await createAuditLog(req.user._id, 'UPDATE_CUSTOMER', detail.member.id, { name: detail.member.name });
+    scheduleReadModelSnapshotRebuild({ reason: 'agent-customer-update', agentIds: [req.user._id] });
     res.json(detail.member);
   } catch (error) {
     res.status(400).json({ message: error.message || 'Server error' });
@@ -317,6 +270,7 @@ router.delete('/customers/:id', async (req, res) => {
     });
 
     await createAuditLog(req.user._id, 'DEACTIVATE_CUSTOMER', customer._id.toString(), { name: customer.name });
+    scheduleReadModelSnapshotRebuild({ reason: 'agent-customer-deactivate', agentIds: [req.user._id] });
     res.json({ message: 'Customer deactivated successfully' });
   } catch (error) {
     res.status(404).json({ message: error.message || 'Server error' });
