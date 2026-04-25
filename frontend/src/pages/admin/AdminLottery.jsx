@@ -2171,6 +2171,9 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
           .lottery-hero {
             flex-direction: column;
             align-items: stretch;
+            gap: 14px;
+            padding: 18px;
+            border-radius: 22px;
           }
 
           .lottery-hero-actions {
@@ -2181,23 +2184,115 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
             width: 100%;
           }
 
+          .lottery-grid-layout,
+          .lottery-sections {
+            gap: 14px;
+          }
+
+          .lottery-section-card,
+          .lottery-detail-card {
+            padding: 14px;
+            border-radius: 20px;
+          }
+
+          .section-head {
+            margin-bottom: 12px;
+          }
+
+          .section-title {
+            font-size: 1.45rem;
+          }
+
+          .section-note {
+            font-size: 0.88rem;
+          }
+
+          .market-grid {
+            gap: 10px;
+          }
+
           .market-card {
-            grid-template-columns: 1fr;
+            grid-template-columns: 58px minmax(0, 1fr);
+            align-items: center;
+            gap: 10px;
+            min-height: 0;
+            padding: 10px 12px;
+            border-radius: 18px;
           }
 
           .market-logo {
-            width: 72px;
-            height: 72px;
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
+            font-size: 1rem;
+          }
+
+          .market-logo i {
+            right: 5px;
+            bottom: 5px;
+            width: 11px;
+            height: 11px;
+            border-width: 2px;
+          }
+
+          .market-card-body {
+            min-width: 0;
+            gap: 5px;
+          }
+
+          .market-card-top {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .market-card-top h3 {
+            font-size: 1.08rem;
+            line-height: 1.1;
+          }
+
+          .market-round {
+            margin-top: 3px;
+            font-size: 0.82rem;
+          }
+
+          .market-status-pill {
+            flex-shrink: 0;
+            padding: 6px 9px;
+            font-size: 0.78rem;
+            gap: 5px;
+          }
+
+          .market-card-foot {
+            gap: 2px;
+            font-size: 0.82rem;
+          }
+
+          .detail-top {
+            gap: 10px;
+          }
+
+          .detail-market-meta h2 {
+            font-size: 1.7rem;
+          }
+
+          .round-toggle-panel,
+          .round-timing-panel,
+          .detail-result-hero,
+          .detail-result-item,
+          .history-item {
+            padding: 14px;
+            border-radius: 18px;
           }
 
           .detail-result-grid {
             grid-template-columns: 1fr;
+            gap: 10px;
           }
 
           .detail-top,
           .round-toggle-body,
-          .history-item,
-          .market-card-top {
+          .history-item {
             flex-direction: column;
             align-items: flex-start;
           }
@@ -2218,6 +2313,35 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
           .round-toggle-reset {
             width: 100%;
             justify-content: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .lottery-section-card,
+          .lottery-detail-card {
+            padding: 12px;
+          }
+
+          .market-card {
+            grid-template-columns: 52px minmax(0, 1fr);
+            padding: 9px 10px;
+            gap: 9px;
+          }
+
+          .market-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            font-size: 0.92rem;
+          }
+
+          .market-card-top h3 {
+            font-size: 1rem;
+          }
+
+          .market-status-pill {
+            padding: 5px 8px;
+            font-size: 0.72rem;
           }
         }
       `}</style>
