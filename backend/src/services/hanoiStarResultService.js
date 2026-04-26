@@ -4,8 +4,8 @@ const { createBangkokDate, formatBangkokDate } = require('../utils/bangkokTime')
 const HANOI_STAR_PROVIDER_NAME = 'Exphuay Minh Ngoc Star';
 const HANOI_STAR_MARKET_ID = 'hanoi_star';
 const HANOI_STAR_MARKET_NAME = 'ฮานอยสตาร์';
-const HANOI_STAR_SITE_URL = 'https://exphuay.com/result/minhngocstar';
-const HANOI_STAR_HISTORY_URL = 'https://exphuay.com/backward/minhngocstar';
+const HANOI_STAR_SITE_URL = process.env.HANOI_STAR_SITE_URL || 'https://exphuay.com/result/minhngocstar';
+const HANOI_STAR_HISTORY_URL = process.env.HANOI_STAR_HISTORY_URL || 'https://exphuay.com/backward/minhngocstar';
 const HANOI_STAR_TIMEOUT_MS = Number(process.env.HANOI_STAR_TIMEOUT_MS || 15000);
 
 const RESULT_ENTRY_PATTERN = /lottosName:"minhngocstar"[\s\S]{0,500}?lottosDate:"([^"]+)"[\s\S]{0,300}?lottosTime:"([^"]+)"[\s\S]{0,300}?lottosNumber:"([^"]+)"[\s\S]{0,200}?lottosUnder:"([^"]+)"/g;
@@ -13,7 +13,12 @@ const RESULT_ENTRY_PATTERN = /lottosName:"minhngocstar"[\s\S]{0,500}?lottosDate:
 const http = axios.create({
   timeout: HANOI_STAR_TIMEOUT_MS,
   headers: {
-    'User-Agent': 'Mozilla/5.0 Codex AdminAgentLotterry'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'th-TH,th;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    Referer: 'https://exphuay.com/'
   }
 });
 
@@ -136,20 +141,10 @@ const fetchSnapshotsFromUrl = async (url, limit) => {
   return extractSnapshotsFromHtml(stringValue(response.data), url, limit);
 };
 
-const fetchHanoiStarSnapshots = async ({ limit = 10 } = {}) => {
-  const normalizedLimit = Math.max(1, Number(limit) || 1);
-  const primarySnapshots = await fetchSnapshotsFromUrl(HANOI_STAR_SITE_URL, normalizedLimit);
-
-  if (primarySnapshots.length >= normalizedLimit) {
-    return primarySnapshots
-      .sort((left, right) => right.roundCode.localeCompare(left.roundCode))
-      .slice(0, normalizedLimit);
-  }
-
-  const fallbackSnapshots = await fetchSnapshotsFromUrl(HANOI_STAR_HISTORY_URL, normalizedLimit);
+const mergeSnapshots = (snapshotGroups, limit) => {
   const byRoundCode = new Map();
 
-  [...primarySnapshots, ...fallbackSnapshots].forEach((snapshot) => {
+  snapshotGroups.flat().forEach((snapshot) => {
     if (snapshot && !byRoundCode.has(snapshot.roundCode)) {
       byRoundCode.set(snapshot.roundCode, snapshot);
     }
@@ -157,8 +152,60 @@ const fetchHanoiStarSnapshots = async ({ limit = 10 } = {}) => {
 
   return [...byRoundCode.values()]
     .sort((left, right) => right.roundCode.localeCompare(left.roundCode))
-    .slice(0, normalizedLimit);
+    .slice(0, limit);
 };
+
+const formatFetchError = (url, error) => {
+  const status = error?.response?.status;
+  const reason = status ? `HTTP ${status}` : error?.message || 'unknown error';
+  return `${url} (${reason})`;
+};
+
+const fetchSnapshotsSafely = async (fetcher, url, limit) => {
+  try {
+    return {
+      url,
+      snapshots: await fetcher(url, limit),
+      error: null
+    };
+  } catch (error) {
+    return {
+      url,
+      snapshots: [],
+      error
+    };
+  }
+};
+
+const fetchHanoiStarSnapshotsWithFetcher = async ({ limit = 10, fetcher = fetchSnapshotsFromUrl } = {}) => {
+  const normalizedLimit = Math.max(1, Number(limit) || 1);
+  const primary = await fetchSnapshotsSafely(fetcher, HANOI_STAR_SITE_URL, normalizedLimit);
+
+  if (primary.snapshots.length >= normalizedLimit) {
+    return primary.snapshots
+      .sort((left, right) => right.roundCode.localeCompare(left.roundCode))
+      .slice(0, normalizedLimit);
+  }
+
+  const fallback = await fetchSnapshotsSafely(fetcher, HANOI_STAR_HISTORY_URL, normalizedLimit);
+  const merged = mergeSnapshots([primary.snapshots, fallback.snapshots], normalizedLimit);
+
+  if (merged.length) {
+    return merged;
+  }
+
+  const errors = [primary, fallback]
+    .filter((attempt) => attempt.error)
+    .map((attempt) => formatFetchError(attempt.url, attempt.error));
+
+  if (errors.length) {
+    throw new Error(`Unable to fetch Hanoi Star snapshots: ${errors.join('; ')}`);
+  }
+
+  return [];
+};
+
+const fetchHanoiStarSnapshots = (options = {}) => fetchHanoiStarSnapshotsWithFetcher(options);
 
 const fetchLatestHanoiStarSnapshot = async () => {
   const snapshots = await fetchHanoiStarSnapshots({ limit: 1 });
@@ -170,10 +217,13 @@ module.exports = {
   HANOI_STAR_MARKET_ID,
   HANOI_STAR_MARKET_NAME,
   HANOI_STAR_SITE_URL,
+  HANOI_STAR_HISTORY_URL,
   fetchHanoiStarSnapshots,
   fetchLatestHanoiStarSnapshot,
   __test: {
     buildSnapshot,
+    extractSnapshotsFromHtml,
+    fetchHanoiStarSnapshotsWithFetcher,
     parseRoundCode
   }
 };
