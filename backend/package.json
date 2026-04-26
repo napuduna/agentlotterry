@@ -17,6 +17,7 @@
     "test:feed-mapping": "node src/scripts/testFeedMappings.js",
     "test:settlement-rules": "node src/scripts/testSettlementRules.js",
     "test:bet-slip-pricing": "node src/scripts/testBetSlipDuplicatePricing.js",
+    "test:settlement-automation": "node src/scripts/testSettlementAutomationGuards.js",
     "legacy:cleanup": "node src/scripts/cleanupLegacyData.js",
     "legacy:cleanup:dry": "node src/scripts/cleanupLegacyData.js --mode=dry-run",
     "legacy:cleanup:validate": "node src/scripts/cleanupLegacyData.js --mode=validate",

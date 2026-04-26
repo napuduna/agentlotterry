@@ -82,11 +82,11 @@ router.get('/sync-status', auth, authorize('admin'), async (req, res) => {
 
 router.post('/sync-latest', auth, authorize('admin'), async (req, res) => {
   try {
-    const summary = await syncLatestExternalResults({ runSettlement: false });
+    const summary = await syncLatestExternalResults();
     clearAnalyticsReadCache();
-    await createAuditLog(req.user._id, 'SYNC_LATEST_RESULTS_FETCH_STORE', 'manycai', summary);
+    await createAuditLog(req.user._id, 'SYNC_LATEST_RESULTS_FULL_SETTLEMENT', 'manycai', summary);
     res.json({
-      message: 'Latest results synced successfully with deferred settlement',
+      message: 'Latest results synced and settled successfully',
       summary
     });
   } catch (error) {

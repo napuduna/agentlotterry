@@ -799,6 +799,59 @@ const settleRoundById = async (roundId, { force = false } = {}) => {
   }
 };
 
+const settleUnsettledPublishedRounds = async ({ limit = 100 } = {}) => {
+  const pendingRoundIds = await BetItem.distinct('drawRoundId', {
+    status: 'submitted',
+    isLocked: false
+  });
+
+  const normalizedLimit = Math.max(1, Number(limit) || 100);
+  const records = await ResultRecord.find({
+    drawRoundId: { $in: pendingRoundIds },
+    isPublished: true
+  })
+    .select('drawRoundId lotteryTypeId updatedAt')
+    .sort({ updatedAt: -1 })
+    .limit(normalizedLimit)
+    .lean();
+
+  const summaries = [];
+  for (const record of records) {
+    const pendingItemCount = await BetItem.countDocuments({
+      drawRoundId: record.drawRoundId,
+      status: 'submitted',
+      isLocked: false
+    });
+
+    if (!pendingItemCount) {
+      continue;
+    }
+
+    const [round, lottery] = await Promise.all([
+      DrawRound.findById(record.drawRoundId).select('code').lean(),
+      LotteryType.findById(record.lotteryTypeId).select('code name').lean()
+    ]);
+    const settlement = await settleRoundById(record.drawRoundId, { force: false });
+
+    summaries.push({
+      lotteryCode: lottery?.code || '',
+      roundCode: round?.code || settlement.roundCode,
+      pendingItemCount,
+      settlement
+    });
+  }
+
+  return {
+    checkedRounds: records.length,
+    settledRounds: summaries.filter((item) => Number(item.settlement?.totalItems || 0) > 0).length,
+    totalItems: summaries.reduce((sum, item) => sum + Number(item.settlement?.totalItems || 0), 0),
+    totalWon: summaries.reduce((sum, item) => sum + Number(item.settlement?.totalWon || 0), 0),
+    payoutEntryCount: summaries.reduce((sum, item) => sum + Number(item.settlement?.payoutEntryCount || 0), 0),
+    payoutNetDelta: summaries.reduce((sum, item) => sum + Number(item.settlement?.payoutNetDelta || 0), 0),
+    summaries
+  };
+};
+
 const settleRoundByCode = async (roundCode, lotteryCode = 'thai_government', options = {}) => {
   const { round } = await findRoundByCode(roundCode, lotteryCode);
   return settleRoundById(round._id, options);
@@ -861,6 +914,7 @@ module.exports = {
   reverseRoundSettlementById,
   rerunRoundSettlementById,
   settleRoundById,
+  settleUnsettledPublishedRounds,
   settleRoundByCode,
   getRoundResult
 };

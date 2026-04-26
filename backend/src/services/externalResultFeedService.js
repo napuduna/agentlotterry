@@ -3,7 +3,12 @@ const LotteryResult = require('../models/LotteryResult');
 const LotteryType = require('../models/LotteryType');
 const MarketFeedResult = require('../models/MarketFeedResult');
 const { createBangkokDate } = require('../utils/bangkokTime');
-const { ensureRoundForLottery, settleRoundById, upsertRoundResult } = require('./resultService');
+const {
+  ensureRoundForLottery,
+  settleRoundById,
+  settleUnsettledPublishedRounds,
+  upsertRoundResult
+} = require('./resultService');
 const { fetchGsbSnapshots } = require('./gsbResultService');
 const {
   fetchLatestThaiGovernmentSnapshot,
@@ -1399,7 +1404,9 @@ const syncLatestExternalResults = async (options = {}) => {
       savedSnapshots: 0,
       syncedResults: 0,
       settlements: 0,
+      safetySettlements: 0,
       skipped: 0,
+      safetySettlement: null,
       snapshotRebuilt: false,
       catalogSnapshotRebuilt: false,
       dashboardSnapshotRebuilt: false,
@@ -1429,12 +1436,17 @@ const syncLatestExternalResults = async (options = {}) => {
     summary.warningFeeds = summary.feedSummaries.filter((feed) => feed.status === 'warning').length;
     summary.errorFeeds = summary.feedSummaries.filter((feed) => feed.status === 'error').length;
 
+    if (executionMode.runSettlement) {
+      summary.safetySettlement = await settleUnsettledPublishedRounds();
+      summary.safetySettlements = summary.safetySettlement.settledRounds;
+    }
+
     try {
       const { scheduleReadModelSnapshotRebuild } = require('./readModelSnapshotService');
       summary.readModelSnapshotSchedule = scheduleReadModelSnapshotRebuild({
         reason: 'external-result-sync',
         delayMs: 0,
-        includeAgents: Boolean(summary.settlements)
+        includeAgents: Boolean(summary.settlements || summary.safetySettlements)
       });
       summary.snapshotRebuilt = true;
       summary.catalogSnapshotRebuilt = true;
