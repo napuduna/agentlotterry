@@ -4,13 +4,21 @@ const {
   SYNC_CONFIGS,
   EXPLICIT_FEED_MAPPINGS,
   STRICT_FEED_MAPPING,
-  buildSnapshot
+  buildSnapshot,
+  getScheduledResultWaitingState
 } = require('../services/externalResultFeedService');
 
 const findConfig = (feedCode) => {
   const config = SYNC_CONFIGS.find((item) => item.feedCode === feedCode);
   assert(config, `Missing sync config entry for ${feedCode}`);
   return config;
+};
+
+const laosScheduleFixture = {
+  schedule: {
+    drawHour: 20,
+    drawMinute: 30
+  }
 };
 
 const governmentFixture = {
@@ -212,18 +220,45 @@ const laosVipFixture = {
     threeTop: '211',
     threeFront: '',
     twoTop: '11',
-    twoBottom: '48',
+    twoBottom: '80',
     threeBottom: '',
     threeTopHits: ['211'],
     twoTopHits: ['11'],
-    twoBottomHits: ['48'],
+    twoBottomHits: ['80'],
     threeFrontHits: [],
     threeBottomHits: [],
     runTop: ['2', '1'],
-    runBottom: ['4', '8'],
+    runBottom: ['8', '0'],
     resultPublishedAt: new Date('2026-04-15T14:30:00.000Z'),
     isSettlementSafe: true,
     sourceUrl: 'https://www.laosviplot.com/',
+    rawPayload: {}
+  }
+};
+
+const hanoiNormalFixture = {
+  __snapshot: {
+    lotteryCode: 'ynhn',
+    feedCode: 'ynhn',
+    marketName: '\u0e2e\u0e32\u0e19\u0e2d\u0e22\u0e18\u0e23\u0e23\u0e21\u0e14\u0e32',
+    roundCode: '2026-04-26',
+    headline: '228',
+    firstPrize: '38228',
+    threeTop: '228',
+    threeFront: '',
+    twoTop: '28',
+    twoBottom: '08',
+    threeBottom: '',
+    threeTopHits: ['228'],
+    twoTopHits: ['28'],
+    twoBottomHits: ['08'],
+    threeFrontHits: [],
+    threeBottomHits: [],
+    runTop: ['2', '8'],
+    runBottom: ['0', '8'],
+    resultPublishedAt: new Date('2026-04-26T12:30:00.000Z'),
+    isSettlementSafe: true,
+    sourceUrl: 'https://xosodaiphat.com/xsmb-26-04-2026.html',
     rawPayload: {}
   }
 };
@@ -1357,7 +1392,7 @@ const scenarios = [
   },
   {
     name: 'four-digit pre2 family mapping',
-    feedCodes: ['ynhn', 'ynma'],
+    feedCodes: ['ynma'],
     row: fourDigitPre2Fixture,
     verify(snapshot) {
       assert.strictEqual(snapshot.firstPrize, '1234');
@@ -1367,6 +1402,22 @@ const scenarios = [
       assert.deepStrictEqual(snapshot.threeTopHits, ['234']);
       assert.deepStrictEqual(snapshot.twoTopHits, ['34']);
       assert.deepStrictEqual(snapshot.twoBottomHits, ['56']);
+    }
+  },
+  {
+    name: 'hanoi normal official mapping',
+    feedCodes: ['ynhn'],
+    row: hanoiNormalFixture,
+    verify(snapshot) {
+      assert.strictEqual(snapshot.roundCode, '2026-04-26');
+      assert.strictEqual(snapshot.firstPrize, '38228');
+      assert.strictEqual(snapshot.threeTop, '228');
+      assert.strictEqual(snapshot.twoTop, '28');
+      assert.strictEqual(snapshot.twoBottom, '08');
+      assert.deepStrictEqual(snapshot.threeTopHits, ['228']);
+      assert.deepStrictEqual(snapshot.twoTopHits, ['28']);
+      assert.deepStrictEqual(snapshot.twoBottomHits, ['08']);
+      assert.strictEqual(snapshot.sourceUrl, 'https://xosodaiphat.com/xsmb-26-04-2026.html');
     }
   },
   {
@@ -1393,9 +1444,9 @@ const scenarios = [
       assert.strictEqual(snapshot.firstPrize, '48211');
       assert.strictEqual(snapshot.threeTop, '211');
       assert.strictEqual(snapshot.twoTop, '11');
-      assert.strictEqual(snapshot.twoBottom, '48');
+      assert.strictEqual(snapshot.twoBottom, '80');
       assert.deepStrictEqual(snapshot.runTop, ['2', '1']);
-      assert.deepStrictEqual(snapshot.runBottom, ['4', '8']);
+      assert.deepStrictEqual(snapshot.runBottom, ['8', '0']);
       assert.strictEqual(snapshot.sourceUrl, 'https://www.laosviplot.com/');
     }
   },
@@ -1936,6 +1987,16 @@ assert.deepStrictEqual(
   'Every configured feed must be covered by an explicit mapping or provider-specific parser'
 );
 assert.strictEqual(STRICT_FEED_MAPPING, true, 'STRICT_FEED_MAPPING should stay enabled');
+assert.strictEqual(
+  getScheduledResultWaitingState(laosScheduleFixture, new Date('2026-04-26T12:11:00.000Z')).waiting,
+  true,
+  'Lao feed should be treated as waiting before the scheduled draw time'
+);
+assert.strictEqual(
+  getScheduledResultWaitingState(laosScheduleFixture, new Date('2026-04-26T13:31:00.000Z')).waiting,
+  false,
+  'Lao feed should not be hidden after the scheduled draw time'
+);
 
 const results = [];
 

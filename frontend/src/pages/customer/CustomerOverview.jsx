@@ -6,6 +6,16 @@ import { memberCopy } from '../../i18n/th/member';
 import { getBetTypeLabel, getProviderLabel, getRoundStatusLabel } from '../../i18n/th/labels';
 import { useCatalog } from '../../context/CatalogContext';
 
+const LAO_SET_BET_TYPE = 'lao_set4';
+const LAO_SET_AMOUNT = '120';
+const LAO_SET_MAX_PRIZE = 150000;
+
+const getRateDisplayText = (betType, rates = {}) => (
+  betType === LAO_SET_BET_TYPE
+    ? `ชุดละ ${LAO_SET_AMOUNT} / สูงสุด ${LAO_SET_MAX_PRIZE.toLocaleString('th-TH')}`
+    : `x${rates?.[betType] || 0}`
+);
+
 const formatCountdown = (seconds) => {
   if (seconds === null || seconds === undefined) return '-';
   if (seconds <= 0) return '00:00:00';
@@ -185,7 +195,7 @@ const CustomerOverview = () => {
                 {selectedLottery.supportedBetTypes.map((betType) => (
                   <tr key={betType}>
                     <td>{getBetTypeLabel(betType)}</td>
-                    <td>x{selectedRateProfile?.rates?.[betType] || 0}</td>
+                    <td>{getRateDisplayText(betType, selectedRateProfile?.rates)}</td>
                   </tr>
                 ))}
               </tbody>

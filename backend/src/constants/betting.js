@@ -13,7 +13,20 @@ const DEFAULT_GLOBAL_RATES = {
   'lao_set4': 1
 };
 
+const LAO_SET_UNIT_PRICE = 120;
+
+const LAO_SET_PRIZE_RATES = {
+  fourStraight: 150000,
+  threeStraight: 41000,
+  fourTod: 5500,
+  threeTod: 4100,
+  twoFront: 1700,
+  twoBack: 1700
+};
+
 module.exports = {
   BET_TYPES,
-  DEFAULT_GLOBAL_RATES
+  DEFAULT_GLOBAL_RATES,
+  LAO_SET_PRIZE_RATES,
+  LAO_SET_UNIT_PRICE
 };

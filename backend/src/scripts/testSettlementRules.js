@@ -1,12 +1,19 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 
 const assert = require('assert');
-const { checkItemResult, normalizeResultPayload } = require('../services/resultService');
+const { calculateItemWonAmount, checkItemResult, normalizeResultPayload } = require('../services/resultService');
 
 const makeItem = (betType, number) => ({
   betType,
   number,
   amount: 10,
+  payRate: 1
+});
+
+const makeLaoSetItem = (number, amount = 120) => ({
+  betType: 'lao_set4',
+  number,
+  amount,
   payRate: 1
 });
 
@@ -62,6 +69,20 @@ const main = () => {
   assert.strictEqual(checkItemResult(makeItem('3tod', '321'), tod3Result), true, '3tod should win for reverse permutation of top result');
   assert.strictEqual(checkItemResult(makeItem('3tod', '124'), tod3Result), false, '3tod should not win when digits differ');
   assert.strictEqual(checkItemResult(makeItem('3bottom', '123'), tod3Result), false, '3bottom should not win from top-only result');
+
+  const laoSetResult = normalizeResultPayload({
+    firstPrize: '1234'
+  });
+
+  assert.strictEqual(checkItemResult(makeLaoSetItem('1234'), laoSetResult), true, 'Lao set should win on 4 straight');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('1234'), laoSetResult), 150000, 'Lao set 4 straight should pay 150,000 per set');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('1234', 240), laoSetResult), 300000, 'Lao set combined duplicate stakes should pay per 120-baht set');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('0234'), laoSetResult), 41000, 'Lao set 3 straight should pay 41,000');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('1243'), laoSetResult), 5500, 'Lao set 4 tod should pay 5,500 and outrank 3 tod');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('0324'), laoSetResult), 4100, 'Lao set 3 tod should pay 4,100');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('1299'), laoSetResult), 1700, 'Lao set 2 front should pay 1,700');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('8834'), laoSetResult), 1700, 'Lao set 2 back should pay 1,700');
+  assert.strictEqual(calculateItemWonAmount(makeLaoSetItem('9999'), laoSetResult), 0, 'Lao set non-hit should pay 0');
 
   console.log('Settlement rule checks passed');
 };

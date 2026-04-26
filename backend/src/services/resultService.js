@@ -6,6 +6,7 @@ const LotteryResult = require('../models/LotteryResult');
 const LotteryType = require('../models/LotteryType');
 const ResultRecord = require('../models/ResultRecord');
 const User = require('../models/User');
+const { LAO_SET_PRIZE_RATES, LAO_SET_UNIT_PRICE } = require('../constants/betting');
 const { createBangkokDate } = require('../utils/bangkokTime');
 const { hasSameDigits } = require('../utils/numberHelpers');
 
@@ -18,6 +19,7 @@ const toMoney = (value) => {
 };
 const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() || '';
 const makeSettlementGroupId = (roundCode = 'round') => `SET-${roundCode}-${new mongoose.Types.ObjectId().toString()}`;
+const LAO_SET_BET_TYPE = 'lao_set4';
 
 const parseRoundCode = (roundCode) => {
   const match = String(roundCode || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -157,12 +159,84 @@ const validatePublishedResultPayload = (lotteryType, normalized) => {
   }
 };
 
+const uniqueNormalizedValues = (...values) => [...new Set(flattenValues(values).map(normalizeDigits).filter(Boolean))];
+
+const getLaoSetPrizeMatch = (item, normalizedResult) => {
+  const number = normalizeDigits(item?.number);
+  if (number.length !== 4) {
+    return null;
+  }
+
+  const fourTopHits = uniqueNormalizedValues(
+    normalizedResult.fourTopHits,
+    normalizedResult.fourTop,
+    normalizedResult.firstPrize ? normalizeDigits(normalizedResult.firstPrize).slice(-4) : ''
+  ).filter((value) => value.length === 4);
+
+  const firstFourTop = fourTopHits[0] || '';
+  const threeStraightNumber = number.slice(-3);
+  const twoFrontNumber = number.slice(0, 2);
+  const twoBackNumber = number.slice(-2);
+  const threeTopHits = uniqueNormalizedValues(
+    normalizedResult.threeTopHits,
+    normalizedResult.threeTop,
+    firstFourTop ? firstFourTop.slice(-3) : ''
+  ).filter((value) => value.length === 3);
+  const twoFrontHits = uniqueNormalizedValues(
+    normalizedResult.twoBottomHits,
+    firstFourTop ? firstFourTop.slice(0, 2) : ''
+  ).filter((value) => value.length === 2);
+  const twoBackHits = uniqueNormalizedValues(
+    normalizedResult.twoTopHits,
+    normalizedResult.twoTop,
+    firstFourTop ? firstFourTop.slice(-2) : ''
+  ).filter((value) => value.length === 2);
+
+  if (fourTopHits.includes(number)) {
+    return { prizeKey: 'fourStraight', prizeAmount: LAO_SET_PRIZE_RATES.fourStraight };
+  }
+
+  if (threeTopHits.includes(threeStraightNumber)) {
+    return { prizeKey: 'threeStraight', prizeAmount: LAO_SET_PRIZE_RATES.threeStraight };
+  }
+
+  if (fourTopHits.some((value) => hasSameDigits(value, number))) {
+    return { prizeKey: 'fourTod', prizeAmount: LAO_SET_PRIZE_RATES.fourTod };
+  }
+
+  if (threeTopHits.some((value) => hasSameDigits(value, threeStraightNumber))) {
+    return { prizeKey: 'threeTod', prizeAmount: LAO_SET_PRIZE_RATES.threeTod };
+  }
+
+  if (twoFrontHits.includes(twoFrontNumber)) {
+    return { prizeKey: 'twoFront', prizeAmount: LAO_SET_PRIZE_RATES.twoFront };
+  }
+
+  if (twoBackHits.includes(twoBackNumber)) {
+    return { prizeKey: 'twoBack', prizeAmount: LAO_SET_PRIZE_RATES.twoBack };
+  }
+
+  return null;
+};
+
+const getLaoSetQuantity = (item) => Math.floor(toMoney(item?.amount) / LAO_SET_UNIT_PRICE);
+
+const calculateItemWonAmount = (item, normalizedResult) => {
+  if (item?.betType === LAO_SET_BET_TYPE) {
+    const match = getLaoSetPrizeMatch(item, normalizedResult);
+    const quantity = getLaoSetQuantity(item);
+    return match && quantity > 0 ? match.prizeAmount * quantity : 0;
+  }
+
+  return checkItemResult(item, normalizedResult) ? toMoney(item.amount) * toMoney(item.payRate) : 0;
+};
+
 const checkItemResult = (item, normalizedResult) => {
   const number = String(item.number || '').trim();
 
     switch (item.betType) {
       case 'lao_set4':
-        return normalizedResult.fourTopHits.includes(number);
+        return Boolean(getLaoSetPrizeMatch(item, normalizedResult));
       case '3top':
         return normalizedResult.threeTopHits.includes(number);
     case '3front':
@@ -461,8 +535,8 @@ const applyRoundSettlement = async (roundId, { force = false, session }) => {
   let payoutNetDelta = 0;
 
   for (const item of items) {
-    const isWon = checkItemResult(item, normalized);
-    const nextWonAmount = isWon ? toMoney(item.amount) * toMoney(item.payRate) : 0;
+    const nextWonAmount = calculateItemWonAmount(item, normalized);
+    const isWon = nextWonAmount > 0;
     const previousAppliedAmount = toMoney(item.payoutAppliedAmount);
     const payoutDelta = nextWonAmount - previousAppliedAmount;
 
@@ -687,9 +761,9 @@ const reconcileRoundSettlementById = async (roundId) => {
   let appliedPayoutTotal = 0;
 
   for (const item of items) {
-    const isWon = checkItemResult(item, normalized);
+    const expectedWonAmount = calculateItemWonAmount(item, normalized);
+    const isWon = expectedWonAmount > 0;
     const expectedResult = isWon ? 'won' : 'lost';
-    const expectedWonAmount = isWon ? toMoney(item.amount) * toMoney(item.payRate) : 0;
     const appliedPayoutAmount = toMoney(item.payoutAppliedAmount);
     const ledgerNetAmount = toMoney(payoutNetByItem.get(item._id.toString()));
     const reasons = [];
@@ -904,8 +978,10 @@ const getRoundResult = async (roundId) => {
 
 module.exports = {
   ensureRoundForLottery,
+  calculateItemWonAmount,
   checkItemResult,
   findRoundByCode,
+  getLaoSetPrizeMatch,
   normalizeResultPayload,
   validatePublishedResultPayload,
   upsertRoundResult,

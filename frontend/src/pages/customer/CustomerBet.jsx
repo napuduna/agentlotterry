@@ -12,6 +12,13 @@ const quickAmountOptions = ['10', '20', '50', '100'];
 const hiddenRoundStatuses = new Set(['closed', 'resulted']);
 const LAO_SET_BET_TYPE = 'lao_set4';
 const LAO_SET_AMOUNT = '120';
+const LAO_SET_MAX_PRIZE = 150000;
+
+const getRateDisplayText = (betType, rates = {}) => (
+  betType === LAO_SET_BET_TYPE
+    ? `ชุดละ ${LAO_SET_AMOUNT} / สูงสุด ${LAO_SET_MAX_PRIZE.toLocaleString('th-TH')}`
+    : `x${rates?.[betType] || 0}`
+);
 
 const CustomerBet = () => {
   const copy = memberCopy.bet;
@@ -233,7 +240,7 @@ const CustomerBet = () => {
             {(selectedLottery?.supportedBetTypes || []).map((betType) => (
               <button key={betType} type="button" className={`bet-type-tab ${activeBetType === betType ? 'active' : ''}`} onClick={() => setActiveBetType(betType)}>
                 <span className="bet-type-tab-label">{getBetTypeLabel(betType)}</span>
-                <span className="bet-type-tab-rate">x{selectedRateProfile?.rates?.[betType] || (betType === LAO_SET_BET_TYPE ? 1 : 0)}</span>
+                <span className="bet-type-tab-rate">{getRateDisplayText(betType, selectedRateProfile?.rates)}</span>
               </button>
             ))}
           </div>
@@ -340,7 +347,7 @@ const CustomerBet = () => {
                     </div>
                     <div className="preview-item-right">
                       <strong>{money(item.amount)} บาท</strong>
-                      <span>x{item.payRate}</span>
+                      <span>{getRateDisplayText(item.betType, selectedRateProfile?.rates)}</span>
                     </div>
                   </div>
                 ))}

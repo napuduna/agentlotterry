@@ -69,6 +69,7 @@ const doubleSetCounts = {
 };
 const LAO_SET_BET_TYPE = 'lao_set4';
 const LAO_SET_AMOUNT = '120';
+const LAO_SET_MAX_PRIZE = 150000;
 const fallbackFastRates = {
   '3top': 1000,
   '3front': 450,
@@ -255,7 +256,7 @@ const dedupeOrderedNumbers = (numbers = []) => {
     return true;
   });
 };
-const shouldDedupeFastNumbersForPricing = (fastFamily, fastTab) => fastFamily === '2' && fastTab === '2';
+const shouldDedupeFastNumbersForPricing = () => false;
 const buildNumberCountMap = (numbers = []) => {
   const counts = new Map();
   (numbers || []).forEach((value) => {
@@ -904,6 +905,18 @@ const getFastCandidateCount = (candidateCounts, number) => {
   return Number(candidateCounts?.[number] || 1);
 };
 
+const getRateDisplayText = (betType, rates = {}) => (
+  betType === LAO_SET_BET_TYPE
+    ? `ชุดละ ${LAO_SET_AMOUNT} / สูงสุด ${LAO_SET_MAX_PRIZE.toLocaleString('th-TH')}`
+    : `x${rates?.[betType] ?? fallbackFastRates[betType] ?? 0}`
+);
+
+const calculateDraftPotentialPayout = (item) => (
+  item?.betType === LAO_SET_BET_TYPE
+    ? Math.floor(Number(item?.amount || 0) / Number(LAO_SET_AMOUNT)) * LAO_SET_MAX_PRIZE
+    : Number(item?.amount || 0) * Number(item?.payRate || 0)
+);
+
 const expandFastDraftNumbers = (number, betType, reverse) => {
   if (!reverse) return [number];
 
@@ -923,7 +936,7 @@ const combineFastDraftItems = (items) => {
   return (items || []).map((item, index) => ({
     ...item,
     draftKey: item.draftKey || `${item.betType}:${item.number}:${index}`,
-    potentialPayout: Number(item.amount || 0) * Number(item.payRate || 0)
+    potentialPayout: calculateDraftPotentialPayout(item)
   }));
 };
 
@@ -3060,7 +3073,7 @@ const OperatorBetting = () => {
                     </div>
 
                     <div className="operator-rate-grid">
-                      {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>x{selectedRateProfile?.rates?.[betType] ?? fallbackFastRates[betType] ?? 0}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? copyText.roundClosedStatus : copyText.roundOpenStatus}</small></div>)}
+                      {(selectedLottery?.supportedBetTypes || []).map((betType) => <div key={betType} className="card" style={{ padding: 12, borderColor: roundClosedBetTypes.includes(betType) ? 'var(--border-accent)' : undefined }}><div className="ops-table-note" style={{ margin: 0 }}>{getBetTypeLabel(betType)}</div><strong style={{ display: 'block', marginTop: 8 }}>{getRateDisplayText(betType, selectedRateProfile?.rates)}</strong><small className="ops-table-note" style={{ marginTop: 6, display: 'block', color: roundClosedBetTypes.includes(betType) ? 'var(--primary-light)' : undefined }}>{roundClosedBetTypes.includes(betType) ? copyText.roundClosedStatus : copyText.roundOpenStatus}</small></div>)}
                     </div>
                   </>
                 ) : null}

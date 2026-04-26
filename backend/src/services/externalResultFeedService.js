@@ -2,7 +2,7 @@ const axios = require('axios');
 const LotteryResult = require('../models/LotteryResult');
 const LotteryType = require('../models/LotteryType');
 const MarketFeedResult = require('../models/MarketFeedResult');
-const { createBangkokDate } = require('../utils/bangkokTime');
+const { createBangkokDate, getBangkokParts } = require('../utils/bangkokTime');
 const {
   ensureRoundForLottery,
   settleRoundById,
@@ -29,6 +29,7 @@ const { fetchLaosUnionSnapshots } = require('./laosUnionResultService');
 const { fetchLaosUnionVipSnapshots } = require('./laosUnionVipResultService');
 const { fetchLaosAseanSnapshots } = require('./laosAseanResultService');
 const { fetchHanoiExtraSnapshots } = require('./hanoiExtraResultService');
+const { fetchHanoiNormalSnapshots } = require('./hanoiNormalResultService');
 const { fetchHanoiStarSnapshots } = require('./hanoiStarResultService');
 const { fetchHanoiDevelopSnapshots } = require('./hanoiDevelopResultService');
 const { fetchHanoiHdSnapshots } = require('./hanoiHdResultService');
@@ -84,6 +85,7 @@ const LAOS_UNION_SYNC_LIMIT = Number(process.env.LAOS_UNION_SYNC_LIMIT || 10);
 const LAOS_UNION_VIP_SYNC_LIMIT = Number(process.env.LAOS_UNION_VIP_SYNC_LIMIT || 10);
 const LAOS_ASEAN_SYNC_LIMIT = Number(process.env.LAOS_ASEAN_SYNC_LIMIT || 10);
 const HANOI_EXTRA_SYNC_LIMIT = Number(process.env.HANOI_EXTRA_SYNC_LIMIT || 10);
+const HANOI_NORMAL_SYNC_LIMIT = Number(process.env.HANOI_NORMAL_SYNC_LIMIT || 10);
 const HANOI_STAR_SYNC_LIMIT = Number(process.env.HANOI_STAR_SYNC_LIMIT || 10);
 const HANOI_DEVELOP_SYNC_LIMIT = Number(process.env.HANOI_DEVELOP_SYNC_LIMIT || 10);
 const HANOI_HD_SYNC_LIMIT = Number(process.env.HANOI_HD_SYNC_LIMIT || 10);
@@ -517,6 +519,10 @@ for (const config of FEED_CONFIGS) {
     config.provider = 'laosvip';
   }
 
+  if (config.feedCode === 'ynhn') {
+    config.provider = 'hanoiregular';
+  }
+
   if (config.feedCode === 'gsus') {
     config.provider = 'dowjonesvip';
     config.parser = 'dowjonesvip';
@@ -539,6 +545,7 @@ const OFFICIAL_PROVIDER_CODES = new Set([
   'laosunion',
   'laosunionvip',
   'laosasean',
+  'hanoiregular',
   'hanoiextra',
   'hanoistar',
   'hanoidevelop',
@@ -984,6 +991,11 @@ const fetchSyncRows = async (config) => {
     return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
   }
 
+  if (config.provider === 'hanoiregular') {
+    const snapshots = await fetchHanoiNormalSnapshots({ limit: HANOI_NORMAL_SYNC_LIMIT });
+    return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
+  }
+
   if (config.provider === 'hanoistar') {
     const snapshots = await fetchHanoiStarSnapshots({ limit: HANOI_STAR_SYNC_LIMIT });
     return snapshots.map((snapshot) => ({ __snapshot: snapshot }));
@@ -1152,6 +1164,37 @@ const resolveProcessingRound = async (snapshot, lotteryType, config = {}, now = 
   };
 };
 
+const getBangkokRoundCode = (date = new Date()) => {
+  const parts = getBangkokParts(date);
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+};
+
+const getScheduledResultWaitingState = (lotteryType, now = new Date()) => {
+  if (!lotteryType?.schedule) {
+    return {
+      waiting: false,
+      roundCode: '',
+      drawAt: null
+    };
+  }
+
+  const roundCode = getBangkokRoundCode(now);
+  const drawAt = getRoundDrawAt(lotteryType, roundCode);
+  if (!drawAt) {
+    return {
+      waiting: false,
+      roundCode,
+      drawAt: null
+    };
+  }
+
+  return {
+    waiting: now.getTime() < drawAt.getTime(),
+    roundCode,
+    drawAt
+  };
+};
+
 const upsertSnapshot = async (snapshot, lotteryType) => {
   return MarketFeedResult.findOneAndUpdate(
     {
@@ -1289,7 +1332,10 @@ const processSyncConfig = async (config, lotteryByCode, executionMode) => {
     skippedBeforeDraw: 0,
     warnings: [],
     status: 'ok',
-    error: ''
+    error: '',
+    waitingForResult: false,
+    waitingRoundCode: '',
+    waitingUntil: null
   };
 
   const counters = {
@@ -1302,10 +1348,20 @@ const processSyncConfig = async (config, lotteryByCode, executionMode) => {
   const warnings = [];
 
   try {
+    const lotteryType = lotteryByCode.get(config.lotteryCode) || null;
     const rows = await fetchSyncRows(config);
     feedSummary.fetchedRows = rows.length;
     if (!rows.length) {
       counters.skipped += 1;
+      const waitingState = getScheduledResultWaitingState(lotteryType);
+      if (waitingState.waiting) {
+        feedSummary.skippedBeforeDraw += 1;
+        feedSummary.waitingForResult = true;
+        feedSummary.waitingRoundCode = waitingState.roundCode;
+        feedSummary.waitingUntil = waitingState.drawAt;
+        return { feedSummary, counters, warnings };
+      }
+
       const warning = `No data in feed ${config.feedCode}`;
       warnings.push(warning);
       feedSummary.warnings.push(warning);
@@ -1313,7 +1369,6 @@ const processSyncConfig = async (config, lotteryByCode, executionMode) => {
       return { feedSummary, counters, warnings };
     }
 
-    const lotteryType = lotteryByCode.get(config.lotteryCode) || null;
     const processedRounds = new Set();
 
     for (const row of rows) {
@@ -1354,6 +1409,11 @@ const processSyncConfig = async (config, lotteryByCode, executionMode) => {
 
     feedSummary.processedRounds = processedRounds.size;
     if (!processedRounds.size) {
+      if (feedSummary.skippedBeforeDraw === rows.length) {
+        feedSummary.waitingForResult = true;
+        return { feedSummary, counters, warnings };
+      }
+
       counters.skipped += 1;
       const warning = feedSummary.skippedBeforeDraw === rows.length
         ? `No released results yet for ${config.feedCode}`
@@ -1587,6 +1647,7 @@ module.exports = {
   buildSnapshot,
   fetchFeedRows,
   fetchThaiGovernmentResultByRoundCode,
+  getScheduledResultWaitingState,
   resolveSnapshotReleaseAt,
   resolveSyncExecutionMode,
   runItemsInBatches,

@@ -7,11 +7,12 @@ const RateProfile = require('../models/RateProfile');
 const User = require('../models/User');
 const { getRoundStatus } = require('./catalogService');
 const { getMemberLotteryAccess } = require('./memberManagementService');
-const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('../constants/betting');
+const { BET_TYPES, DEFAULT_GLOBAL_RATES, LAO_SET_PRIZE_RATES, LAO_SET_UNIT_PRICE } = require('../constants/betting');
 const { normalizeLotteryCode } = require('../utils/lotteryCode');
 const { getPermutations } = require('../utils/numberHelpers');
 
 const MAX_SLIP_ITEMS = 500;
+const LAO_SET_BET_TYPE = 'lao_set4';
 const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() || '';
 
 const DIGIT_LENGTHS = {
@@ -26,8 +27,6 @@ const DIGIT_LENGTHS = {
   'run_bottom': 1,
   'lao_set4': 4
 };
-
-const UNIQUE_NUMBER_BET_TYPES = new Set(['2top', '2bottom', '2tod']);
 
 const makeSlipNumber = () => {
   const now = new Date();
@@ -154,23 +153,34 @@ const normalizePreviewItem = (entry = {}) => ({
   }
 });
 
+const validateLaoSetAmount = (amount) => {
+  const normalizedAmount = Number(amount || 0);
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount < LAO_SET_UNIT_PRICE || normalizedAmount % LAO_SET_UNIT_PRICE !== 0) {
+    throw new Error(`Lao set amount must be ${LAO_SET_UNIT_PRICE} per set`);
+  }
+};
+
+const calculatePotentialPayout = (entry) => {
+  if (entry.betType === LAO_SET_BET_TYPE) {
+    return Math.floor(Number(entry.amount || 0) / LAO_SET_UNIT_PRICE) * LAO_SET_PRIZE_RATES.fourStraight;
+  }
+
+  return entry.amount * entry.payRate;
+};
+
 const combineEntries = (entries) => {
   const grouped = new Map();
 
   entries.map(normalizePreviewItem).forEach((entry) => {
+    if (entry.betType === LAO_SET_BET_TYPE) {
+      validateLaoSetAmount(entry.amount);
+    }
+
     const key = `${entry.betType}:${entry.number}`;
     const current = grouped.get(key);
     if (current) {
-      const shouldKeepDuplicateStake = current.sourceFlags.fromRood || entry.sourceFlags.fromRood;
-      if (UNIQUE_NUMBER_BET_TYPES.has(entry.betType) && !shouldKeepDuplicateStake) {
-        current.sourceFlags.fromReverse = current.sourceFlags.fromReverse || entry.sourceFlags.fromReverse;
-        current.sourceFlags.fromDoubleSet = current.sourceFlags.fromDoubleSet || entry.sourceFlags.fromDoubleSet;
-        current.sourceFlags.fromRood = current.sourceFlags.fromRood || entry.sourceFlags.fromRood;
-        return;
-      }
-
       current.amount += entry.amount;
-      current.potentialPayout = current.amount * current.payRate;
+      current.potentialPayout = calculatePotentialPayout(current);
       current.sourceFlags.fromReverse = current.sourceFlags.fromReverse || entry.sourceFlags.fromReverse;
       current.sourceFlags.fromDoubleSet = current.sourceFlags.fromDoubleSet || entry.sourceFlags.fromDoubleSet;
       current.sourceFlags.fromRood = current.sourceFlags.fromRood || entry.sourceFlags.fromRood;
@@ -179,7 +189,7 @@ const combineEntries = (entries) => {
 
     grouped.set(key, {
       ...entry,
-      potentialPayout: entry.amount * entry.payRate
+      potentialPayout: calculatePotentialPayout(entry)
     });
   });
 
