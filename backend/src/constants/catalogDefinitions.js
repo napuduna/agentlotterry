@@ -1,4 +1,5 @@
 const { BET_TYPES, DEFAULT_GLOBAL_RATES } = require('./betting');
+const { applyCloseTimeOverridesToLotteryTypes } = require('./lotteryCloseTimeOverrides');
 
 const GOVERNMENT_BET_TYPES = ['3top', '3front', '3bottom', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
 const STANDARD_BET_TYPES = ['3top', '3tod', '2top', '2bottom', 'run_top', 'run_bottom'];
@@ -972,7 +973,7 @@ const LOTTERY_TYPES = [
   })
 ];
 
-const NORMALIZED_LOTTERY_TYPES = LOTTERY_TYPES.map((lottery) => (
+const NORMALIZED_LOTTERY_TYPES = applyCloseTimeOverridesToLotteryTypes(LOTTERY_TYPES).map((lottery) => (
   lottery.code === 'lao_pathana'
     ? {
         ...lottery,
