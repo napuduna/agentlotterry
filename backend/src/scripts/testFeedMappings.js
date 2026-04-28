@@ -7,6 +7,8 @@ const {
   buildSnapshot,
   getScheduledResultWaitingState
 } = require('../services/externalResultFeedService');
+const { __test: laosUnionParserTest } = require('../services/laosUnionResultService');
+const { __test: laosUnionVipParserTest } = require('../services/laosUnionVipResultService');
 
 const findConfig = (feedCode) => {
   const config = SYNC_CONFIGS.find((item) => item.feedCode === feedCode);
@@ -1321,7 +1323,7 @@ const taiwanVipFixture = {
 const dowjonesVipFixture = {
   __snapshot: {
     lotteryCode: 'dowjones_vip',
-    feedCode: 'gsus',
+    feedCode: 'dowjones_vip',
     marketName: 'ดาวโจนส์ VIP',
     roundCode: '2026-04-17',
     headline: '274',
@@ -1465,7 +1467,7 @@ const scenarios = [
     name: 'stock family mapping',
     feedCodes: [
       'gshka', 'gshkp', 'gstw', 'gsjpa', 'gsjpp', 'gskr', 'gscna', 'gscnp',
-      'gssg', 'gsth', 'gsin', 'gseg', 'gsru', 'gsde', 'gsuk'
+      'gssg', 'gsth', 'gsin', 'gseg', 'gsru', 'gsde', 'gsuk', 'gsus'
     ],
     row: stockFixture,
     verify(snapshot) {
@@ -1956,7 +1958,7 @@ const scenarios = [
   },
   {
     name: 'dowjones vip mapping',
-    feedCodes: ['gsus'],
+    feedCodes: ['dowjones_vip'],
     row: dowjonesVipFixture,
     verify(snapshot) {
       assert.strictEqual(snapshot.roundCode, '2026-04-17');
@@ -1996,6 +1998,40 @@ assert.strictEqual(
   getScheduledResultWaitingState(laosScheduleFixture, new Date('2026-04-26T13:31:00.000Z')).waiting,
   false,
   'Lao feed should not be hidden after the scheduled draw time'
+);
+
+const laosUnionDerivedSnapshot = laosUnionParserTest.buildSnapshot({
+  roundCode: '2026-04-27',
+  results: {
+    digit5: '37640',
+    digit4: '7640',
+    digit3: '640',
+    digit2_top: '40',
+    digit2_bottom: '37'
+  },
+  rawPayload: {}
+});
+assert.strictEqual(
+  laosUnionDerivedSnapshot.twoBottom,
+  '76',
+  'Lao Union 2 bottom should match GoGo by deriving from the first two digits of digit4'
+);
+
+const laosUnionVipDerivedSnapshot = laosUnionVipParserTest.buildSnapshot({
+  roundCode: '2026-04-27',
+  results: {
+    digit5: '23868',
+    digit4: '3868',
+    digit3: '868',
+    digit2_top: '68',
+    digit2_bottom: '23'
+  },
+  rawPayload: {}
+});
+assert.strictEqual(
+  laosUnionVipDerivedSnapshot.twoBottom,
+  '38',
+  'Lao Union VIP 2 bottom should match GoGo by deriving from the first two digits of digit4'
 );
 
 const results = [];

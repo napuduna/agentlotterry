@@ -8,7 +8,7 @@ const DOWJONES_VIP_TIMEOUT_MS = Number(process.env.DOWJONES_VIP_TIMEOUT_MS || 15
 
 const DOWJONES_VIP_MARKET_ID = 'dowjones_vip';
 const DOWJONES_VIP_MARKET_NAME = 'ดาวโจนส์ VIP';
-const DOWJONES_VIP_FEED_CODE = 'gsus';
+const DOWJONES_VIP_FEED_CODE = 'dowjones_vip';
 
 const http = axios.create({
   timeout: DOWJONES_VIP_TIMEOUT_MS,

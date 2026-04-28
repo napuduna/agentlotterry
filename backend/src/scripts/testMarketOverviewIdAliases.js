@@ -23,7 +23,8 @@ const REQUIRED_MARKETS = [
   'stock-russia-vip',
   'stock-germany-vip',
   'stock-england-vip',
-  'stock-dowjones'
+  'stock-dowjones',
+  'stock-dowjones-vip'
 ];
 
 const getMarketMap = (overview) => new Map(

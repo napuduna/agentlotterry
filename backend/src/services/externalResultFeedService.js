@@ -227,7 +227,7 @@ const FEED_CONFIGS = [
   { feedCode: 'gsru', lotteryCode: 'gsru', marketName: 'หุ้นรัสเซีย', parser: 'stock', syncToResults: true },
   { feedCode: 'gsde', lotteryCode: 'gsde', marketName: 'หุ้นเยอรมัน', parser: 'stock', syncToResults: true },
   { feedCode: 'gsuk', lotteryCode: 'gsuk', marketName: 'หุ้นอังกฤษ', parser: 'stock', syncToResults: true },
-  { feedCode: 'gsus', lotteryCode: 'dowjones_vip', marketName: 'หุ้นดาวโจนส์', parser: 'stock', syncToResults: true },
+  { feedCode: 'gsus', lotteryCode: 'gsus', marketName: 'หุ้นดาวโจนส์', parser: 'stock', syncToResults: true },
   { feedCode: 'cqhn', lotteryCode: 'cqhn', marketName: 'ฮานอยเฉพาะกิจ', parser: 'simple', syncToResults: true },
   { feedCode: 'zcvip', lotteryCode: 'lao_vip', marketName: 'ลาว VIP', parser: 'simple', syncToResults: true },
   { feedCode: 'ynhn', lotteryCode: 'ynhn', marketName: 'ฮานอยธรรมดา', parser: 'simple', syncToResults: true },
@@ -237,6 +237,16 @@ const FEED_CONFIGS = [
 const EXTRA_SYNC_CONFIGS = [
   { feedCode: 'gsb', lotteryCode: 'gsb', marketName: 'ออมสิน', parser: 'gsb', syncToResults: true, provider: 'gsb' }
 ];
+
+EXTRA_SYNC_CONFIGS.push({
+  feedCode: 'dowjones_vip',
+  lotteryCode: 'dowjones_vip',
+  marketName: '\u0e14\u0e32\u0e27\u0e42\u0e08\u0e19\u0e2a\u0e4c VIP',
+  parser: 'dowjonesvip',
+  syncToResults: true,
+  provider: 'dowjonesvip',
+  releaseByPublishedAt: true
+});
 
 EXTRA_SYNC_CONFIGS.push({
   feedCode: 'lao_redcross',
@@ -523,10 +533,6 @@ for (const config of FEED_CONFIGS) {
     config.provider = 'hanoiregular';
   }
 
-  if (config.feedCode === 'gsus') {
-    config.provider = 'dowjonesvip';
-    config.parser = 'dowjonesvip';
-  }
 }
 
 const OFFICIAL_PROVIDER_CODES = new Set([

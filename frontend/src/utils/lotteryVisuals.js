@@ -259,13 +259,23 @@ const LOTTERY_VISUALS = {
     accent: '#7c3aed',
     background: 'radial-gradient(circle at 30% 30%, #c4b5fd, #6d28d9 72%)'
   },
-  dowjones_vip: {
+  gsus: {
     shortLabel: 'DJ',
-    accent: '#7c3aed',
-    background: 'radial-gradient(circle at 30% 30%, #c4b5fd, #6d28d9 72%)'
+    accent: '#64748b',
+    background: 'radial-gradient(circle at 30% 30%, #cbd5e1, #475569 72%)'
   },
   'stock-dowjones': {
     shortLabel: 'DJ',
+    accent: '#64748b',
+    background: 'radial-gradient(circle at 30% 30%, #cbd5e1, #475569 72%)'
+  },
+  dowjones_vip: {
+    shortLabel: 'DJV',
+    accent: '#7c3aed',
+    background: 'radial-gradient(circle at 30% 30%, #c4b5fd, #6d28d9 72%)'
+  },
+  'stock-dowjones-vip': {
+    shortLabel: 'DJV',
     accent: '#7c3aed',
     background: 'radial-gradient(circle at 30% 30%, #c4b5fd, #6d28d9 72%)'
   },

@@ -29,7 +29,8 @@ const grouped = groupSectionsForDisplay([
     id: 'stocks',
     markets: [
       { id: 'stock-hangseng-morning-vip', name: 'Hang Seng Morning VIP' },
-      { id: 'stock-dowjones', name: 'Dow Jones VIP' },
+      { id: 'stock-dowjones-vip', name: 'Dow Jones VIP' },
+      { id: 'stock-dowjones', name: 'Dow Jones' },
       { id: 'stock-thai', name: 'Thai Stock' }
     ]
   }
@@ -54,7 +55,7 @@ const marketIdsBySection = new Map(
 assert.deepStrictEqual(marketIdsBySection.get('government'), ['thai-government']);
 assert.deepStrictEqual(marketIdsBySection.get('international'), ['hanoi-vip', 'hanoi-extra', 'yeekee-vip']);
 assert.deepStrictEqual(marketIdsBySection.get('daily'), ['lao']);
-assert.deepStrictEqual(marketIdsBySection.get('stock-vip'), ['stock-hangseng-morning-vip', 'stock-dowjones']);
-assert.deepStrictEqual(marketIdsBySection.get('stocks'), ['stock-thai']);
+assert.deepStrictEqual(marketIdsBySection.get('stock-vip'), ['stock-hangseng-morning-vip', 'stock-dowjones-vip']);
+assert.deepStrictEqual(marketIdsBySection.get('stocks'), ['stock-dowjones', 'stock-thai']);
 
 console.log('testMarketOverviewGrouping passed');

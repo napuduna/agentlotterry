@@ -50,6 +50,7 @@ const LOTTERY_CLOSE_TIME_OVERRIDES = Object.freeze({
   germany_vip: { closeHour: 22, closeMinute: 20 },
   russia_vip: { closeHour: 23, closeMinute: 20 },
   lao_redcross: { closeHour: 23, closeMinute: 25 },
+  gsus: { closeHour: 23, closeMinute: 30 },
   dowjones_vip: { closeHour: 23, closeMinute: 30 }
 });
 

@@ -381,7 +381,7 @@ const MANYCAI_MARKETS = [
 ];
 
 const ACTIVE_MANYCAI_MARKETS = MANYCAI_MARKETS.filter(
-  (market) => !['tlzc', 'zcvip', 'gsus'].includes(market.code)
+  (market) => !['tlzc', 'zcvip'].includes(market.code)
 );
 const MANYCAI_MARKET_BY_ID = new Map(MANYCAI_MARKETS.map((market) => [market.marketId, market]));
 
@@ -402,7 +402,7 @@ const MARKET_ID_TO_LOTTERY_CODE = withMarketIdAliases({
   'hanoi-special': 'hanoi_special',
   'stock-nikkei-morning': 'nikkei_morning',
   'stock-china-afternoon': 'china_afternoon',
-  'stock-dowjones': 'dowjones_vip',
+  'stock-dowjones-vip': 'dowjones_vip',
   [THAI_GOV_MARKET_ID]: 'thai_government',
   [BAAC_MARKET_ID]: 'baac',
   [GSB_MARKET_ID]: 'gsb',
@@ -1888,7 +1888,7 @@ const fetchLatestDowjonesVipMarket = async () => {
   }
 
   return buildMarket({
-    id: 'stock-dowjones',
+    id: 'stock-dowjones-vip',
     name: DOWJONES_VIP_MARKET_NAME,
     provider: DOWJONES_VIP_PROVIDER_NAME,
     resultDate: snapshot.roundCode,

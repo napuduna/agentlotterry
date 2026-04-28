@@ -47,9 +47,10 @@ const parseBangkokDateTime = (value) => {
 
 const buildSnapshot = ({ roundCode, results, publishedAt, rawPayload }) => {
   const digit5 = compactDigits(results?.digit5);
+  const digit4 = compactDigits(results?.digit4);
   const threeTop = compactDigits(results?.digit3);
   const twoTop = compactDigits(results?.digit2_top);
-  const twoBottom = compactDigits(results?.digit2_bottom);
+  const twoBottom = digit4.length >= 2 ? digit4.slice(0, 2) : compactDigits(results?.digit2_bottom);
 
   if (!roundCode || !digit5 || !threeTop || !twoTop || !twoBottom) {
     return null;
@@ -139,5 +140,8 @@ module.exports = {
   LAOS_UNION_MARKET_NAME,
   LAOS_UNION_SITE_URL,
   fetchLaosUnionSnapshots,
-  fetchLatestLaosUnionSnapshot
+  fetchLatestLaosUnionSnapshot,
+  __test: {
+    buildSnapshot
+  }
 };

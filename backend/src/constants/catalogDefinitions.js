@@ -853,6 +853,21 @@ const LOTTERY_TYPES = [
     supportedBetTypes: STOCK_BET_TYPES
   }),
   createLottery({
+    code: 'gsus',
+    leagueCode: 'stocks',
+    name: '\u0e2b\u0e38\u0e49\u0e19\u0e14\u0e32\u0e27\u0e42\u0e08\u0e19\u0e2a\u0e4c',
+    description: '\u0e2b\u0e27\u0e22\u0e2b\u0e38\u0e49\u0e19\u0e14\u0e32\u0e27\u0e42\u0e08\u0e19\u0e2a\u0e4c\u0e23\u0e2d\u0e1a\u0e14\u0e36\u0e01',
+    schedule: createDailySchedule({
+      weekdays: WEEKDAYS,
+      closeHour: 23,
+      closeMinute: 30,
+      drawHour: 23,
+      drawMinute: 40
+    }),
+    supportedBetTypes: STOCK_BET_TYPES,
+    resultSource: 'api'
+  }),
+  createLottery({
     code: 'dowjones_vip',
     leagueCode: 'vip',
     name: 'ดาวโจนส์ VIP',
