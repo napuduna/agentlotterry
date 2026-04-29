@@ -64,7 +64,7 @@ assert.ok(
   'rood fast entries should carry a source flag for downstream display and auditing'
 );
 assert.ok(
-  componentSource.includes('setExcludedFastNumbers([]);\n                            setReverse((value) => !value);'),
+  /setExcludedFastNumbers\(\[\]\);\s*setReverse\(\(value\) => !value\);/.test(componentSource),
   'toggling reverse should not erase numbers already keyed into the batch'
 );
 
@@ -135,7 +135,7 @@ assert.ok(
   'operator betting amount inputs should hide browser number spinner buttons'
 );
 assert.ok(
-  styleSource.includes('.operator-composer-panel input[type="number"] {\n  appearance: textfield;'),
+  /\.operator-composer-panel input\[type="number"\]\s*\{[\s\S]*appearance:\s*textfield;/.test(styleSource),
   'operator betting number inputs should use textfield appearance'
 );
 

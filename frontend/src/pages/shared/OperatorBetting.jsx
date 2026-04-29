@@ -848,20 +848,19 @@ const buildDraftWinNumbers = (seedDigits = [], digits) => {
   if (source.length < digits) return [];
 
   const values = [];
-  const walk = (prefix, remaining) => {
+  const walk = (startIndex, prefix) => {
     if (prefix.length === digits) {
       values.push(prefix.join(''));
       return;
     }
 
-    remaining.forEach((digit, index) => {
-      const nextRemaining = remaining.filter((_, remainingIndex) => remainingIndex !== index);
-      walk([...prefix, digit], nextRemaining);
-    });
+    for (let index = startIndex; index < source.length; index += 1) {
+      walk(index + 1, [...prefix, source[index]]);
+    }
   };
 
-  walk([], source);
-  return dedupeOrderedNumbers(values);
+  walk(0, []);
+  return values;
 };
 
 const sanitizeSeedDigitsInput = (value) => extractFastSeedDigits(value).join('');
