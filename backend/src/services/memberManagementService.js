@@ -36,6 +36,7 @@ const EMPTY_MEMBER_TOTALS = Object.freeze({
   totalAmount: 0,
   totalWon: 0
 });
+const AGENT_CUSTOM_RATE_PROFILE_ID = '__agent_custom_rate__';
 
 const toText = (value) => String(value || '').trim();
 const toAmount = (value, fallback = 0) => {
@@ -59,12 +60,55 @@ const normalizeRatesByBetType = (value = {}, fallbackRates = {}) =>
   }, {});
 
 const toIdString = (value) => value?._id?.toString?.() || value?.toString?.() || '';
+const isAgentCustomRateProfileId = (value) => toText(value) === AGENT_CUSTOM_RATE_PROFILE_ID;
 
 const buildAgentRateDefaults = (agent) => ({
   defaultRateProfileId: toIdString(agent?.defaultRateProfileId),
   useCustomRates: Boolean(agent?.useCustomRateDefaults),
   customRates: normalizeRatesByBetType(agent?.defaultRates, DEFAULT_GLOBAL_RATES)
 });
+
+const buildAgentCustomRateProfile = (agentDefaults = {}) => {
+  if (!agentDefaults.useCustomRates) {
+    return null;
+  }
+
+  return {
+    id: AGENT_CUSTOM_RATE_PROFILE_ID,
+    code: 'agent-custom',
+    name: 'เรทเฉพาะ',
+    description: 'เรทจ่ายเฉพาะของ Agent นี้',
+    rates: normalizeRatesByBetType(agentDefaults.customRates, DEFAULT_GLOBAL_RATES),
+    commissions: normalizeCommissionMap({}),
+    isDefault: true,
+    isAgentCustom: true
+  };
+};
+
+const getDisplayRateProfileId = (persistedRateProfileId, agentDefaults = {}) =>
+  agentDefaults.useCustomRates ? AGENT_CUSTOM_RATE_PROFILE_ID : persistedRateProfileId || null;
+
+const mapRateProfilesForAgentDefaults = (rateProfiles = [], agentDefaults = {}) => {
+  const mappedProfiles = rateProfiles.map(mapRateProfile);
+  const agentCustomProfile = buildAgentCustomRateProfile(agentDefaults);
+
+  if (!agentCustomProfile) {
+    return mappedProfiles;
+  }
+
+  return [
+    agentCustomProfile,
+    ...mappedProfiles.map((profile) => ({ ...profile, isDefault: false }))
+  ];
+};
+
+const getPersistedRateProfileId = (value, agentDefaults = {}) => {
+  if (isAgentCustomRateProfileId(value)) {
+    return agentDefaults.defaultRateProfileId || null;
+  }
+
+  return value || agentDefaults.defaultRateProfileId || null;
+};
 
 const applyAgentRateDefaultsToConfig = (config, agentDefaults = {}) => {
   if (!config || config.useCustomRates || !agentDefaults.useCustomRates) {
@@ -170,8 +214,12 @@ const pickRateProfileId = ({ lottery, member, existingConfig, inputConfig, agent
     .filter((profile) => profile.isActive)
     .map((profile) => profile._id.toString());
 
+  const inputRateProfileId = isAgentCustomRateProfileId(inputConfig?.rateProfileId)
+    ? ''
+    : inputConfig?.rateProfileId;
+
   const requestedRateProfileId =
-    inputConfig?.rateProfileId ||
+    inputRateProfileId ||
     existingConfig?.rateProfileId?.toString() ||
     member.defaultRateProfileId?.toString() ||
     agentDefaults.defaultRateProfileId ||
@@ -193,6 +241,15 @@ const buildLotteryConfigDocument = ({ member, lottery, existingConfig, inputConf
     (profile) => profile._id.toString() === selectedRateProfileId
   );
   const fallbackRates = selectedRateProfile?.rates || {};
+  const shouldUseAgentCustomRates = isAgentCustomRateProfileId(inputConfig?.rateProfileId);
+  const shouldUseCustomRates = shouldUseAgentCustomRates
+    ? true
+    : inputConfig?.useCustomRates !== undefined
+      ? Boolean(inputConfig.useCustomRates)
+      : existingConfig?.useCustomRates ?? agentDefaults.useCustomRates ?? false;
+  const customRatesSource = shouldUseAgentCustomRates
+    ? agentDefaults.customRates
+    : inputConfig?.customRates || existingConfig?.customRates || (agentDefaults.useCustomRates ? agentDefaults.customRates : undefined);
   const enabledBetTypes = normalizeEnabledBetTypes(
     inputConfig?.enabledBetTypes || existingConfig?.enabledBetTypes,
     lottery.supportedBetTypes
@@ -233,11 +290,9 @@ const buildLotteryConfigDocument = ({ member, lottery, existingConfig, inputConf
       inputConfig?.commissionRate,
       existingConfig?.commissionRate ?? member.commissionRate
     ),
-    useCustomRates: inputConfig?.useCustomRates !== undefined
-      ? Boolean(inputConfig.useCustomRates)
-      : existingConfig?.useCustomRates ?? agentDefaults.useCustomRates ?? false,
+    useCustomRates: shouldUseCustomRates,
     customRates: normalizeRatesByBetType(
-      inputConfig?.customRates || existingConfig?.customRates || (agentDefaults.useCustomRates ? agentDefaults.customRates : undefined),
+      customRatesSource,
       fallbackRates
     ),
     keepMode: toKeepMode(
@@ -336,6 +391,8 @@ const mapLotteryConfigRow = ({ lottery, config, agentDefaults = {} }) => {
     null;
 
   const inheritedAgentRates = !config?.useCustomRates && agentDefaults.useCustomRates;
+  const usesAgentCustomRates = Boolean(agentDefaults.useCustomRates && (config?.useCustomRates || inheritedAgentRates));
+  const displayRateProfileId = usesAgentCustomRates ? AGENT_CUSTOM_RATE_PROFILE_ID : selectedRateProfileId;
   const customRatesSource = config?.useCustomRates
     ? config.customRates
     : inheritedAgentRates
@@ -352,7 +409,7 @@ const mapLotteryConfigRow = ({ lottery, config, agentDefaults = {} }) => {
     supportedBetTypes: lottery.supportedBetTypes,
     enabledBetTypes: config?.enabledBetTypes?.length ? config.enabledBetTypes : lottery.supportedBetTypes,
     isEnabled: config?.isEnabled ?? true,
-    rateProfileId: selectedRateProfileId,
+    rateProfileId: displayRateProfileId,
     minimumBet: config?.minimumBet ?? DEFAULT_LIMITS.minimumBet,
     maximumBet: config?.maximumBet ?? DEFAULT_LIMITS.maximumBet,
     maximumPerNumber: config?.maximumPerNumber ?? DEFAULT_LIMITS.maximumPerNumber,
@@ -369,23 +426,24 @@ const mapLotteryConfigRow = ({ lottery, config, agentDefaults = {} }) => {
     keepCapAmount: config?.keepCapAmount ?? DEFAULT_LIMITS.keepCapAmount,
     blockedNumbers: config?.blockedNumbers || [],
     notes: config?.notes || '',
-    availableRateProfiles: activeRateProfiles.map(mapRateProfile)
+    availableRateProfiles: mapRateProfilesForAgentDefaults(activeRateProfiles, agentDefaults)
   };
 };
 
-const getMemberConfigRows = async ({ member, lotteries = null, ensureMissing = true } = {}) => {
+const getMemberConfigRows = async ({ member, lotteries = null, ensureMissing = true, agentDefaults = null } = {}) => {
   const activeLotteries = lotteries || await loadActiveLotteries();
-  const agent = member?.agentId
-    ? await User.findById(member.agentId).select('defaultRateProfileId useCustomRateDefaults defaultRates').lean()
-    : null;
-  const agentDefaults = buildAgentRateDefaults(agent);
+  const resolvedAgentDefaults = agentDefaults || buildAgentRateDefaults(
+    member?.agentId
+      ? await User.findById(member.agentId).select('defaultRateProfileId useCustomRateDefaults defaultRates').lean()
+      : null
+  );
 
   if (ensureMissing) {
     await upsertMemberLotteryConfigs({
       member,
       lotteries: activeLotteries,
       ensureOnlyMissing: true,
-      agentDefaults
+      agentDefaults: resolvedAgentDefaults
     });
   }
 
@@ -403,7 +461,7 @@ const getMemberConfigRows = async ({ member, lotteries = null, ensureMissing = t
     mapLotteryConfigRow({
       lottery,
       config: configMap[lottery._id.toString()],
-      agentDefaults
+      agentDefaults: resolvedAgentDefaults
     })
   );
 };
@@ -530,7 +588,7 @@ const getAgentMemberBootstrap = async ({ agentId }) => {
       maximumPerNumber: DEFAULT_LIMITS.maximumPerNumber,
       keepMode: DEFAULT_LIMITS.keepMode,
       keepCapAmount: DEFAULT_LIMITS.keepCapAmount,
-      defaultRateProfileId: agentDefaults.defaultRateProfileId || null,
+      defaultRateProfileId: getDisplayRateProfileId(agentDefaults.defaultRateProfileId, agentDefaults),
       useCustomRates: agentDefaults.useCustomRates,
       customRates: agentDefaults.customRates
     },
@@ -543,11 +601,11 @@ const getAgentMemberBootstrap = async ({ agentId }) => {
       ownerPercent: agent?.ownerPercent || 0,
       keepPercent: agent?.keepPercent || 0,
       commissionRate: agent?.commissionRate || 0,
-      defaultRateProfileId: agentDefaults.defaultRateProfileId || null,
+      defaultRateProfileId: getDisplayRateProfileId(agentDefaults.defaultRateProfileId, agentDefaults),
       useCustomRateDefaults: agentDefaults.useCustomRates,
       defaultRates: agentDefaults.customRates
     },
-    rateProfiles: rateProfiles.map(mapRateProfile),
+    rateProfiles: mapRateProfilesForAgentDefaults(rateProfiles, agentDefaults),
     lotteries: lotteries.map((lottery) => mapLotteryConfigRow({
       lottery,
       config: null,
@@ -941,17 +999,20 @@ const buildMemberDetailPayload = async ({ member, agentId }) => {
     throw new Error('Member not found');
   }
 
-  const [lotteries, rateProfiles] = await Promise.all([
+  const [lotteries, rateProfiles, agent] = await Promise.all([
     loadActiveLotteries(),
-    loadActiveRateProfiles()
+    loadActiveRateProfiles(),
+    agentId
+      ? User.findById(agentId).select('defaultRateProfileId useCustomRateDefaults defaultRates').lean()
+      : null
   ]);
+  const agentDefaults = buildAgentRateDefaults(agent);
   const [lotteryConfigs, totals] = await Promise.all([
-    getMemberConfigRows({ member, lotteries }),
+    getMemberConfigRows({ member, lotteries, agentDefaults }),
     getBetTotals({ agentId, customerId: member._id })
   ]);
 
-  return {
-    member: mapMemberSummary(member, {
+  const memberSummary = mapMemberSummary(member, {
       count: totals.totalBets,
       totalAmount: totals.totalAmount,
       totalWon: totals.totalWon
@@ -969,9 +1030,15 @@ const buildMemberDetailPayload = async ({ member, agentId }) => {
         (max, item) => Math.max(max, item.maximumPerNumber),
         lotteryConfigs.length ? lotteryConfigs[0].maximumPerNumber : DEFAULT_LIMITS.maximumPerNumber
       )
-    }),
+    });
+
+  return {
+    member: {
+      ...memberSummary,
+      defaultRateProfileId: getDisplayRateProfileId(memberSummary.defaultRateProfileId, agentDefaults)
+    },
     lotteryConfigs,
-    rateProfiles: rateProfiles.map(mapRateProfile)
+    rateProfiles: mapRateProfilesForAgentDefaults(rateProfiles, agentDefaults)
   };
 };
 
@@ -1034,7 +1101,7 @@ const createAgentMember = async ({ agentId, payload }) => {
     ownerPercent: toPercent(profile.ownerPercent, 0),
     keepPercent: toPercent(profile.keepPercent, 0),
     commissionRate: toPercent(profile.commissionRate, 0),
-    defaultRateProfileId: profile.defaultRateProfileId || agentDefaults.defaultRateProfileId || null,
+    defaultRateProfileId: getPersistedRateProfileId(profile.defaultRateProfileId, agentDefaults),
     notes: toText(profile.notes),
     status: toStatus(profile.status, 'active'),
     isActive: toStatus(profile.status, 'active') !== 'inactive'
@@ -1109,7 +1176,14 @@ const updateAgentMember = async ({ agentId, memberId, payload }) => {
   if (profile.ownerPercent !== undefined) member.ownerPercent = toPercent(profile.ownerPercent, member.ownerPercent);
   if (profile.keepPercent !== undefined) member.keepPercent = toPercent(profile.keepPercent, member.keepPercent);
   if (profile.commissionRate !== undefined) member.commissionRate = toPercent(profile.commissionRate, member.commissionRate);
-  if (profile.defaultRateProfileId !== undefined) member.defaultRateProfileId = profile.defaultRateProfileId || null;
+  const agent = await User.findOne({ _id: agentId, role: 'agent' }).select('defaultRateProfileId useCustomRateDefaults defaultRates');
+  if (!agent) {
+    throw new Error('Agent not found');
+  }
+  const agentDefaults = buildAgentRateDefaults(agent);
+  if (profile.defaultRateProfileId !== undefined) {
+    member.defaultRateProfileId = getPersistedRateProfileId(profile.defaultRateProfileId, agentDefaults);
+  }
   if (profile.notes !== undefined) member.notes = toText(profile.notes);
   if (profile.status !== undefined) {
     member.status = toStatus(profile.status, member.status);
@@ -1122,7 +1196,8 @@ const updateAgentMember = async ({ agentId, memberId, payload }) => {
   await upsertMemberLotteryConfigs({
     member,
     lotterySettings: payload.lotterySettings || [],
-    lotteries
+    lotteries,
+    agentDefaults
   });
 
   return getAgentMemberDetail({ agentId, memberId: member._id });
@@ -1228,6 +1303,10 @@ module.exports = {
   getMemberConfigRows,
   normalizeEnabledBetTypes,
   __test: {
-    clearMemberReferenceCaches
+    AGENT_CUSTOM_RATE_PROFILE_ID,
+    buildAgentRateDefaults,
+    buildLotteryConfigDocument,
+    clearMemberReferenceCaches,
+    mapLotteryConfigRow
   }
 };

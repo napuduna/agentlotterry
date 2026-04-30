@@ -969,7 +969,7 @@ const buildFastWorkingNumbers = ({
 
   if (Array.isArray(numbers)) {
     const sourceNumbers = numbers.filter((number) => normalizeDigits(number).length === config.digits);
-    if (fastTab === 'rood' || fastTab === 'win2' || fastTab === 'win3') {
+    if (fastTab === 'rood') {
       return sourceNumbers;
     }
     return buildNormalWorkingNumbers(sourceNumbers);
@@ -985,7 +985,7 @@ const buildFastWorkingNumbers = ({
     const digits = fastTab === 'win3' ? 3 : 2;
     const seedDigits = extractFastSeedDigits(rawInput);
     if (seedDigits.length < digits) return [];
-    return buildDraftWinNumbers(seedDigits, digits);
+    return buildNormalWorkingNumbers(buildDraftWinNumbers(seedDigits, digits));
   }
 
   const sourceNumbers = extractFastNumbersByDigits(rawInput, config.digits);

@@ -1,5 +1,31 @@
 import { toNumber } from '../../utils/formatters';
 
+const getRateProfileById = (lottery, rateProfileId) =>
+  (lottery.availableRateProfiles || []).find((profile) => profile.id === rateProfileId);
+
+const getDefaultRateProfileId = (bootstrap) => {
+  const defaults = bootstrap?.defaults || {};
+  return defaults.defaultRateProfileId ||
+    bootstrap?.rateProfiles?.find((profile) => profile.isDefault)?.id ||
+    bootstrap?.rateProfiles?.[0]?.id ||
+    '';
+};
+
+const buildRateProfileState = (lottery, rateProfileId) => {
+  const selectedProfile = getRateProfileById(lottery, rateProfileId);
+  const selectedRates = selectedProfile?.rates;
+  const nextRates = selectedRates && Object.keys(selectedRates).length
+    ? selectedRates
+    : lottery.customRates || {};
+  const useCustomRates = Boolean(selectedProfile?.isAgentCustom);
+
+  return {
+    rateProfileId,
+    useCustomRates,
+    customRates: { ...nextRates }
+  };
+};
+
 const cloneLotterySettings = (lotteries = [], defaults = {}) =>
   lotteries.map((lottery) => ({
     lotteryTypeId: lottery.lotteryTypeId,
@@ -30,9 +56,7 @@ const cloneLotterySettings = (lotteries = [], defaults = {}) =>
 
 export const createInitialMemberForm = (bootstrap) => {
   const defaults = bootstrap?.defaults || {};
-  const defaultRateProfileId = bootstrap?.rateProfiles?.find((profile) => profile.isDefault)?.id ||
-    bootstrap?.rateProfiles?.[0]?.id ||
-    '';
+  const defaultRateProfileId = getDefaultRateProfileId(bootstrap);
 
   return {
     account: {
@@ -56,6 +80,7 @@ export const createInitialMemberForm = (bootstrap) => {
 
 export const createMemberFormFromDetail = (detail, bootstrap) => {
   const defaults = bootstrap?.defaults || {};
+  const defaultRateProfileId = detail?.member?.defaultRateProfileId || getDefaultRateProfileId(bootstrap);
 
   return {
     account: {
@@ -69,7 +94,7 @@ export const createMemberFormFromDetail = (detail, bootstrap) => {
       ownerPercent: detail?.member?.ownerPercent ?? 0,
       keepPercent: detail?.member?.keepPercent ?? 0,
       commissionRate: detail?.member?.commissionRate ?? 0,
-      defaultRateProfileId: detail?.member?.defaultRateProfileId || bootstrap?.rateProfiles?.find((profile) => profile.isDefault)?.id || '',
+      defaultRateProfileId,
       status: detail?.member?.status || 'active',
       notes: detail?.member?.notes || ''
     },
@@ -121,7 +146,11 @@ export const buildMemberFormPayload = (form) => ({
 export const updateLotterySetting = (lotterySettings, lotteryTypeId, patch) =>
   lotterySettings.map((lottery) =>
     lottery.lotteryTypeId === lotteryTypeId
-      ? { ...lottery, ...patch }
+      ? {
+        ...lottery,
+        ...('rateProfileId' in patch ? buildRateProfileState(lottery, patch.rateProfileId) : {}),
+        ...patch
+      }
       : lottery
   );
 
