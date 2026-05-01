@@ -34,6 +34,10 @@ const {
 } = require('../utils/bangkokTime');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const PENDING_RESULT_ROUND_GRACE_MS = Math.max(
+  DAY_MS,
+  Number(process.env.PENDING_RESULT_ROUND_GRACE_MS || 36 * 60 * 60 * 1000)
+);
 const CATALOG_OVERVIEW_CACHE_MS = Math.max(0, Number(process.env.CATALOG_OVERVIEW_CACHE_MS || 60000));
 const CATALOG_OVERVIEW_CACHE_MAX_ENTRIES = Math.max(1, Number(process.env.CATALOG_OVERVIEW_CACHE_MAX_ENTRIES || 200));
 const CATALOG_OVERVIEW_SNAPSHOT_TTL_MS = Math.max(
@@ -190,6 +194,58 @@ const getRoundStatus = (round, now = new Date()) => {
     bettingOverride,
     isManualOverride: false
   };
+};
+
+const getTimeValue = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const time = date.getTime();
+  return Number.isNaN(time) ? null : time;
+};
+
+const isPublishedRound = (round) => Boolean(round?.resultPublishedAt);
+
+const selectCatalogActiveRound = (lotteryRounds = [], now = new Date()) => {
+  const rounds = Array.isArray(lotteryRounds) ? lotteryRounds.filter(Boolean) : [];
+  if (!rounds.length) return null;
+
+  const nowMs = getTimeValue(now) ?? Date.now();
+  const manualOpenRound = rounds.find((round) =>
+    !isPublishedRound(round) && normalizeBettingOverride(round.bettingOverride) === 'open'
+  );
+  if (manualOpenRound) return manualOpenRound;
+
+  const openRound = rounds.find((round) => {
+    const openAt = getTimeValue(round.openAt);
+    const closeAt = getTimeValue(round.closeAt);
+    return !isPublishedRound(round) && openAt !== null && closeAt !== null && openAt <= nowMs && nowMs <= closeAt;
+  });
+  if (openRound) return openRound;
+
+  const waitingResultRound = rounds.find((round) => {
+    const closeAt = getTimeValue(round.closeAt);
+    const drawAt = getTimeValue(round.drawAt);
+    return !isPublishedRound(round) && closeAt !== null && drawAt !== null && closeAt < nowMs && nowMs <= drawAt;
+  });
+  if (waitingResultRound) return waitingResultRound;
+
+  const pendingResultRound = rounds
+    .filter((round) => {
+      const drawAt = getTimeValue(round.drawAt);
+      return !isPublishedRound(round)
+        && drawAt !== null
+        && drawAt < nowMs
+        && nowMs - drawAt <= PENDING_RESULT_ROUND_GRACE_MS;
+    })
+    .sort((a, b) => (getTimeValue(b.drawAt) || 0) - (getTimeValue(a.drawAt) || 0))[0];
+  if (pendingResultRound) return pendingResultRound;
+
+  const upcomingRound = rounds.find((round) => {
+    const openAt = getTimeValue(round.openAt);
+    return !isPublishedRound(round) && openAt !== null && nowMs < openAt;
+  });
+  if (upcomingRound) return upcomingRound;
+
+  return rounds.find((round) => !isPublishedRound(round)) || rounds[0] || null;
 };
 
 const createValidationError = (message, statusCode = 400) => {
@@ -821,11 +877,7 @@ const buildCatalogOverview = async (viewer = null, options = {}) => {
       ? normalizeEnabledBetTypes(memberConfig.enabledBetTypes, lottery.supportedBetTypes)
       : lottery.supportedBetTypes;
     const lotteryRounds = roundsByLottery[lottery._id.toString()] || [];
-    const activeRound =
-      lotteryRounds.find((round) => now <= round.closeAt) ||
-      lotteryRounds.find((round) => now <= round.drawAt) ||
-      lotteryRounds[0] ||
-      null;
+    const activeRound = selectCatalogActiveRound(lotteryRounds, now);
     const statusMeta = getRoundStatus(activeRound, now);
     const latestResult = resultsByLottery[lottery._id.toString()] || null;
 
@@ -1175,6 +1227,7 @@ module.exports = {
   getRoundsByLottery,
   getRecentResults,
   getRoundStatus,
+  selectCatalogActiveRound,
   normalizeRoundTimingPayload,
   markAnnouncementRead,
   __test: {

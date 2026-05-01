@@ -9,6 +9,7 @@
     "seed": "node src/seed.js",
     "catalog:seed": "node src/scripts/seedCatalog.js",
     "schedule:sync-close-times": "node src/scripts/syncLotteryCloseTimes.js",
+    "round:extend-thai-government-may2026": "node src/scripts/extendThaiGovernmentMay2026Round.js",
     "production:preflight": "node src/scripts/productionPreflight.js",
     "db:backup": "node src/scripts/backupDatabase.js",
     "db:restore": "node src/scripts/restoreDatabase.js",
