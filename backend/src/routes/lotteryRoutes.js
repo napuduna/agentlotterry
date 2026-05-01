@@ -288,12 +288,14 @@ router.put('/rounds/:roundId/timing', auth, authorize('admin'), async (req, res)
 
     const previousTiming = {
       openAt: round.openAt,
-      closeAt: round.closeAt
+      closeAt: round.closeAt,
+      drawAt: round.drawAt
     };
-    const { openAt, closeAt } = normalizeRoundTimingPayload(req.body, round);
+    const { openAt, closeAt, drawAt } = normalizeRoundTimingPayload(req.body, round);
 
     round.openAt = openAt;
     round.closeAt = closeAt;
+    round.drawAt = drawAt;
     round.isManualTiming = true;
     round.timingUpdatedAt = new Date();
     round.timingUpdatedBy = req.user._id;
@@ -309,6 +311,7 @@ router.put('/rounds/:roundId/timing', auth, authorize('admin'), async (req, res)
       previousTiming,
       openAt,
       closeAt,
+      drawAt,
       effectiveStatus: statusMeta.status
     });
 

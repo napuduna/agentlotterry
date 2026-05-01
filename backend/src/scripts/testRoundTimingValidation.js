@@ -17,6 +17,16 @@ const normalized = normalizeRoundTimingPayload({
 assert.strictEqual(normalized.openAt.toISOString(), '2026-04-19T10:00:00.000Z');
 assert.strictEqual(normalized.closeAt.toISOString(), '2026-04-20T13:30:00.000Z');
 
+const rescheduledDraw = normalizeRoundTimingPayload({
+  openAt: '2026-04-19T10:00:00.000Z',
+  closeAt: '2026-04-21T13:30:00.000Z',
+  drawAt: '2026-04-21T14:00:00.000Z'
+}, { drawAt });
+
+assert.strictEqual(rescheduledDraw.openAt.toISOString(), '2026-04-19T10:00:00.000Z');
+assert.strictEqual(rescheduledDraw.closeAt.toISOString(), '2026-04-21T13:30:00.000Z');
+assert.strictEqual(rescheduledDraw.drawAt.toISOString(), '2026-04-21T14:00:00.000Z');
+
 assert.throws(
   () => normalizeRoundTimingPayload({
     openAt: '2026-04-20T13:30:00.000Z',
@@ -29,6 +39,15 @@ assert.throws(
   () => normalizeRoundTimingPayload({
     openAt: '2026-04-20T13:30:00.000Z',
     closeAt: '2026-04-20T14:30:00.000Z'
+  }, { drawAt }),
+  /closeAt must be before or equal to drawAt/
+);
+
+assert.throws(
+  () => normalizeRoundTimingPayload({
+    openAt: '2026-04-19T10:00:00.000Z',
+    closeAt: '2026-04-21T14:30:00.000Z',
+    drawAt: '2026-04-21T14:00:00.000Z'
   }, { drawAt }),
   /closeAt must be before or equal to drawAt/
 );

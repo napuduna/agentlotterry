@@ -131,10 +131,10 @@ const LotteryDetailPanel = ({
                     <label>
                       <span>{bettingUi.drawAtLabel}</span>
                       <input
-                        type="text"
-                        value={activeRound?.displayDrawAt || '-'}
-                        disabled
-                        readOnly
+                        type="datetime-local"
+                        value={timingDraft.drawAt}
+                        onChange={(event) => onTimingDraftChange('drawAt', event.target.value)}
+                        disabled={timingBusy}
                       />
                     </label>
                   </div>

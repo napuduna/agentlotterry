@@ -209,19 +209,19 @@ const parseRoundTimingDate = (value, fieldName) => {
 const normalizeRoundTimingPayload = (payload = {}, round = {}) => {
   const openAt = parseRoundTimingDate(payload.openAt, 'openAt');
   const closeAt = parseRoundTimingDate(payload.closeAt, 'closeAt');
+  const drawAt = payload.drawAt === undefined
+    ? parseRoundTimingDate(round.drawAt, 'drawAt')
+    : parseRoundTimingDate(payload.drawAt, 'drawAt');
 
   if (openAt.getTime() >= closeAt.getTime()) {
     throw createValidationError('openAt must be before closeAt');
   }
 
-  if (round.drawAt) {
-    const drawAt = new Date(round.drawAt);
-    if (!Number.isNaN(drawAt.getTime()) && closeAt.getTime() > drawAt.getTime()) {
-      throw createValidationError('closeAt must be before or equal to drawAt');
-    }
+  if (closeAt.getTime() > drawAt.getTime()) {
+    throw createValidationError('closeAt must be before or equal to drawAt');
   }
 
-  return { openAt, closeAt };
+  return { openAt, closeAt, drawAt };
 };
 
 const buildMonthlyOccurrences = (schedule, startDate, horizonDays) => {
@@ -858,7 +858,7 @@ const buildCatalogOverview = async (viewer = null, options = {}) => {
         bettingOverride: statusMeta.bettingOverride,
         isManualOverride: statusMeta.isManualOverride,
         closedBetTypes: activeRound.closedBetTypes || [],
-        displayDate: formatBangkokDate(activeRound.drawAt),
+        displayDate: activeRound.code || formatBangkokDate(activeRound.drawAt),
         displayOpenAt: formatBangkokDateTime(activeRound.openAt),
         displayDrawAt: formatBangkokDateTime(activeRound.drawAt),
         displayCloseAt: formatBangkokDateTime(activeRound.closeAt)
@@ -1151,8 +1151,9 @@ const getRoundsByLottery = async (lotteryId, viewer = null) => {
       bettingOverride: statusMeta.bettingOverride,
       isManualOverride: statusMeta.isManualOverride,
       closedBetTypes: round.closedBetTypes || [],
-      displayDate: formatBangkokDate(round.drawAt),
+      displayDate: round.code || formatBangkokDate(round.drawAt),
       displayOpenAt: formatBangkokDateTime(round.openAt),
+      displayDrawAt: formatBangkokDateTime(round.drawAt),
       displayCloseAt: formatBangkokDateTime(round.closeAt),
       ...statusMeta
     };

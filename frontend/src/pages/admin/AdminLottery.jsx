@@ -111,6 +111,7 @@ const BETTING_TOGGLE_UI = {
   timingUpdated: 'อัปเดตเวลาเปิด-ปิดรับแล้ว',
   timingError: 'อัปเดตเวลาเปิด-ปิดรับไม่สำเร็จ',
   timingInvalid: 'เวลาเปิดรับต้องมาก่อนเวลาปิดรับ',
+  timingDrawInvalid: 'เวลาออกผลต้องเป็นวันและเวลาที่ถูกต้อง',
   timingAfterDraw: 'เวลาปิดรับต้องไม่เกินเวลาออกผล',
   manualTiming: 'ตั้งเวลาเอง'
 };
@@ -314,6 +315,9 @@ const getTimingErrorMessage = (error) => {
   }
   if (/openAt must be before closeAt/i.test(message)) {
     return BETTING_TOGGLE_UI.timingInvalid;
+  }
+  if (/drawAt must be a valid date/i.test(message)) {
+    return BETTING_TOGGLE_UI.timingDrawInvalid;
   }
   return message || BETTING_TOGGLE_UI.timingError;
 };
@@ -583,7 +587,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
   const [syncPanelRefreshKey, setSyncPanelRefreshKey] = useState(0);
   const [bettingOverrideBusy, setBettingOverrideBusy] = useState('');
   const [timingBusy, setTimingBusy] = useState(false);
-  const [timingDraft, setTimingDraft] = useState({ openAt: '', closeAt: '' });
+  const [timingDraft, setTimingDraft] = useState({ openAt: '', closeAt: '', drawAt: '' });
   const [settlementBusy, setSettlementBusy] = useState('');
   const [settlementFeedback, setSettlementFeedback] = useState(null);
   const [marketHistoryCache, setMarketHistoryCache] = useState({});
@@ -722,13 +726,18 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
 
     const openAt = parseBangkokDateTimeInput(timingDraft.openAt);
     const closeAt = parseBangkokDateTimeInput(timingDraft.closeAt);
+    const drawAt = parseBangkokDateTimeInput(timingDraft.drawAt);
+    if (!drawAt) {
+      toast.error(BETTING_TOGGLE_UI.timingDrawInvalid);
+      return;
+    }
+
     if (!openAt || !closeAt || openAt.getTime() >= closeAt.getTime()) {
       toast.error(BETTING_TOGGLE_UI.timingInvalid);
       return;
     }
 
-    const drawAt = activeRound?.drawAt ? new Date(activeRound.drawAt) : null;
-    if (drawAt && !Number.isNaN(drawAt.getTime()) && closeAt.getTime() > drawAt.getTime()) {
+    if (closeAt.getTime() > drawAt.getTime()) {
       toast.error(`${BETTING_TOGGLE_UI.timingAfterDraw} (${formatClock(drawAt)})`);
       return;
     }
@@ -737,7 +746,8 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
     try {
       await updateRoundTiming(activeRoundId, {
         openAt: openAt.toISOString(),
-        closeAt: closeAt.toISOString()
+        closeAt: closeAt.toISOString(),
+        drawAt: drawAt.toISOString()
       });
       toast.success(BETTING_TOGGLE_UI.timingUpdated);
       await loadData({ silent: true, force: true, clearHistory: false });
@@ -953,17 +963,20 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
   const bettingToggleChecked = activeRoundStatus === 'open';
   const activeRoundOpenInput = getBangkokDateTimeInputValue(activeRound?.openAt);
   const activeRoundCloseInput = getBangkokDateTimeInputValue(activeRound?.closeAt);
+  const activeRoundDrawInput = getBangkokDateTimeInputValue(activeRound?.drawAt);
   const timingDraftChanged = Boolean(activeRoundId) && (
     timingDraft.openAt !== activeRoundOpenInput ||
-    timingDraft.closeAt !== activeRoundCloseInput
+    timingDraft.closeAt !== activeRoundCloseInput ||
+    timingDraft.drawAt !== activeRoundDrawInput
   );
 
   useEffect(() => {
     setTimingDraft({
       openAt: activeRoundOpenInput,
-      closeAt: activeRoundCloseInput
+      closeAt: activeRoundCloseInput,
+      drawAt: activeRoundDrawInput
     });
-  }, [activeRoundId, activeRoundOpenInput, activeRoundCloseInput]);
+  }, [activeRoundId, activeRoundOpenInput, activeRoundCloseInput, activeRoundDrawInput]);
   const settlementRoundId = selectedResult?.roundId
     || (selectedCard?.activeRound?.isSynthetic ? '' : (selectedCard?.activeRound?.id || ''));
   const settlementUnavailableReason = selectedResult && !selectedResult?.roundId
