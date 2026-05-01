@@ -66,6 +66,19 @@ const lotteryTypeSchema = new mongoose.Schema({
     drawHour: { type: Number, required: true },
     drawMinute: { type: Number, default: 0 }
   },
+  isManualScheduleTiming: {
+    type: Boolean,
+    default: false
+  },
+  scheduleTimingUpdatedAt: {
+    type: Date,
+    default: null
+  },
+  scheduleTimingUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   sortOrder: {
     type: Number,
     default: 0

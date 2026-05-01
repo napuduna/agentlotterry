@@ -1,7 +1,22 @@
 const assert = require('assert');
 
-const { normalizeRoundTimingPayload, selectCatalogActiveRound } = require('../services/catalogService');
+const {
+  buildLotteryDefaultTimingUpdate,
+  mergeLotteryDefinitionWithManualSchedule,
+  normalizeRoundTimingPayload,
+  selectCatalogActiveRound
+} = require('../services/catalogService');
 
+assert.strictEqual(
+  typeof buildLotteryDefaultTimingUpdate,
+  'function',
+  'Expected buildLotteryDefaultTimingUpdate to be exported'
+);
+assert.strictEqual(
+  typeof mergeLotteryDefinitionWithManualSchedule,
+  'function',
+  'Expected mergeLotteryDefinitionWithManualSchedule to be exported'
+);
 assert.strictEqual(
   typeof normalizeRoundTimingPayload,
   'function',
@@ -101,6 +116,64 @@ assert.strictEqual(
   )?.code,
   '2026-05-16',
   'Expected published old round to allow the next round selection'
+);
+
+assert.deepStrictEqual(
+  buildLotteryDefaultTimingUpdate({
+    closeAt: new Date('2026-05-02T08:40:00.000Z'),
+    drawAt: new Date('2026-05-02T09:10:00.000Z')
+  }),
+  {
+    'schedule.closeHour': 15,
+    'schedule.closeMinute': 40,
+    'schedule.drawHour': 16,
+    'schedule.drawMinute': 10
+  },
+  'Expected Bangkok close/draw times to become lottery default schedule fields'
+);
+
+const catalogDefinition = {
+  code: 'thai_government',
+  schedule: {
+    type: 'monthly',
+    days: [1, 16],
+    openLeadDays: 7,
+    closeHour: 15,
+    closeMinute: 30,
+    drawHour: 16,
+    drawMinute: 0
+  }
+};
+const seededWithManualSchedule = mergeLotteryDefinitionWithManualSchedule(catalogDefinition, {
+  isManualScheduleTiming: true,
+  scheduleTimingUpdatedAt: new Date('2026-05-01T10:00:00.000Z'),
+  scheduleTimingUpdatedBy: 'admin-id',
+  schedule: {
+    closeHour: 15,
+    closeMinute: 40,
+    drawHour: 16,
+    drawMinute: 10
+  }
+});
+
+assert.deepStrictEqual(
+  {
+    closeHour: seededWithManualSchedule.schedule.closeHour,
+    closeMinute: seededWithManualSchedule.schedule.closeMinute,
+    drawHour: seededWithManualSchedule.schedule.drawHour,
+    drawMinute: seededWithManualSchedule.schedule.drawMinute,
+    openLeadDays: seededWithManualSchedule.schedule.openLeadDays,
+    isManualScheduleTiming: seededWithManualSchedule.isManualScheduleTiming
+  },
+  {
+    closeHour: 15,
+    closeMinute: 40,
+    drawHour: 16,
+    drawMinute: 10,
+    openLeadDays: 7,
+    isManualScheduleTiming: true
+  },
+  'Expected catalog seed payload to preserve manually configured close/draw defaults'
 );
 
 console.log('Round timing validation tests passed');

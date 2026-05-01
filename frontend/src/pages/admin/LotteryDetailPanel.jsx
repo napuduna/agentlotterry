@@ -20,6 +20,8 @@ const LotteryDetailPanel = ({
   onTimingDraftChange,
   timingBusy,
   timingDraftChanged,
+  timingApplyDefault,
+  onTimingApplyDefaultChange,
   onTimingSave,
   activeRoundId,
   activeRoundBettingOverride,
@@ -139,11 +141,24 @@ const LotteryDetailPanel = ({
                     </label>
                   </div>
 
+                  <label className="round-timing-default">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(timingApplyDefault)}
+                      onChange={(event) => onTimingApplyDefaultChange(event.target.checked)}
+                      disabled={timingBusy}
+                    />
+                    <span>
+                      <strong>{bettingUi.applyDefaultLabel}</strong>
+                      <small>{bettingUi.applyDefaultHelp}</small>
+                    </span>
+                  </label>
+
                   <button
                     type="button"
                     className="button button-primary round-timing-save"
                     onClick={onTimingSave}
-                    disabled={timingBusy || !timingDraftChanged}
+                    disabled={timingBusy || (!timingDraftChanged && !timingApplyDefault)}
                   >
                     {timingBusy ? bettingUi.savingTiming : bettingUi.saveTiming}
                   </button>

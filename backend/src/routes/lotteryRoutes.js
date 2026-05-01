@@ -9,7 +9,12 @@ const { fetchLotteryResult, saveLotteryResult, getLatestResult, getRecentResults
 const { getMarketOverview } = require('../services/marketResultsService');
 const { createAuditLog } = require('../middleware/auditLog');
 const { BET_TYPES } = require('../constants/betting');
-const { clearCatalogOverviewCache, getRoundStatus, normalizeRoundTimingPayload } = require('../services/catalogService');
+const {
+  clearCatalogOverviewCache,
+  getRoundStatus,
+  normalizeRoundTimingPayload,
+  applyLotteryDefaultTiming
+} = require('../services/catalogService');
 const { clearAnalyticsReadCache } = require('../services/analyticsService');
 const { getReadModelSnapshotState, scheduleReadModelSnapshotRebuild } = require('../services/readModelSnapshotService');
 const {
@@ -281,11 +286,12 @@ router.put('/rounds/:roundId/timing', auth, authorize('admin'), async (req, res)
       return res.status(400).json({ message: 'This round already has published results' });
     }
 
-    const lottery = await LotteryType.findById(round.lotteryTypeId).select('name code');
+    const lottery = await LotteryType.findById(round.lotteryTypeId).select('name code schedule isManualScheduleTiming scheduleTimingUpdatedAt');
     if (!lottery) {
       return res.status(404).json({ message: 'Lottery type not found' });
     }
 
+    const applyToLotteryDefault = req.body?.applyToLotteryDefault === true;
     const previousTiming = {
       openAt: round.openAt,
       closeAt: round.closeAt,
@@ -303,7 +309,19 @@ router.put('/rounds/:roundId/timing', auth, authorize('admin'), async (req, res)
     const statusMeta = getRoundStatus(round);
     round.status = statusMeta.status;
     await round.save();
-    await scheduleCatalogRefresh('round-timing-update');
+
+    const lotteryDefaultTiming = applyToLotteryDefault
+      ? await applyLotteryDefaultTiming({
+        lotteryTypeId: lottery._id,
+        closeAt,
+        drawAt,
+        userId: req.user._id
+      })
+      : null;
+
+    await scheduleCatalogRefresh(applyToLotteryDefault
+      ? 'round-timing-and-lottery-default-update'
+      : 'round-timing-update');
 
     await createAuditLog(req.user._id, 'UPDATE_ROUND_TIMING', round._id.toString(), {
       lotteryCode: lottery.code,
@@ -312,6 +330,8 @@ router.put('/rounds/:roundId/timing', auth, authorize('admin'), async (req, res)
       openAt,
       closeAt,
       drawAt,
+      applyToLotteryDefault,
+      lotteryDefaultTiming,
       effectiveStatus: statusMeta.status
     });
 
@@ -325,6 +345,8 @@ router.put('/rounds/:roundId/timing', auth, authorize('admin'), async (req, res)
       drawAt: round.drawAt,
       isManualTiming: round.isManualTiming,
       timingUpdatedAt: round.timingUpdatedAt,
+      applyToLotteryDefault,
+      lotteryDefaultTiming,
       status: statusMeta.status,
       statusLabel: statusMeta.label,
       countdownSeconds: statusMeta.countdownSeconds

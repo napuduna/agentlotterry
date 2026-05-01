@@ -109,6 +109,9 @@ const BETTING_TOGGLE_UI = {
   saveTiming: 'บันทึกเวลา',
   savingTiming: 'กำลังบันทึก...',
   timingUpdated: 'อัปเดตเวลาเปิด-ปิดรับแล้ว',
+  timingUpdatedDefault: 'อัปเดตเวลาและค่าเริ่มต้นของหวยนี้แล้ว',
+  applyDefaultLabel: 'บันทึกเป็นค่าเริ่มต้นของหวยนี้',
+  applyDefaultHelp: 'ใช้กับงวดถัดไปที่ยังไม่ได้ตั้งเวลาเอง',
   timingError: 'อัปเดตเวลาเปิด-ปิดรับไม่สำเร็จ',
   timingInvalid: 'เวลาเปิดรับต้องมาก่อนเวลาปิดรับ',
   timingDrawInvalid: 'เวลาออกผลต้องเป็นวันและเวลาที่ถูกต้อง',
@@ -588,6 +591,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
   const [bettingOverrideBusy, setBettingOverrideBusy] = useState('');
   const [timingBusy, setTimingBusy] = useState(false);
   const [timingDraft, setTimingDraft] = useState({ openAt: '', closeAt: '', drawAt: '' });
+  const [timingApplyDefault, setTimingApplyDefault] = useState(false);
   const [settlementBusy, setSettlementBusy] = useState('');
   const [settlementFeedback, setSettlementFeedback] = useState(null);
   const [marketHistoryCache, setMarketHistoryCache] = useState({});
@@ -747,9 +751,10 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
       await updateRoundTiming(activeRoundId, {
         openAt: openAt.toISOString(),
         closeAt: closeAt.toISOString(),
-        drawAt: drawAt.toISOString()
+        drawAt: drawAt.toISOString(),
+        applyToLotteryDefault: timingApplyDefault
       });
-      toast.success(BETTING_TOGGLE_UI.timingUpdated);
+      toast.success(timingApplyDefault ? BETTING_TOGGLE_UI.timingUpdatedDefault : BETTING_TOGGLE_UI.timingUpdated);
       await loadData({ silent: true, force: true, clearHistory: false });
     } catch (error) {
       console.error(error);
@@ -976,6 +981,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
       closeAt: activeRoundCloseInput,
       drawAt: activeRoundDrawInput
     });
+    setTimingApplyDefault(false);
   }, [activeRoundId, activeRoundOpenInput, activeRoundCloseInput, activeRoundDrawInput]);
   const settlementRoundId = selectedResult?.roundId
     || (selectedCard?.activeRound?.isSynthetic ? '' : (selectedCard?.activeRound?.id || ''));
@@ -1228,6 +1234,8 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
               onTimingDraftChange={(field, value) => setTimingDraft((current) => ({ ...current, [field]: value }))}
               timingBusy={timingBusy}
               timingDraftChanged={timingDraftChanged}
+              timingApplyDefault={timingApplyDefault}
+              onTimingApplyDefaultChange={setTimingApplyDefault}
               onTimingSave={handleTimingSave}
               activeRoundId={activeRoundId}
               activeRoundBettingOverride={activeRoundBettingOverride}
@@ -1980,6 +1988,38 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
         .round-timing-grid input:focus {
           border-color: rgba(16, 185, 129, 0.58);
           box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+        }
+
+        .round-timing-default {
+          margin-top: 12px;
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 12px;
+          border-radius: 14px;
+          border: 1px solid rgba(16, 185, 129, 0.18);
+          background: rgba(236, 253, 245, 0.58);
+          color: #0f172a;
+          cursor: pointer;
+        }
+
+        .round-timing-default input {
+          margin-top: 3px;
+          width: 18px;
+          height: 18px;
+          accent-color: #10b981;
+        }
+
+        .round-timing-default span {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .round-timing-default small {
+          color: var(--text-muted);
+          font-size: 0.78rem;
+          line-height: 1.45;
         }
 
         .round-timing-save {

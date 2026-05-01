@@ -1286,6 +1286,7 @@ module.exports = {
   DEFAULT_LIMITS,
   isUserOnline,
   loadActiveLotteries,
+  clearMemberReferenceCaches,
   getAgentMemberBootstrap,
   getAdminMemberBootstrap,
   getAgentMembers,

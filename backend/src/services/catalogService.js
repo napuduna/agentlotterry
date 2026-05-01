@@ -12,7 +12,8 @@ const { getStoredLatestExternalResults } = require('./externalResultFeedService'
 const {
   getMemberConfigRows,
   normalizeEnabledBetTypes,
-  loadActiveLotteries
+  loadActiveLotteries,
+  clearMemberReferenceCaches
 } = require('./memberManagementService');
 const {
   createReferenceDataCache,
@@ -280,6 +281,45 @@ const normalizeRoundTimingPayload = (payload = {}, round = {}) => {
   return { openAt, closeAt, drawAt };
 };
 
+const buildLotteryDefaultTimingUpdate = ({ closeAt, drawAt } = {}) => {
+  const normalizedCloseAt = parseRoundTimingDate(closeAt, 'closeAt');
+  const normalizedDrawAt = parseRoundTimingDate(drawAt, 'drawAt');
+
+  if (normalizedCloseAt.getTime() > normalizedDrawAt.getTime()) {
+    throw createValidationError('closeAt must be before or equal to drawAt');
+  }
+
+  const closeParts = getBangkokParts(normalizedCloseAt);
+  const drawParts = getBangkokParts(normalizedDrawAt);
+
+  return {
+    'schedule.closeHour': closeParts.hour,
+    'schedule.closeMinute': closeParts.minute,
+    'schedule.drawHour': drawParts.hour,
+    'schedule.drawMinute': drawParts.minute
+  };
+};
+
+const mergeLotteryDefinitionWithManualSchedule = (definition, existingLotteryType) => {
+  if (!existingLotteryType?.isManualScheduleTiming || !existingLotteryType.schedule) {
+    return definition;
+  }
+
+  return {
+    ...definition,
+    schedule: {
+      ...definition.schedule,
+      closeHour: existingLotteryType.schedule.closeHour,
+      closeMinute: existingLotteryType.schedule.closeMinute,
+      drawHour: existingLotteryType.schedule.drawHour,
+      drawMinute: existingLotteryType.schedule.drawMinute
+    },
+    isManualScheduleTiming: true,
+    scheduleTimingUpdatedAt: existingLotteryType.scheduleTimingUpdatedAt || null,
+    scheduleTimingUpdatedBy: existingLotteryType.scheduleTimingUpdatedBy || null
+  };
+};
+
 const buildMonthlyOccurrences = (schedule, startDate, horizonDays) => {
   const occurrences = [];
   const start = new Date(startDate.getTime() - schedule.openLeadDays * DAY_MS);
@@ -364,6 +404,30 @@ const buildRoundUpsertOperations = (lotteryType, occurrences) => occurrences.map
   };
 });
 
+const buildRoundTimingOverwriteOperations = (lotteryType, occurrences) => occurrences.map((occurrence) => {
+  const status = getRoundStatus(occurrence).status;
+  return {
+    updateOne: {
+      filter: {
+        lotteryTypeId: lotteryType._id,
+        code: occurrence.code,
+        isManualTiming: { $ne: true },
+        resultPublishedAt: null
+      },
+      update: {
+        $set: {
+          title: occurrence.title,
+          openAt: occurrence.openAt,
+          closeAt: occurrence.closeAt,
+          drawAt: occurrence.drawAt,
+          status,
+          isActive: true
+        }
+      }
+    }
+  };
+});
+
 const ensureRoundsForLottery = async (lotteryType) => {
   const occurrences = generateOccurrences(lotteryType.schedule);
   const operations = buildRoundUpsertOperations(lotteryType, occurrences);
@@ -373,6 +437,40 @@ const ensureRoundsForLottery = async (lotteryType) => {
   }
 
   await DrawRound.bulkWrite(operations, { ordered: false });
+};
+
+const applyLotteryDefaultTiming = async ({ lotteryTypeId, closeAt, drawAt, userId } = {}) => {
+  const lotteryType = await LotteryType.findById(lotteryTypeId);
+  if (!lotteryType) {
+    throw createValidationError('Lottery type not found', 404);
+  }
+
+  const timingPatch = buildLotteryDefaultTimingUpdate({ closeAt, drawAt });
+  lotteryType.set(timingPatch);
+  lotteryType.isManualScheduleTiming = true;
+  lotteryType.scheduleTimingUpdatedAt = new Date();
+  lotteryType.scheduleTimingUpdatedBy = userId || null;
+  await lotteryType.save();
+
+  const occurrences = generateOccurrences(lotteryType.schedule);
+  await ensureRoundsForLottery(lotteryType);
+
+  const operations = buildRoundTimingOverwriteOperations(lotteryType, occurrences);
+  if (operations.length) {
+    await DrawRound.bulkWrite(operations, { ordered: false });
+  }
+
+  clearCatalogReferenceCaches();
+  clearMemberReferenceCaches();
+
+  return {
+    lotteryCode: lotteryType.code,
+    lotteryName: lotteryType.name,
+    schedule: lotteryType.schedule?.toObject?.() || lotteryType.schedule,
+    updatedRounds: operations.length,
+    isManualScheduleTiming: Boolean(lotteryType.isManualScheduleTiming),
+    scheduleTimingUpdatedAt: lotteryType.scheduleTimingUpdatedAt
+  };
 };
 
 const runCatalogSeed = async () => {
@@ -397,8 +495,12 @@ const runCatalogSeed = async () => {
 
   for (let index = 0; index < LOTTERY_TYPES.length; index++) {
     const definition = LOTTERY_TYPES[index];
-    const lotteryType = await upsertByCode(LotteryType, definition.code, {
-      ...definition,
+    const existingLotteryType = await LotteryType.findOne({ code: definition.code })
+      .select('schedule isManualScheduleTiming scheduleTimingUpdatedAt scheduleTimingUpdatedBy')
+      .lean();
+    const seedDefinition = mergeLotteryDefinitionWithManualSchedule(definition, existingLotteryType);
+    const lotteryType = await upsertByCode(LotteryType, seedDefinition.code, {
+      ...seedDefinition,
       leagueId: leaguesByCode[definition.leagueCode]._id,
       sortOrder: index + 1,
       rateProfileIds,
@@ -1214,6 +1316,9 @@ const getRoundsByLottery = async (lotteryId, viewer = null) => {
 
 module.exports = {
   buildRoundUpsertOperations,
+  buildLotteryDefaultTimingUpdate,
+  mergeLotteryDefinitionWithManualSchedule,
+  applyLotteryDefaultTiming,
   ensureCatalogSeed,
   ensureCatalogReady,
   clearCatalogOverviewCache,

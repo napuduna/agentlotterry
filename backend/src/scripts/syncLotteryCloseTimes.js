@@ -54,6 +54,16 @@ const getBangkokDateCode = (offsetDays = 0) => {
 };
 
 const syncLottery = async (lottery) => {
+  if (lottery.isManualScheduleTiming) {
+    return {
+      code: lottery.code,
+      name: lottery.name,
+      updatedRounds: 0,
+      skipped: true,
+      reason: 'manual-schedule-timing'
+    };
+  }
+
   const schedule = getScheduleWithCloseTimeOverride(lottery);
   if (!schedule) {
     return { code: lottery.code, updatedRounds: 0, skipped: true };
