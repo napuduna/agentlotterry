@@ -105,11 +105,13 @@ const BETTING_TOGGLE_UI = {
   timingHelp: 'กำหนดวัน เดือน ปี และเวลาเปิดรับ/ปิดรับของงวดนี้',
   openAtLabel: 'เปิดรับ',
   closeAtLabel: 'ปิดรับ',
+  drawAtLabel: 'เวลาออกผล',
   saveTiming: 'บันทึกเวลา',
   savingTiming: 'กำลังบันทึก...',
   timingUpdated: 'อัปเดตเวลาเปิด-ปิดรับแล้ว',
   timingError: 'อัปเดตเวลาเปิด-ปิดรับไม่สำเร็จ',
   timingInvalid: 'เวลาเปิดรับต้องมาก่อนเวลาปิดรับ',
+  timingAfterDraw: 'เวลาปิดรับต้องไม่เกินเวลาออกผล',
   manualTiming: 'ตั้งเวลาเอง'
 };
 
@@ -303,6 +305,17 @@ const parseBangkokDateTimeInput = (value) => {
   const [, year, month, day, hour, minute] = match.map(Number);
   const date = createBangkokDate(year, month, day, hour, minute);
   return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getTimingErrorMessage = (error) => {
+  const message = error?.response?.data?.message || '';
+  if (/closeAt must be before or equal to drawAt/i.test(message)) {
+    return BETTING_TOGGLE_UI.timingAfterDraw;
+  }
+  if (/openAt must be before closeAt/i.test(message)) {
+    return BETTING_TOGGLE_UI.timingInvalid;
+  }
+  return message || BETTING_TOGGLE_UI.timingError;
 };
 
 const formatClock = (value) => formatDateTime(value, {
@@ -714,6 +727,12 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
       return;
     }
 
+    const drawAt = activeRound?.drawAt ? new Date(activeRound.drawAt) : null;
+    if (drawAt && !Number.isNaN(drawAt.getTime()) && closeAt.getTime() > drawAt.getTime()) {
+      toast.error(`${BETTING_TOGGLE_UI.timingAfterDraw} (${formatClock(drawAt)})`);
+      return;
+    }
+
     setTimingBusy(true);
     try {
       await updateRoundTiming(activeRoundId, {
@@ -724,7 +743,7 @@ const AdminLottery = ({ viewerRole = 'admin' }) => {
       await loadData({ silent: true, force: true, clearHistory: false });
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || BETTING_TOGGLE_UI.timingError);
+      toast.error(getTimingErrorMessage(error));
     } finally {
       setTimingBusy(false);
     }

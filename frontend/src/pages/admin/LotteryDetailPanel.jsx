@@ -128,6 +128,15 @@ const LotteryDetailPanel = ({
                         disabled={timingBusy}
                       />
                     </label>
+                    <label>
+                      <span>{bettingUi.drawAtLabel}</span>
+                      <input
+                        type="text"
+                        value={activeRound?.displayDrawAt || '-'}
+                        disabled
+                        readOnly
+                      />
+                    </label>
                   </div>
 
                   <button
