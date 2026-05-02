@@ -8,9 +8,11 @@ const {
 } = require('./thaiGovernmentResultService');
 const {
   ensureRoundForLottery,
+  resolveRoundForResultCode,
   settleRoundById,
   upsertRoundResult
 } = require('./resultService');
+const { formatBangkokDate } = require('../utils/bangkokTime');
 
 const THAI_GOV_LOTTERY_CODE = 'thai_government';
 
@@ -95,7 +97,21 @@ const loadThaiGovernmentLottery = async () => {
 };
 
 const fetchLotteryResult = async (roundDate) => {
-  const snapshot = await fetchThaiGovernmentSnapshotByRoundCode(roundDate);
+  let snapshot = await fetchThaiGovernmentSnapshotByRoundCode(roundDate);
+  if (!snapshot) {
+    const lotteryType = await loadThaiGovernmentLottery();
+    const round = await DrawRound.findOne({
+      lotteryTypeId: lotteryType._id,
+      code: roundDate
+    }).lean();
+    const resultLookupCode = String(round?.resultLookupCode || '').trim();
+    const drawDateCode = round?.drawAt ? formatBangkokDate(round.drawAt) : '';
+    const fallbackRoundCode = resultLookupCode || (drawDateCode && drawDateCode !== roundDate ? drawDateCode : '');
+    if (fallbackRoundCode) {
+      snapshot = await fetchThaiGovernmentSnapshotByRoundCode(fallbackRoundCode);
+    }
+  }
+
   if (!snapshot) {
     const error = new Error(`No official Thai government result found for ${roundDate}`);
     error.statusCode = 404;
@@ -114,7 +130,8 @@ const saveLotteryResult = async (resultData) => {
   }
 
   const lotteryType = await loadThaiGovernmentLottery();
-  const round = await ensureRoundForLottery(lotteryType, payload.roundDate);
+  const round = await resolveRoundForResultCode(lotteryType, payload.roundDate)
+    || await ensureRoundForLottery(lotteryType, payload.roundDate);
 
   if (!round) {
     const error = new Error(`Round not found for ${payload.roundDate}`);
@@ -122,6 +139,7 @@ const saveLotteryResult = async (resultData) => {
     throw error;
   }
 
+  payload.roundDate = round.code;
   const savedLegacy = await upsertLegacyLotteryResult(payload);
   const syncedResult = await upsertRoundResult({
     roundId: round._id,

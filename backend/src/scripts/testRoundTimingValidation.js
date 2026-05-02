@@ -118,6 +118,50 @@ assert.strictEqual(
   'Expected published old round to allow the next round selection'
 );
 
+assert.strictEqual(
+  selectCatalogActiveRound(
+    [
+      {
+        code: '2026-05-01',
+        openAt: new Date('2026-04-24T09:00:00.000Z'),
+        closeAt: new Date('2026-05-02T08:30:00.000Z'),
+        drawAt: new Date('2026-05-02T09:00:00.000Z'),
+        resultPublishedAt: null,
+        bettingOverride: 'auto'
+      },
+      {
+        ...nextThaiGovernmentRound,
+        bettingOverride: 'open'
+      }
+    ],
+    new Date('2026-05-02T01:00:00.000Z')
+  )?.code,
+  '2026-05-01',
+  'Expected future manual-open round to not steal a currently open postponed round'
+);
+
+assert.strictEqual(
+  selectCatalogActiveRound(
+    [
+      {
+        code: '2026-05-01',
+        openAt: new Date('2026-04-24T09:00:00.000Z'),
+        closeAt: new Date('2026-05-02T08:30:00.000Z'),
+        drawAt: new Date('2026-05-02T09:00:00.000Z'),
+        resultPublishedAt: null,
+        bettingOverride: 'auto'
+      },
+      {
+        ...nextThaiGovernmentRound,
+        bettingOverride: 'open'
+      }
+    ],
+    new Date('2026-05-02T08:45:00.000Z')
+  )?.code,
+  '2026-05-01',
+  'Expected future manual-open round to not steal a waiting-result postponed round'
+);
+
 assert.deepStrictEqual(
   buildLotteryDefaultTimingUpdate({
     closeAt: new Date('2026-05-02T08:40:00.000Z'),

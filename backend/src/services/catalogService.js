@@ -210,11 +210,6 @@ const selectCatalogActiveRound = (lotteryRounds = [], now = new Date()) => {
   if (!rounds.length) return null;
 
   const nowMs = getTimeValue(now) ?? Date.now();
-  const manualOpenRound = rounds.find((round) =>
-    !isPublishedRound(round) && normalizeBettingOverride(round.bettingOverride) === 'open'
-  );
-  if (manualOpenRound) return manualOpenRound;
-
   const openRound = rounds.find((round) => {
     const openAt = getTimeValue(round.openAt);
     const closeAt = getTimeValue(round.closeAt);
@@ -239,6 +234,14 @@ const selectCatalogActiveRound = (lotteryRounds = [], now = new Date()) => {
     })
     .sort((a, b) => (getTimeValue(b.drawAt) || 0) - (getTimeValue(a.drawAt) || 0))[0];
   if (pendingResultRound) return pendingResultRound;
+
+  const manualOpenRound = rounds.find((round) => {
+    const openAt = getTimeValue(round.openAt);
+    return !isPublishedRound(round)
+      && normalizeBettingOverride(round.bettingOverride) === 'open'
+      && (openAt === null || openAt <= nowMs);
+  });
+  if (manualOpenRound) return manualOpenRound;
 
   const upcomingRound = rounds.find((round) => {
     const openAt = getTimeValue(round.openAt);

@@ -274,6 +274,43 @@ const findRoundByCode = async (roundCode, lotteryCode = 'thai_government') => {
   return { lotteryType, round };
 };
 
+const resolveRoundForResultCode = async (lotteryType, resultRoundCode) => {
+  if (!lotteryType || !resultRoundCode) {
+    return null;
+  }
+
+  const exactRound = await DrawRound.findOne({
+    lotteryTypeId: lotteryType._id,
+    code: resultRoundCode
+  });
+  if (exactRound) {
+    return exactRound;
+  }
+
+  const explicitLookupRound = await DrawRound.findOne({
+    lotteryTypeId: lotteryType._id,
+    resultLookupCode: resultRoundCode
+  }).sort({ code: 1 });
+  if (explicitLookupRound) {
+    return explicitLookupRound;
+  }
+
+  const parts = parseRoundCode(resultRoundCode);
+  if (!parts) {
+    return null;
+  }
+
+  const dayStart = createBangkokDate(parts.year, parts.month, parts.day, 0, 0, 0);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  return DrawRound.findOne({
+    lotteryTypeId: lotteryType._id,
+    code: { $ne: resultRoundCode },
+    isManualTiming: true,
+    drawAt: { $gte: dayStart, $lt: dayEnd }
+  }).sort({ code: 1 });
+};
+
 const ensureRoundForLottery = async (lotteryType, roundCode) => {
   let round = await DrawRound.findOne({
     lotteryTypeId: lotteryType._id,
@@ -409,7 +446,8 @@ const syncLegacyThaiGovernmentResult = async (legacyResult, sourceType = 'legacy
   const lotteryType = await LotteryType.findOne({ code: 'thai_government' });
   if (!lotteryType) return null;
 
-  const round = await ensureRoundForLottery(lotteryType, legacyResult.roundDate);
+  const round = await resolveRoundForResultCode(lotteryType, legacyResult.roundDate)
+    || await ensureRoundForLottery(lotteryType, legacyResult.roundDate);
 
   if (!round) return null;
 
@@ -978,6 +1016,7 @@ const getRoundResult = async (roundId) => {
 
 module.exports = {
   ensureRoundForLottery,
+  resolveRoundForResultCode,
   calculateItemWonAmount,
   checkItemResult,
   findRoundByCode,

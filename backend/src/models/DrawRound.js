@@ -33,6 +33,11 @@ const drawRoundSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  resultLookupCode: {
+    type: String,
+    default: '',
+    trim: true
+  },
   status: {
     type: String,
     enum: ['upcoming', 'open', 'closed', 'resulted'],
@@ -74,6 +79,7 @@ const drawRoundSchema = new mongoose.Schema({
 });
 
 drawRoundSchema.index({ lotteryTypeId: 1, code: 1 }, { unique: true });
+drawRoundSchema.index({ lotteryTypeId: 1, resultLookupCode: 1 });
 drawRoundSchema.index({ closeAt: 1 });
 
 module.exports = mongoose.model('DrawRound', drawRoundSchema);

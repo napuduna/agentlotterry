@@ -5,6 +5,7 @@ const MarketFeedResult = require('../models/MarketFeedResult');
 const { createBangkokDate, getBangkokParts } = require('../utils/bangkokTime');
 const {
   ensureRoundForLottery,
+  resolveRoundForResultCode,
   settleRoundById,
   settleUnsettledPublishedRounds,
   upsertRoundResult
@@ -1158,7 +1159,8 @@ const resolveProcessingRound = async (snapshot, lotteryType, config = {}, now = 
     return { round: null, released: true };
   }
 
-  const round = await ensureRoundForLottery(lotteryType, snapshot.roundCode);
+  const round = await resolveRoundForResultCode(lotteryType, snapshot.roundCode)
+    || await ensureRoundForLottery(lotteryType, snapshot.roundCode);
   const releaseAt = resolveSnapshotReleaseAt(snapshot, round, lotteryType, config);
   if (!releaseAt) {
     return { round, released: true };
@@ -1239,8 +1241,14 @@ const upsertSnapshot = async (snapshot, lotteryType) => {
   );
 };
 
-const upsertLegacyGovernmentResult = async (snapshot) => {
-  const payload = snapshot.legacyGovernmentPayload;
+const upsertLegacyGovernmentResult = async (snapshot, round = null) => {
+  const payload = {
+    ...(snapshot.legacyGovernmentPayload || {})
+  };
+  if (round?.code) {
+    payload.roundDate = round.code;
+  }
+
   if (!payload?.roundDate || !payload.firstPrize) {
     return null;
   }
@@ -1284,7 +1292,9 @@ const syncSnapshotToResults = async (snapshot, lotteryType, round = null, option
     return { synced: false, settlement: null };
   }
 
-  const targetRound = round || await ensureRoundForLottery(lotteryType, snapshot.roundCode);
+  const targetRound = round
+    || await resolveRoundForResultCode(lotteryType, snapshot.roundCode)
+    || await ensureRoundForLottery(lotteryType, snapshot.roundCode);
   if (!targetRound) {
     throw new Error(`Round "${snapshot.roundCode}" not found for ${snapshot.lotteryCode}`);
   }
@@ -1397,7 +1407,7 @@ const processSyncConfig = async (config, lotteryByCode, executionMode) => {
       feedSummary.savedSnapshots += 1;
 
       if (snapshot.lotteryCode === 'thai_government') {
-        await upsertLegacyGovernmentResult(snapshot);
+        await upsertLegacyGovernmentResult(snapshot, round);
       }
 
       if (config.syncToResults) {
